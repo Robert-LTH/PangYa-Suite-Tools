@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="PangYa-Suite-Tools/PangYa-Suite-Tools.csproj" /> 
+  <Project Path="PangyaAPI/PangyaAPI.PAK/PangyaAPI.PAK.csproj" /> 
+  <Project Path="PangyaAPI/PangyaAPI.Utilities/PangyaAPI.Utilities.csproj" />
+</Solution>
