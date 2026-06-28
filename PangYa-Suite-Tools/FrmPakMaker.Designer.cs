@@ -54,16 +54,15 @@
 
         private void InitializeComponent()
         {
-            components = new System.ComponentModel.Container();
             tabControl1 = new TabControl();
             tabExtract = new TabPage();
             groupHeader = new GroupBox();
             lblAuthor = new Label();
             lblVersion = new Label();
             lblEntries = new Label();
-            btnExtractAll = new Button();
-            btnUpdatePak = new Button();
             btnBatchExtract = new Button();
+            btnUpdatePak = new Button();
+            btnExtractAll = new Button();
             lstEntries = new ListView();
             colName = new ColumnHeader();
             colType = new ColumnHeader();
@@ -86,7 +85,6 @@
             statusStrip1 = new StatusStrip();
             lblStatus = new ToolStripStatusLabel();
             progressBar1 = new ToolStripProgressBar();
-
             tabControl1.SuspendLayout();
             tabExtract.SuspendLayout();
             groupHeader.SuspendLayout();
@@ -419,7 +417,7 @@
             MaximizeBox = false;
             Name = "FrmPakMaker";
             Padding = new Padding(9, 8, 9, 26);
-            Text = "LzPakTool - Interface Gráfica (Pangya)";
+            Text = "PakTool - Interface Gráfica (Pangya)";
             tabControl1.ResumeLayout(false);
             tabExtract.ResumeLayout(false);
             tabExtract.PerformLayout();

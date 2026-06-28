@@ -1,12 +1,2 @@
-## Visual Studio 2022 / .NET 10
-[Dd]ebug/
-[Rr]elease/
-x64/
-x86/
-bld/
-[Bb]in/
-[Oo]bj/
-.vs/
-*.user
-*.suo
-*.sln.docstates
+# Auto detect text files and perform LF normalization
+* text=auto
