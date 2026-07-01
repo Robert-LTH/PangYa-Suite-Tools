@@ -28,6 +28,19 @@ namespace PangYa_Suite_Tools
             CleanupOldTempDragFolders(); // Remove resíduos de exportações de drag-out de execuções anteriores
         }
 
+
+        public FrmPakMaker(string initialPakPath) : this()
+        {
+            this.Shown += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(initialPakPath) && File.Exists(initialPakPath))
+                {
+                    LoadPak(initialPakPath);
+                }
+            };
+        }
+
+
         private void InitializeLanguageComboBox()
         {
             cboLanguage.ComboBox.DisplayMember = "Key";
@@ -118,6 +131,10 @@ namespace PangYa_Suite_Tools
                 _menuExtractSingle.Text = GetText("📁 Extract selected item(s)...", "📁 Extrair selecionado(s)...");
             if (_menuRemoveSingle != null)
                 _menuRemoveSingle.Text = GetText("🗑️ Remove selected item(s) from PAK...", "🗑️ Remover selecionado(s) do PAK...");
+            if (_menuExtractFolder != null)
+                _menuExtractFolder.Text = GetText("📁 Extract this folder...", "📁 Extrair esta pasta...");
+            if (_menuRemoveFolder != null)
+                _menuRemoveFolder.Text = GetText("🗑️ Remove this folder from PAK...", "🗑️ Remover esta pasta do PAK...");
         }
 
         private void SetupCustomComponents()
@@ -127,7 +144,7 @@ namespace PangYa_Suite_Tools
             this.DragEnter += FrmPakMaker_DragEnter;
             this.DragLeave += FrmPakMaker_DragLeave;
             this.DragDrop += FrmPakMaker_DragDrop;
-
+            tvFolders.CheckBoxes = true; 
             lstEntries.MultiSelect = true;
             lstEntries.DoubleClick += LstEntries_DoubleClick;
             tvFolders.AfterSelect += TvFolders_AfterSelect;
@@ -138,10 +155,31 @@ namespace PangYa_Suite_Tools
             lstEntries.DragEnter += LstEntries_DragEnter;
             lstEntries.DragDrop += LstEntries_DragDrop;
 
+            tvFolders.KeyDown += TvFolders_KeyDown; // Detecta a tecla Delete
+            tvFolders.NodeMouseClick += TvFolders_NodeMouseClick; // Seleciona com botão direito e abre o menu
+            SetupFolderContextMenu(); // Inicializa o menu de contexto da árvore de pastas
+
             // Permite arrastar os itens selecionados (ou uma pasta) PARA FORA do app, extraindo-os direto no Explorer
             lstEntries.ItemDrag += LstEntries_ItemDrag;
             tvFolders.ItemDrag += TvFolders_ItemDrag;
 
+        }
+
+        /// <summary>
+        /// Inicializa o menu de contexto específico para a TreeView de pastas.
+        /// </summary>
+        private void SetupFolderContextMenu()
+        {
+            ContextMenuStrip folderContextMenu = new ContextMenuStrip();
+            _menuExtractFolder = new ToolStripMenuItem(GetText("📁 Extract this folder...", "📁 Extrair esta pasta..."));
+            _menuExtractFolder.Click += async (s, e) => await ExtractSelectedFolderAsync();
+
+            _menuRemoveFolder = new ToolStripMenuItem(GetText("🗑️ Remove this folder from PAK...", "🗑️ Remover esta pasta do PAK..."));
+            _menuRemoveFolder.Click += async (s, e) => await RemoveFolderFromTreeAsync();
+
+            folderContextMenu.Items.Add(_menuExtractFolder);
+            folderContextMenu.Items.Add(_menuRemoveFolder);
+            tvFolders.ContextMenuStrip = folderContextMenu;
         }
 
         // ─── ARRASTAR PARA FORA (DRAG-OUT / EXPORTAÇÃO RÁPIDA) ─────────────────
@@ -487,11 +525,14 @@ namespace PangYa_Suite_Tools
 
             try
             {
+                if (string.IsNullOrEmpty(txtPakPath.Text))
+                    txtPakPath.Text = path;
+
                 _currentReader?.Dispose();
                 _currentReader = new PakReader(path);
                 _currentReader.Parse();
-
                 // Atualiza as Labels de informação do Header
+                txtUpdateAuthor.Text = _currentReader?.Header.Author;
                 lblAuthor.Text = $"{GetText("Author:", "Autor:")} {_currentReader.Header.Author}";
                 lblVersion.Text = $"{GetText("Version:", "Versão:")} 0x{_currentReader.Header.Version:X2}";
                 lblEntries.Text = $"{GetText("Entries:", "Entradas:")} {_currentReader.Header.NumFileEntry}";
@@ -559,6 +600,29 @@ namespace PangYa_Suite_Tools
             return node;
         }
 
+        /// <summary>
+        /// Garante que o clique com o botão direito selecione o nó antes de abrir o menu suspenso.
+        /// </summary>
+        private void TvFolders_NodeMouseClick(object? sender, TreeNodeMouseClickEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                tvFolders.SelectedNode = e.Node; // Força a seleção do nó clicado
+            }
+        }
+
+        /// <summary>
+        /// Captura o botão "Delete" do teclado para acionar a remoção da pasta selecionada.
+        /// </summary>
+        private async void TvFolders_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Delete)
+            {
+                e.Handled = true; // Evita bipes do Windows
+                await RemoveFolderFromTreeAsync();
+            }
+        }
+
         private void TvFolders_AfterSelect(object? sender, TreeViewEventArgs e)
         {
             if (_currentReader == null) return;
@@ -579,6 +643,94 @@ namespace PangYa_Suite_Tools
                 : $"{GetText("📂 Path:", "📂 Caminho:")} {folderTag.Replace('\\', '/')}";
 
             ApplyDisplayFilter();
+        }
+
+        /// <summary>
+        /// Executa a lógica de remoção da pasta atualmente selecionada na TreeView.
+        /// </summary>
+        private async Task RemoveFolderFromTreeAsync()
+        {
+            if (_currentReader == null || string.IsNullOrEmpty(txtPakPath.Text) || !File.Exists(txtPakPath.Text))
+            {
+                MessageBox.Show(GetText("Select an active .pak file first.", "Selecione um arquivo .pak ativo primeiro."),
+                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (tvFolders.SelectedNode == null) return;
+
+            string folderTag = tvFolders.SelectedNode.Tag as string ?? "";
+
+            // Evita deletar tudo caso esteja no nó raiz virtual sem querer
+            if (string.IsNullOrEmpty(folderTag))
+            {
+                MessageBox.Show(GetText("You cannot delete the root folder. Select a specific folder.", "Você não pode deletar a pasta raiz. Selecione uma pasta específica."),
+                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string prefix = folderTag.Replace('\\', '/').Trim('/') + "/";
+
+            // Coleta todos os arquivos que pertencem àquela estrutura de pasta
+            var filesInFolder = _currentReader.Entries
+                .Where(en => en.Type != PakFileEntryType.Directory &&
+                             en.Name.Replace('\\', '/').StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                .Select(en => en.Name)
+                .ToList();
+
+            if (filesInFolder.Count == 0)
+            {
+                MessageBox.Show(GetText("No files found inside this folder to delete.", "Nenhum arquivo encontrado dentro desta pasta para apagar."),
+                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Mensagem de confirmação específica para a pasta selecionada
+            string folderName = tvFolders.SelectedNode.Text.Replace("📁 ", "");
+            string confirmationMessage = GetText(
+                $"Are you sure you want to remove the folder '{folderName}' and all of its contents?\nTotal files to delete: {filesInFolder.Count}.",
+                $"Tem certeza de que deseja remover a pasta '{folderName}' e todo o seu conteúdo?\nTotal de arquivos a serem apagados: {filesInFolder.Count}.");
+
+            var confirm = MessageBox.Show(
+                $"{confirmationMessage}\n\n{GetText("The PAK will be rebuilt and a backup (.bak) will be created automatically.", "O PAK será reconstruído e um backup (.bak) será criado automaticamente.")}",
+                GetText("Confirm Removal", "Confirmar remoção"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+            if (confirm != DialogResult.Yes) return;
+
+            string pakPath = txtPakPath.Text;
+            var reader = _currentReader;
+
+            lblStatus.Text = GetText("Removing and rebuilding PAK...", "Removendo e reconstruindo PAK...");
+            tvFolders.Enabled = false; // Bloqueia a árvore durante o processo
+
+            try
+            {
+                var options = BuildRebuildOptionsForCurrentPak();
+
+                await Task.Run(() =>
+                {
+                    PakManager.RemoveFiles(pakPath, reader, filesInFolder, options,
+                        log: msg => { },
+                        onProgress: (done, total) => ReportProgress(done, total, GetText("Rebuilding PAK", "Reconstruindo PAK")));
+                });
+
+                lblStatus.Text = GetText("Removal completed", "Remoção concluída");
+                MessageBox.Show(
+                    GetText("The folder and its items were removed successfully!", "A pasta e seus itens foram removidos com sucesso!"),
+                    GetText("Success", "Sucesso"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                LoadPak(pakPath);
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = GetText("Error removing", "Erro ao remover");
+                MessageBox.Show($"{GetText("Failure:", "Falha na remoção:")} {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                HideProgress();
+                tvFolders.Enabled = true;
+            }
         }
 
         /// <summary>Aplica o texto de pesquisa por cima do escopo de pasta atual e repopula a ListView.</summary>
@@ -1039,15 +1191,73 @@ namespace PangYa_Suite_Tools
 
         private PakRebuildOptions BuildRebuildOptionsForCurrentPak()
         {
+            if (_currentReader != null)
+            {
+                string novoAutor = txtUpdateAuthor.Text?.Trim();
+                string autorAtual = _currentReader.Header.Author?.Trim();
+
+                // O campo de texto está vazio ou apenas com espaços
+                if (string.IsNullOrEmpty(novoAutor))
+                {
+                    // Só avisa se o autor atual já NÃO for "PakMaker" (evita avisos redundantes)
+                    if (!string.Equals(autorAtual, "PakMaker", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Exibe a confirmação para redefinir para o padrão
+                        var resultado = MessageBox.Show(
+                            GetText(
+                                "The Author field is empty. Do you want to reset the author name to 'PakMaker'?",
+                                "O campo do Autor está vazio. Deseja redefinir o nome do autor para 'PakMaker'?"),
+                            GetText("Confirm Author Reset", "Confirmar redefinição de Autor"),
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question
+                        );
+
+                        // Se o utilizador confirmar, altera para o padrão
+                        if (resultado == DialogResult.Yes)
+                        {
+                            _currentReader.Header.Author = "PakMaker";
+                        }
+                    }
+                }
+                // O utilizador digitou um novo nome
+                else
+                {
+                    // Só atualiza se o texto digitado for DIFERENTE do autor que já lá está
+                    if (!string.Equals(novoAutor, autorAtual, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Exibe a confirmação para atualizar para o novo nome digitado
+                        var resultado = MessageBox.Show(
+                            GetText(
+                                $"Do you want to change the author name to '{novoAutor}'?",
+                                $"Deseja alterar o nome do autor para '{novoAutor}'?"),
+                            GetText("Confirm Author Change", "Confirmar alteração de Autor"),
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question
+                        );
+
+                        // Se o utilizador confirmar, altera para o novo nome digitado
+                        if (resultado == DialogResult.Yes)
+                        {
+                            _currentReader.Header.Author = novoAutor;
+                        }
+                        // Se o utilizador disser "Não", mantém o 'autorAtual' intacto e não faz nada
+                    }
+                }
+            }
+
+            // Obtém a região selecionada na ComboBox
             var selectedRegion = (dynamic)cboRegion.SelectedItem;
 
+            // Retorna as opções preenchidas corretamente com o estado atual do Header.Author
             return new PakRebuildOptions(
                 EntryVersion: (PakFileEntryVersion)cboVersion.SelectedItem,
                 EntryType: (PakFileEntryType)cboCompressType.SelectedItem,
                 CompressLevel: (byte)numCompressLevel.Value,
                 LocationKeys: _currentReader?.LocationKeys ?? (uint[])selectedRegion.Keys,
-                Author: _currentReader?.Header.Author ?? "SuiteTools");
+                Author: _currentReader?.Header.Author
+            );
         }
+
 
         private async void btnUpdatePak_Click(object sender, EventArgs e)
         {
@@ -1195,80 +1405,100 @@ namespace PangYa_Suite_Tools
                 return;
             }
 
-            List<string> namesToRemove = [];
-            string confirmationMessage = "";
+            HashSet<string> namesToRemove = new(StringComparer.OrdinalIgnoreCase);
+            List<string> folderNamesForDialog = new();
 
-            // Determina qual controle o usuário está usando ativamente para a remoção
-            bool isListViewTarget = lstEntries.SelectedItems.Count > 0 &&
-                                    (lstEntries.Focused || !tvFolders.Focused);
-
-            // --- CENÁRIO 1: REMOÇÃO DE ARQUIVOS SELECIONADOS NO LISTVIEW ---
-            if (isListViewTarget)
+            // --- 1. COLETAR ARQUIVOS SELECIONADOS NO LISTVIEW (MULTIPLE SELECTION) ---
+            if (lstEntries.SelectedItems.Count > 0)
             {
-                namesToRemove = lstEntries.SelectedItems
+                var selectedFiles = lstEntries.SelectedItems
                     .Cast<ListViewItem>()
                     .Select(i => (PakFileEntry)i.Tag)
                     .Where(en => en.Type != PakFileEntryType.Directory)
-                    .Select(en => en.Name)
-                    .ToList();
+                    .Select(en => en.Name);
 
-                confirmationMessage = GetText(
-                    $"Remove {namesToRemove.Count} selected file(s) from PAK?",
-                    $"Remover {namesToRemove.Count} arquivo(s) selecionado(s) do PAK?");
-            }
-            // --- CENÁRIO 2: REMOÇÃO DE PASTA SELECIONADA NO TREEVIEW ---
-            else if (tvFolders.SelectedNode != null)
-            {
-                string rawTreePath = tvFolders.SelectedNode.FullPath;
-
-                // Limpa emoticons e ícones inseridos visualmente nos nós da árvore
-                string virtualTargetFolder = rawTreePath
-                    .Replace("🗂 ", "").Replace("🗂", "")
-                    .Replace("📁 ", "").Replace("📁", "")
-                    .Replace('\\', '/');
-
-                // Remove prefixos de nó raiz virtual se existirem
-                if (virtualTargetFolder.StartsWith("Todos os Arquivos/", StringComparison.OrdinalIgnoreCase))
-                    virtualTargetFolder = virtualTargetFolder.Substring("Todos os Arquivos/".Length);
-                else if (virtualTargetFolder.StartsWith("All Files/", StringComparison.OrdinalIgnoreCase))
-                    virtualTargetFolder = virtualTargetFolder.Substring("All Files/".Length);
-                else if (virtualTargetFolder.Equals(GetText("All Files", "Todos os Arquivos"), StringComparison.OrdinalIgnoreCase))
-                    virtualTargetFolder = "";
-
-                // Impede a destruição acidental da raiz do PAK
-                if (string.IsNullOrEmpty(virtualTargetFolder))
+                foreach (var file in selectedFiles)
                 {
-                    MessageBox.Show(
-                        GetText("Removing the entire root folder is not allowed. To empty a PAK, create a new .pak file.", "Não é permitido remover a pasta raiz inteira. Se deseja esvaziar o PAK, crie um novo arquivo .pak."),
-                        GetText("Invalid Operation", "Operação Inválida"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    namesToRemove.Add(file);
                 }
-
-                string prefix = virtualTargetFolder.Trim('/') + "/";
-
-                // Coleta todos os arquivos cujo caminho interno comece com o prefixo da pasta selecionada
-                namesToRemove = _currentReader.Entries
-                    .Where(en => en.Type != PakFileEntryType.Directory &&
-                                 en.Name.Replace('\\', '/').StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    .Select(en => en.Name)
-                    .ToList();
-
-                string folderName = tvFolders.SelectedNode.Text.Replace("📁 ", "").Replace("🗂 ", "");
-                confirmationMessage = GetText(
-                    $"You are about to remove the folder '{folderName}' and ALL its {namesToRemove.Count} file(s).\n\nDo you want to continue?",
-                    $"Você está prestes a remover a pasta '{folderName}' e TODOS os {namesToRemove.Count} arquivo(s) de dentro dela.\n\nDeseja continuar?");
             }
 
-            // Se nenhum arquivo foi coletado em ambos os fluxos
+            // --- 2. COLETAR TODAS AS PASTAS CHECADAS NA TREEVIEW (MULTIPLE SELECTION) ---
+            // Função local recursiva para varrer a árvore inteira atrás de nós checados
+            void ColetarPastasChecadas(TreeNodeCollection nodes)
+            {
+                foreach (TreeNode node in nodes)
+                {
+                    if (node.Checked)
+                    {
+                        string rawTreePath = node.FullPath;
+                        string virtualTargetFolder = rawTreePath
+                            .Replace("🗂 ", "").Replace("🗂", "")
+                            .Replace("📁 ", "").Replace("📁", "")
+                            .Replace('\\', '/');
+
+                        if (virtualTargetFolder.StartsWith("Todos os Arquivos/", StringComparison.OrdinalIgnoreCase))
+                            virtualTargetFolder = virtualTargetFolder.Substring("Todos os Arquivos/".Length);
+                        else if (virtualTargetFolder.StartsWith("All Files/", StringComparison.OrdinalIgnoreCase))
+                            virtualTargetFolder = virtualTargetFolder.Substring("All Files/".Length);
+                        else if (virtualTargetFolder.Equals(GetText("All Files", "Todos os Arquivos"), StringComparison.OrdinalIgnoreCase))
+                            virtualTargetFolder = "";
+
+                        // Ignora se for a raiz total, para evitar deletar o PAK inteiro sem querer
+                        if (!string.IsNullOrEmpty(virtualTargetFolder))
+                        {
+                            string prefix = virtualTargetFolder.Trim('/') + "/";
+
+                            var folderFiles = _currentReader.Entries
+                                .Where(en => en.Type != PakFileEntryType.Directory &&
+                                             en.Name.Replace('\\', '/').StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                                .Select(en => en.Name);
+
+                            foreach (var file in folderFiles)
+                            {
+                                namesToRemove.Add(file);
+                            }
+
+                            string folderName = node.Text.Replace("📁 ", "").Replace("🗂 ", "");
+                            folderNamesForDialog.Add(folderName);
+                        }
+                    }
+
+                    // Continua buscando nas subpastas deste nó
+                    if (node.Nodes.Count > 0)
+                    {
+                        ColetarPastasChecadas(node.Nodes);
+                    }
+                }
+            }
+
+            // Inicia a varredura a partir da raiz da TreeView
+            ColetarPastasChecadas(tvFolders.Nodes);
+
+            // Se nenhum arquivo e nenhuma pasta foram marcados
             if (namesToRemove.Count == 0)
             {
                 MessageBox.Show(
-                    GetText("Select files from the list or a folder from the treeview to remove.", "Selecione arquivos na lista ou uma pasta na árvore lateral para remover."),
+                    GetText("Select files from the list or check folder boxes from the treeview to remove.", "Selecione arquivos na lista ou marque as caixas das pastas na árvore lateral para remover."),
                     GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Caixa de diálogo de aviso destrutivo (Informa sobre o backup automático)
+            // --- 3. MENSAGEM DE CONFIRMAÇÃO ---
+            string confirmationMessage;
+            if (folderNamesForDialog.Count > 0)
+            {
+                confirmationMessage = GetText(
+                    $"You are about to remove the checked folder(s): '{string.Join(", ", folderNamesForDialog)}' and/or selected files.\nTotal files to delete: {namesToRemove.Count}.\n\nDo you want to continue?",
+                    $"Você está prestes a remover a(s) pasta(s) marcada(s): '{string.Join(", ", folderNamesForDialog)}' e/ou os arquivos selecionados.\nTotal de arquivos a serem apagados: {namesToRemove.Count}.\n\nDeseja continuar?");
+            }
+            else
+            {
+                confirmationMessage = GetText(
+                    $"Remove {namesToRemove.Count} selected file(s) from PAK?",
+                    $"Remover {namesToRemove.Count} arquivo(s) selecionado(s) do PAK?");
+            }
+
             var confirm = MessageBox.Show(
                 $"{confirmationMessage}\n\n{GetText("The PAK will be rebuilt and a backup (.bak) will be created automatically.", "O PAK será reconstruído e um backup (.bak) será criado automaticamente.")}",
                 GetText("Confirm Removal", "Confirmar remoção"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
@@ -1285,10 +1515,9 @@ namespace PangYa_Suite_Tools
             {
                 var options = BuildRebuildOptionsForCurrentPak();
 
-                // Roda o processo pesado em uma thread em background para não congelar a UI
                 await Task.Run(() =>
                 {
-                    PakManager.RemoveFiles(pakPath, reader, namesToRemove, options,
+                    PakManager.RemoveFiles(pakPath, reader, namesToRemove.ToList(), options,
                         log: msg => { },
                         onProgress: (done, total) => ReportProgress(done, total, GetText("Rebuilding PAK", "Reconstruindo PAK")));
                 });
@@ -1298,7 +1527,6 @@ namespace PangYa_Suite_Tools
                     GetText("The selected items were removed successfully and the PAK file was rebuilt!", "Os itens selecionados foram removidos com sucesso e o arquivo PAK foi reconstruído!"),
                     GetText("Success", "Sucesso"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                // Força a recarga total do arquivo de forma segura
                 LoadPak(pakPath);
             }
             catch (Exception ex)
@@ -1312,6 +1540,7 @@ namespace PangYa_Suite_Tools
                 btnRemoveSelected.Enabled = true;
             }
         }
+
         // ─── ABA 2: CRIAÇÃO DE PAK ─────────────────────────────────────────────
         private void btnBrowseFolder_Click(object sender, EventArgs e)
         {
@@ -1359,7 +1588,7 @@ namespace PangYa_Suite_Tools
                             CompressLevel = (byte)numCompressLevel.Value,
                             // Se não for Raw e selectedKeys vier nulo por falha de seleção, aplica o fallback JP
                             LocationKeys = selectedKeys ?? (selectedVersion == PakFileEntryVersion.Raw ? Array.Empty<uint>() : PakKeys.JP),
-                            Author = "PakTool" // Assinatura do PAK
+                            Author = txtNewAuthorPak.Text // Assinatura do PAK
                         };
                         //inicia a criacao do pak
                         await Task.Run(() => writer.CreateFromDirectory(source, saveFileDialog.FileName));

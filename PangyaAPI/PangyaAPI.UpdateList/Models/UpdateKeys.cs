@@ -1,5 +1,5 @@
 ﻿//criado por LUISMK -> github.com/luismk
-//chaves do upadate e pak, estao interligadas.
+//chaves do update e pak, estao interligadas.
 namespace PangyaAPI.UpdateList.Models
 {
     public static class UpdateKeys

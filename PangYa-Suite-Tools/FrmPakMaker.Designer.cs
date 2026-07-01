@@ -58,6 +58,8 @@
         private System.Windows.Forms.ToolStripComboBox cboLanguage;
         private ToolStripMenuItem? _menuExtractSingle;
         private ToolStripMenuItem? _menuRemoveSingle;
+        private ToolStripMenuItem? _menuExtractFolder;
+        private ToolStripMenuItem? _menuRemoveFolder;
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -69,6 +71,7 @@
 
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             tabControl1 = new TabControl();
             tabExtract = new TabPage();
             groupHeader = new GroupBox();
@@ -95,6 +98,8 @@
             cboNewRegion = new ComboBox();
             btnChangeKey = new Button();
             tabCreate = new TabPage();
+            txtNewAuthorPak = new TextBox();
+            label1 = new Label();
             lblReg = new Label();
             lblLevel = new Label();
             lblComp = new Label();
@@ -112,6 +117,9 @@
             lblLanguage = new ToolStripStatusLabel();
             cboLanguage = new ToolStripComboBox();
             ckSecurityPak = new CheckBox();
+            txtUpdateAuthor = new TextBox();
+            label2 = new Label();
+            toolTip1 = new ToolTip(components);
             tabControl1.SuspendLayout();
             tabExtract.SuspendLayout();
             groupHeader.SuspendLayout();
@@ -134,6 +142,8 @@
             // 
             // tabExtract
             // 
+            tabExtract.Controls.Add(txtUpdateAuthor);
+            tabExtract.Controls.Add(label2);
             tabExtract.Controls.Add(groupHeader);
             tabExtract.Controls.Add(lblSearch);
             tabExtract.Controls.Add(txtSearch);
@@ -387,6 +397,8 @@
             // 
             // tabCreate
             // 
+            tabCreate.Controls.Add(txtNewAuthorPak);
+            tabCreate.Controls.Add(label1);
             tabCreate.Controls.Add(lblReg);
             tabCreate.Controls.Add(lblLevel);
             tabCreate.Controls.Add(lblComp);
@@ -407,9 +419,26 @@
             tabCreate.Text = "Criar Novo PAK";
             tabCreate.UseVisualStyleBackColor = true;
             // 
+            // txtNewAuthorPak
+            // 
+            txtNewAuthorPak.Location = new Point(74, 67);
+            txtNewAuthorPak.Name = "txtNewAuthorPak";
+            txtNewAuthorPak.Size = new Size(270, 23);
+            txtNewAuthorPak.TabIndex = 16;
+            // 
+            // label1
+            // 
+            label1.AutoSize = true;
+            label1.Location = new Point(21, 70);
+            label1.Name = "label1";
+            label1.Size = new Size(47, 15);
+            label1.TabIndex = 15;
+            label1.Text = "Author:";
+            label1.TextAlign = ContentAlignment.TopRight;
+            // 
             // lblReg
             // 
-            lblReg.Location = new Point(389, 139);
+            lblReg.Location = new Point(389, 166);
             lblReg.Name = "lblReg";
             lblReg.Size = new Size(150, 17);
             lblReg.TabIndex = 0;
@@ -417,7 +446,7 @@
             // 
             // lblLevel
             // 
-            lblLevel.Location = new Point(20, 139);
+            lblLevel.Location = new Point(20, 166);
             lblLevel.Name = "lblLevel";
             lblLevel.Size = new Size(160, 17);
             lblLevel.TabIndex = 1;
@@ -425,7 +454,7 @@
             // 
             // lblComp
             // 
-            lblComp.Location = new Point(389, 71);
+            lblComp.Location = new Point(389, 98);
             lblComp.Name = "lblComp";
             lblComp.Size = new Size(130, 17);
             lblComp.TabIndex = 2;
@@ -433,7 +462,7 @@
             // 
             // lblVol
             // 
-            lblVol.Location = new Point(20, 71);
+            lblVol.Location = new Point(20, 98);
             lblVol.Name = "lblVol";
             lblVol.Size = new Size(120, 17);
             lblVol.TabIndex = 3;
@@ -444,7 +473,7 @@
             btnCreatePak.BackColor = Color.FromArgb(0, 122, 204);
             btnCreatePak.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
             btnCreatePak.ForeColor = Color.White;
-            btnCreatePak.Location = new Point(20, 225);
+            btnCreatePak.Location = new Point(20, 252);
             btnCreatePak.Margin = new Padding(3, 2, 3, 2);
             btnCreatePak.Name = "btnCreatePak";
             btnCreatePak.Size = new Size(706, 38);
@@ -456,7 +485,7 @@
             // cboRegion
             // 
             cboRegion.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboRegion.Location = new Point(389, 158);
+            cboRegion.Location = new Point(389, 185);
             cboRegion.Margin = new Padding(3, 2, 3, 2);
             cboRegion.Name = "cboRegion";
             cboRegion.Size = new Size(337, 23);
@@ -464,7 +493,7 @@
             // 
             // numCompressLevel
             // 
-            numCompressLevel.Location = new Point(20, 158);
+            numCompressLevel.Location = new Point(20, 185);
             numCompressLevel.Margin = new Padding(3, 2, 3, 2);
             numCompressLevel.Maximum = new decimal(new int[] { 9, 0, 0, 0 });
             numCompressLevel.Name = "numCompressLevel";
@@ -475,7 +504,7 @@
             // cboCompressType
             // 
             cboCompressType.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboCompressType.Location = new Point(389, 90);
+            cboCompressType.Location = new Point(389, 117);
             cboCompressType.Margin = new Padding(3, 2, 3, 2);
             cboCompressType.Name = "cboCompressType";
             cboCompressType.Size = new Size(337, 23);
@@ -484,7 +513,7 @@
             // cboVersion
             // 
             cboVersion.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboVersion.Location = new Point(20, 90);
+            cboVersion.Location = new Point(20, 117);
             cboVersion.Margin = new Padding(3, 2, 3, 2);
             cboVersion.Name = "cboVersion";
             cboVersion.Size = new Size(324, 23);
@@ -558,6 +587,24 @@
             ckSecurityPak.Text = "Security Pak";
             ckSecurityPak.UseVisualStyleBackColor = true;
             // 
+            // txtUpdateAuthor
+            // 
+            txtUpdateAuthor.Location = new Point(241, 336);
+            txtUpdateAuthor.Name = "txtUpdateAuthor";
+            txtUpdateAuthor.Size = new Size(163, 23);
+            txtUpdateAuthor.TabIndex = 18;
+            toolTip1.SetToolTip(txtUpdateAuthor, "Atualize o autor do pak.\r\n");
+            // 
+            // label2
+            // 
+            label2.AutoSize = true;
+            label2.Location = new Point(188, 339);
+            label2.Name = "label2";
+            label2.Size = new Size(47, 15);
+            label2.TabIndex = 17;
+            label2.Text = "Author:";
+            label2.TextAlign = ContentAlignment.TopRight;
+            // 
             // FrmPakMaker
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -586,5 +633,10 @@
         }
 
         private CheckBox ckSecurityPak;
+        private TextBox txtNewAuthorPak;
+        private Label label1;
+        private TextBox txtUpdateAuthor;
+        private Label label2;
+        private ToolTip toolTip1;
     }
 }

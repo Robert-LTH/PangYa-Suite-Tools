@@ -117,40 +117,7 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="FrmMenu_en" xml:space="preserve">
-    <value>Pangya Studio - Main Menu</value>
-  </data>
-  <data name="FrmMenu_br" xml:space="preserve">
-    <value>Pangya Studio - Menu Principal</value>
-  </data>
-  <data name="lblTitle_en" xml:space="preserve">
-    <value>Pangya Studio Suite - Developer Tool</value>
-  </data>
-  <data name="lblTitle_br" xml:space="preserve">
-    <value>Pangya Studio Suite - Developer Tool</value>
-  </data>
-  <data name="btnOpenPakMaker_en" xml:space="preserve">
-    <value>📦 PAK File Manager</value>
-  </data>
-  <data name="btnOpenPakMaker_br" xml:space="preserve">
-    <value>📦 Gerenciador de Arquivos PAK</value>
-  </data>
-  <data name="btnOpenUpdateList_en" xml:space="preserve">
-    <value>🌐 Patch / UpdateList Manager</value>
-  </data>
-  <data name="btnOpenUpdateList_br" xml:space="preserve">
-    <value>🌐 Gerenciador de Patch / UpdateList</value>
-  </data>
-  <data name="btnOpenIffManager_en" xml:space="preserve">
-    <value>📝 IFF Editor / Manager</value>
-  </data>
-  <data name="btnOpenIffManager_br" xml:space="preserve">
-    <value>📝 Editor / Manager IFF</value>
-  </data>
-  <data name="lblLanguage_en" xml:space="preserve">
-    <value>Language:</value>
-  </data>
-  <data name="lblLanguage_br" xml:space="preserve">
-    <value>Idioma:</value>
-  </data>
+  <metadata name="statusStrip1.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>17, 17</value>
+  </metadata>
 </root>

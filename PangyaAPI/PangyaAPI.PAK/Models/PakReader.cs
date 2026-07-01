@@ -47,7 +47,7 @@ namespace PangyaAPI.PAK.Models
 
             const byte kVersion = 0x12;
             if (Header.Version != kVersion)
-                Console.WriteLine($"[Aviso] Versão LZPak: 0x{Header.Version:X2} != 0x{kVersion:X2}");
+                Console.WriteLine($"[Aviso] Versão Pak: 0x{Header.Version:X2} != 0x{kVersion:X2}");
 
             // ── Entries ──────────────────────────────────────────────────────
             br.BaseStream.Seek(Header.OffsetFileEntry, SeekOrigin.Begin);

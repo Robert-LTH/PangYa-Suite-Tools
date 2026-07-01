@@ -7,12 +7,18 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>App.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="IFFEditor\**" />
     <EmbeddedResource Remove="IFFEditor\**" />
     <None Remove="IFFEditor\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="App.ico" />
   </ItemGroup>
 
   <ItemGroup>

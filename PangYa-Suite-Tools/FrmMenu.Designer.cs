@@ -10,6 +10,7 @@
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel lblLanguage;
         private System.Windows.Forms.ToolStripComboBox cboLanguage;
+        private System.Windows.Forms.Button btnOpenOptions;
 
         protected override void Dispose(bool disposing)
         {
@@ -22,6 +23,7 @@
             btnOpenPakMaker = new Button();
             btnOpenUpdateList = new Button();
             btnOpenIffManager = new Button();
+            btnOpenOptions = new Button();
             lblTitle = new Label();
             statusStrip1 = new StatusStrip();
             lblLanguage = new ToolStripStatusLabel();
@@ -62,6 +64,16 @@
             btnOpenIffManager.UseVisualStyleBackColor = true;
             btnOpenIffManager.Click += btnOpenIffManager_Click;
             // 
+            // btnOpenOptions
+            // 
+            btnOpenOptions.Location = new Point(103, 268);
+            btnOpenOptions.Name = "btnOpenOptions";
+            btnOpenOptions.Size = new Size(180, 35);
+            btnOpenOptions.TabIndex = 4;
+            btnOpenOptions.Text = "Options";
+            btnOpenOptions.UseVisualStyleBackColor = true;
+            btnOpenOptions.Click += btnOpenOptions_Click;
+            // 
             // lblTitle
             // 
             lblTitle.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
@@ -74,17 +86,16 @@
             // 
             // statusStrip1
             // 
-            statusStrip1.Dock = DockStyle.Bottom;
             statusStrip1.Items.AddRange(new ToolStripItem[] { lblLanguage, cboLanguage });
-            statusStrip1.Location = new Point(0, 275);
+            statusStrip1.Location = new Point(0, 323);
             statusStrip1.Name = "statusStrip1";
-            statusStrip1.Size = new Size(384, 22);
+            statusStrip1.Size = new Size(402, 23);
             statusStrip1.TabIndex = 4;
             // 
             // lblLanguage
             // 
             lblLanguage.Name = "lblLanguage";
-            lblLanguage.Size = new Size(47, 17);
+            lblLanguage.Size = new Size(47, 18);
             lblLanguage.Text = "Idioma:";
             // 
             // cboLanguage
@@ -98,7 +109,8 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(384, 297);
+            ClientSize = new Size(402, 346);
+            Controls.Add(btnOpenOptions);
             Controls.Add(btnOpenIffManager);
             Controls.Add(btnOpenUpdateList);
             Controls.Add(btnOpenPakMaker);
@@ -112,6 +124,7 @@
             statusStrip1.ResumeLayout(false);
             statusStrip1.PerformLayout();
             ResumeLayout(false);
+            PerformLayout();
         }
     }
 }
