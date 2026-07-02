@@ -15,7 +15,7 @@ The project is built on top of a high-performance API (`PangyaAPI`) and a rich *
 
 ### 🗺️ Module Overview
 - [x] **PangyaAPI.PAK (`FrmPakMaker.cs`)**: Surgical data package manipulation. Individual or batch extraction, dynamic file injection/merging, and full multi-region XTEA algorithm support.
-- [x] **PangyaAPI.PAK Sync (`FrmPakDiff.cs`)**: Cross-client Multi-PAK structural synchronization tool to compare and isolate missing, modified, or identical files between different clients.
+- [ ] **PangyaAPI.PAK Sync (`FrmPakDiff.cs`)**: Cross-client Multi-PAK structural synchronization tool to compare and isolate missing, modified, or identical files between different clients.
 - [ ] **PangyaAPI.IFF**: Structured parser and editor for game data tables (`Character.iff`, `Item.iff`, etc.), enabling complete customization of server attributes and item mechanics.
 - [x] **PangyaAPI.UpdateList**: Utility for generating and signing encrypted XML patch lists for the game Launcher/Updater.
 
