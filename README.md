@@ -29,19 +29,22 @@ The project is built on top of a high-performance API (`PangyaAPI`) and a rich *
 ### 🛠️ Technical Snippet (PAK Compilation Example)
 To code with this API to compile a folder using Japanese specification (V3):
 
-   using PangyaAPI.PAK.Flags;
-   using PangyaAPI.PAK.Models;
+```csharp
+using PangyaAPI.PAK.Flags;
+using PangyaAPI.PAK.Models;
 
-   var writer = new PakWriter
-   {
-       EntryVersion = PakFileEntryVersion.V3,
-       EntryType = PakFileEntryType.LZ772,
-       CompressLevel = 5,
-       LocationKeys = PakKeys.JP,
-       Author = "SuiteTools"
-   };
-   writer.CreateFromDirectory(@"C:\Modding\data", @"C:\Games\PangYa\ProjectG.pak");
+var writer = new PakWriter
+{
+    EntryVersion = PakFileEntryVersion.V3,
+    EntryType = PakFileEntryType.LZ772,
+    CompressLevel = 5,
+    LocationKeys = PakKeys.JP,// xtea_key
+    Author = "SuiteTools"
+};
 
+// Compiles recursively while preserving offsets.
+writer.CreateFromDirectory(@"C:\Modding\data", @"C:\Games\PangYa\ProjectG.pak");
+```
 ---
 
 ## 🇧🇷 Português
@@ -66,15 +69,21 @@ O projeto é estruturado sobre uma API de alto desempenho (`PangyaAPI`) e uma in
 ### 🛠️ Trecho Técnico (Exemplo de Compilação PAK)
 Código base para compilar uma pasta de modificações usando a especificação do cliente Japonês (V3):
 
-   using PangyaAPI.PAK.Flags;
-   using PangyaAPI.PAK.Models;
+ ```csharp
 
-   var writer = new PakWriter
-   {
-       EntryVersion = PakFileEntryVersion.V3,
-       EntryType = PakFileEntryType.LZ772,
-       CompressLevel = 5,
-       LocationKeys = PakKeys.JP,
-       Author = "SuiteTools"
-   };
-   writer.CreateFromDirectory(@"C:\Modding\data", @"C:\Games\PangYa\ProjectG.pak");
+using PangyaAPI.PAK.Flags;
+using PangyaAPI.PAK.Models;
+
+var writer = new PakWriter
+{
+    EntryVersion = PakFileEntryVersion.V3,
+    EntryType = PakFileEntryType.LZ772,
+    CompressLevel = 5,
+    LocationKeys = PakKeys.JP, // xtea_key
+    Author = "SuiteTools"
+
+};
+// Compila recursivamente mantendo a integridade dos offsets
+writer.CreateFromDirectory(@"C:\Modding\data", @"C:\Games\PangYa\ProjectG.pak"); ```
+
+```
