@@ -23,48 +23,42 @@ namespace PangyaAPI.UpdateList.Models
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"Arquivo de update não encontrado: {filePath}");
 
-            var entries = new List<UpdateEntry>();
-            var header = new UpdateHeader();
+            var entries  = new List<UpdateEntry>();
+            var header   = new UpdateHeader();
             var document = XteaDecrypt(filePath);
 
             if (document == null || document.Length == 0)
-            {
                 return (header, entries);
-            }
 
+            // Remove padding de zeros inserido pelo XTEA
             int nullIndex = Array.IndexOf(document, (byte)0);
-            if (nullIndex == -1)
-            {
-                nullIndex = document.Length;
-            }
+            if (nullIndex == -1) nullIndex = document.Length;
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             string text = Encoding.GetEncoding("euc-kr").GetString(document, 0, nullIndex);
 
+            // Isola o trecho XML válido
             int startIdx = text.IndexOf("<patchVer");
-            int endIdx = text.LastIndexOf("</updatefiles>") + "</updatefiles>".Length;
+            int endIdx   = text.LastIndexOf("</updatefiles>") + "</updatefiles>".Length;
             if (startIdx != -1 && endIdx > startIdx)
-            {
                 text = text.Substring(startIdx, endIdx - startIdx);
-            }
 
-            var xmlDocument = new XmlDocument();
-            xmlDocument.LoadXml("<root>" + text + "</root>");
+            var xmlDoc = new XmlDocument();
+            xmlDoc.LoadXml("<root>" + text + "</root>");
 
-            var patchVerNode = xmlDocument.SelectSingleNode("//patchVer");
-            var patchNumNode = xmlDocument.SelectSingleNode("//patchNum");
-            var updateListVerNode = xmlDocument.SelectSingleNode("//updatelistVer");
+            header.ClientPatchVersion = xmlDoc.SelectSingleNode("//patchVer")?     .Attributes?["value"]?.Value ?? "";
+            header.ClientPatchNum     = xmlDoc.SelectSingleNode("//patchNum")?     .Attributes?["value"]?.Value ?? "";
+            header.UpdateVersion      = xmlDoc.SelectSingleNode("//updatelistVer")?.Attributes?["value"]?.Value ?? "";
 
-            header.ClientPatchVersion = patchVerNode?.Attributes?["value"]?.Value ?? "";
-            header.ClientPatchNum = patchNumNode?.Attributes?["value"]?.Value ?? "";
-            header.UpdateVersion = updateListVerNode?.Attributes?["value"]?.Value ?? "";
-
-            var fileInfoNodes = xmlDocument.SelectNodes("//fileinfo");
+            var fileInfoNodes = xmlDoc.SelectNodes("//fileinfo");
             if (fileInfoNodes != null)
             {
+                int index = 0;
                 foreach (XmlNode node in fileInfoNodes)
                 {
-                    entries.Add(ParseFileInfo(node));
+                    var entry = ParseFileInfo(node);
+                    entry.Index = ++index;
+                    entries.Add(entry);
                 }
             }
 
@@ -73,8 +67,7 @@ namespace PangyaAPI.UpdateList.Models
 
         /// <summary>
         /// Popula um UpdateEntry a partir de um nó &lt;fileinfo&gt; iterando sobre
-        /// UpdateEntryFieldMap.Fields — espelha exatamente o que o UpdateWriter escreve,
-        /// eliminando o risco de divergência entre leitura e escrita.
+        /// UpdateEntryFieldMap.Fields — espelha exatamente o que UpdateWriter escreve.
         /// </summary>
         private static UpdateEntry ParseFileInfo(XmlNode node)
         {
@@ -91,11 +84,9 @@ namespace PangyaAPI.UpdateList.Models
         {
             if (!File.Exists(filePath)) return Array.Empty<byte>();
 
-            using (FileStream r = File.OpenRead(filePath))
-            {
-                Xtea.DecipherStreamTrimNull(_cryptoKeys, r, out byte[] result);
-                return result;
-            }
+            using var fs = File.OpenRead(filePath);
+            Xtea.DecipherStreamTrimNull(_cryptoKeys, fs, out byte[] result);
+            return result;
         }
     }
 }

@@ -1,22 +1,23 @@
-﻿
-using System.ComponentModel;
-using System.Text; 
-using PangyaAPI.UpdateList.Flags; 
+﻿using PangyaAPI.UpdateList.Flags;
 using PangyaAPI.UpdateList.Models;
+using System.ComponentModel;
+using System.Text;
+
 namespace PangYa_Suite_Tools
 {
     public partial class FrmUpdateList : Form
     {
-        private readonly Dictionary<string, FileStateApp> _fileCache = new(StringComparer.OrdinalIgnoreCase); 
+        // ── Estado interno ───────────────────────────────────────────────────
+        private readonly Dictionary<string, FileStateApp> _fileCache = new(StringComparer.OrdinalIgnoreCase);
         private UpdateMaker? _updateMaker;
-        private UpdateHeader? _updateHeader;
-        private List<UpdateEntry> _updateEntries = new();
+        private List<UpdateEntry> _currentEntries = new();
 
         private FileSystemWatcher? _watcher;
         private readonly Lock _generatorLock = new();
         private bool _isMonitoring = false;
-        private bool isInitializingLanguages = true;
+        private bool _isInitializingLanguages = true;
 
+        // ── Construtor ───────────────────────────────────────────────────────
         public FrmUpdateList()
         {
             InitializeComponent();
@@ -24,97 +25,110 @@ namespace PangYa_Suite_Tools
             SetupComponents();
         }
 
+        // ── Idioma ───────────────────────────────────────────────────────────
         private void InitializeLanguageComboBox()
         {
             cboLanguage.ComboBox.DisplayMember = "Key";
             cboLanguage.ComboBox.ValueMember = "Value";
-
             cboLanguage.Items.Add(new KeyValuePair<string, string>("Português (BR)", "br"));
             cboLanguage.Items.Add(new KeyValuePair<string, string>("English (US)", "en"));
             cboLanguage.SelectedIndex = 1;
-
-            isInitializingLanguages = false;
+            _isInitializingLanguages = false;
             ApplyLocalization("en");
         }
 
         private void cboLanguage_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (isInitializingLanguages) return;
-
-            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
-            {
-                ApplyLocalization(selectedItem.Value);
-            }
+            if (_isInitializingLanguages) return;
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> sel)
+                ApplyLocalization(sel.Value);
         }
 
         private void ApplyLocalization(string lang)
         {
-            ComponentResourceManager res = new ComponentResourceManager(typeof(FrmUpdateList));
-            string suffix = (lang == "en") ? "_en" : "_br";
+            var res = new ComponentResourceManager(typeof(FrmUpdateList));
+            string sfx = lang == "en" ? "_en" : "_br";
 
-            this.Text = res.GetString($"FrmUpdateList{suffix}") ?? this.Text;
-            tabDecrypt.Text = res.GetString($"tabDecrypt{suffix}") ?? tabDecrypt.Text;
-            tabGenerator.Text = res.GetString($"tabGenerator{suffix}") ?? tabGenerator.Text;
-            grpConfig.Text = res.GetString($"grpConfig{suffix}") ?? grpConfig.Text;
-            lblPangyaPath.Text = res.GetString($"lblPangyaPath{suffix}") ?? lblPangyaPath.Text;
-            lblUpdatePath.Text = res.GetString($"lblUpdatePath{suffix}") ?? lblUpdatePath.Text;
-            lblFileKey.Text = res.GetString($"lblFileKey{suffix}") ?? lblFileKey.Text;
-            lblPatchVersion.Text = res.GetString($"lblPatchVersion{suffix}") ?? lblPatchVersion.Text;
-            lblUpdateListVer.Text = res.GetString($"lblUpdateListVer{suffix}") ?? lblUpdateListVer.Text;
-            lblClientPatchNum.Text = res.GetString($"lblClientPatchNum{suffix}") ?? lblClientPatchNum.Text;
-            btnBrowsePangya.Text = res.GetString($"btnBrowsePangya{suffix}") ?? btnBrowsePangya.Text;
-            btnBrowseUpdate.Text = res.GetString($"btnBrowseUpdate{suffix}") ?? btnBrowseUpdate.Text;
-            lblLog.Text = res.GetString($"lblLog{suffix}") ?? lblLog.Text;
-            lblLanguage.Text = res.GetString($"lblLanguage{suffix}") ?? lblLanguage.Text;
+            void Apply(Control ctrl, string key)
+            {
+                string? val = res.GetString(key);
+                if (val != null) ctrl.Text = val;
+            }
 
-            // Estados dinâmicos: só atualiza se não houver monitoramento/drop em andamento, para não confundir o usuário no meio de uma operação
+            void ApplyToolStrip(ToolStripLabel ctrl, string key)
+            {
+                string? val = res.GetString(key);
+                if (val != null) ctrl.Text = val;
+            }
+
+            Apply(this, $"FrmUpdateList{sfx}");
+            Apply(tabDecrypt, $"tabDecrypt{sfx}");
+            Apply(tabGenerator, $"tabGenerator{sfx}");
+            Apply(grpConfig, $"grpConfig{sfx}");
+            Apply(lblPangyaPath, $"lblPangyaPath{sfx}");
+            Apply(lblUpdatePath, $"lblUpdatePath{sfx}");
+            Apply(lblExistingList, $"lblExistingList{sfx}");
+            Apply(lblFileKey, $"lblFileKey{sfx}");
+            Apply(lblPatchVersion, $"lblPatchVersion{sfx}");
+            Apply(lblUpdateListVer, $"lblUpdateListVer{sfx}");
+            Apply(lblClientPatchNum, $"lblClientPatchNum{sfx}");
+            Apply(btnBrowsePangya, $"btnBrowsePangya{sfx}");
+            Apply(btnBrowseUpdate, $"btnBrowseUpdate{sfx}");
+            Apply(btnBrowseExisting, $"btnBrowseExisting{sfx}");
+            Apply(btnGenerateNow, $"btnGenerateNow{sfx}");
+            Apply(lblLog, $"lblLog{sfx}");
+            ApplyToolStrip(lblLanguage, $"lblLanguage{sfx}");
+
+            // Estados dinâmicos — não sobrescreve durante operação ativa
             if (!_isMonitoring)
             {
                 btnToggleWatch.Text = GetText("▶️ Start Monitoring", "▶️ Iniciar Monitoramento");
                 lblWatchStatus.Text = GetText("INACTIVE", "INATIVO");
+                lblWatchStatus.ForeColor = Color.DimGray;
             }
             else
             {
                 btnToggleWatch.Text = GetText("🛑 Stop Monitoring", "🛑 Parar Monitoramento");
                 lblWatchStatus.Text = GetText("ACTIVELY MONITORING", "MONITORANDO ATIVAMENTE");
+                lblWatchStatus.ForeColor = Color.Green;
             }
 
             if (string.IsNullOrEmpty(txtXmlViewer.Text))
-            {
-                lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here to view the decoded XML in real time.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.");
-            }
+                lblDropHint.Text = GetText(
+                    "🪂 Drag and drop an encrypted 'updatelist' file here to view the decoded XML in real time.",
+                    "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.");
         }
 
-        private string GetText(string en, string br)
-        {
-            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
-                return (selectedItem.Value == "br") ? br : en;
-            return en;
-        }
+        private string GetText(string en, string br) =>
+            cboLanguage.SelectedItem is KeyValuePair<string, string> sel && sel.Value == "br" ? br : en;
 
+        // ── Inicialização dos componentes ────────────────────────────────────
         private void SetupComponents()
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-            // Ativa o suporte de Drag-and-Drop visual na Aba 1
+            // Aba 1 — Drag-and-Drop
             pnlCryptoDrop.AllowDrop = true;
             pnlCryptoDrop.DragEnter += PnlCryptoDrop_DragEnter;
-            pnlCryptoDrop.DragDrop += pnlCryptoDrop_DragDrop;
+            pnlCryptoDrop.DragDrop += PnlCryptoDrop_DragDrop;
 
-            // Alinha as chaves predefinidas do ComboBox de Região
+            // Aba 2 — ComboBox de região
             cboFileKey.Items.Clear();
-            cboFileKey.Items.AddRange(new string[] { "JP", "TH", "US", "KR", "ID", "EU" });
-            cboFileKey.SelectedIndex = 0; // "JP" como padrão estável
+            foreach (var (label, _) in UpdateKeys.All)
+                cboFileKey.Items.Add(label);
+            cboFileKey.SelectedIndex = 0;
 
-            // Valores de inicialização padrão sugeridos para os novos inputs da Aba 2
+            // Defaults dos campos de versão
             txtPatchVersion.Text = "JP.R7.983.00";
             txtUpdateListVer.Text = DateTime.Now.ToString("yyyyMMdd01");
             txtClientPatchNum.Text = "1";
 
-            Log(GetText("Interface initialized in multi-tab mode (PakMaker style). Ready to use.", "Interface inicializada no formato multi-abas (Estilo PakMaker). Pronta para uso."));
+            Log(GetText("Interface initialized. Ready to use.", "Interface inicializada. Pronta para uso."));
         }
 
-        #region ABA 1: VISUALIZADOR / DECRYPT DE XML
+        // ════════════════════════════════════════════════════════════════════
+        // ABA 1 — VISUALIZADOR / DECRYPT DE UPDATELIST
+        // ════════════════════════════════════════════════════════════════════
 
         private void PnlCryptoDrop_DragEnter(object sender, DragEventArgs e)
         {
@@ -122,14 +136,13 @@ namespace PangYa_Suite_Tools
                 e.Effect = DragDropEffects.Copy;
         }
 
-        private async void pnlCryptoDrop_DragDrop(object sender, DragEventArgs e)
+        private async void PnlCryptoDrop_DragDrop(object sender, DragEventArgs e)
         {
             if (e.Data == null) return;
             string[] files = (string[])e.Data.GetData(DataFormats.FileDrop)!;
             if (files.Length == 0) return;
 
             string targetFile = files[0];
-
             txtXmlViewer.Clear();
             lblDropHint.Text = $"{GetText("Processing:", "Processando:")} {Path.GetFileName(targetFile)}...";
 
@@ -144,104 +157,138 @@ namespace PangYa_Suite_Tools
 
                     if (operacao == OperacaoEnum.Decrypt)
                     {
-                        this.Invoke(() => Log($"🔒 {GetText("Protected file detected. Testing key", "Arquivo protegido detectado. Testando chave")} [{selectedKeyName}]..."));
+                        this.Invoke(() => Log($"🔒 {GetText("Protected file. Testing key", "Arquivo protegido. Testando chave")} [{selectedKeyName}]..."));
 
-                        uint[] selectedKey = GetKeysByName(selectedKeyName);
+                        uint[] selectedKey = GetKeysByLabel(selectedKeyName);
                         var reader = new UpdateReader(selectedKey);
 
                         try
                         {
                             var (header, entries) = reader.ReadUpdateList(targetFile);
-
                             if (entries != null && entries.Count > 0)
                             {
-                                byte[] rawDoc = reader.XteaDecrypt(targetFile);
-                                int num = Array.IndexOf(rawDoc, (byte)0);
-                                string xmlText = Encoding.GetEncoding("euc-kr").GetString(rawDoc, 0, num == -1 ? rawDoc.Length : num);
-
-                                // Embeleza o XML antes de mandar para a tela
-                                string formattedXml = FormatXml(xmlText);
-
-                                this.Invoke(() => {
-                                    txtXmlViewer.Text = formattedXml;
-                                    lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here to view the decoded XML in real time.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.");
-                                    Log($"✅ [{GetText("SUCCESS", "SUCESSO")}] {GetText("Decrypted with key", "Descriptografado com a chave")} {selectedKeyName}!");
-                                });
+                                ShowDecryptedXml(reader.XteaDecrypt(targetFile), selectedKeyName);
                                 return;
                             }
                         }
                         catch
                         {
-                            this.Invoke(() => Log($"⚠️ {GetText("Failed with key", "Falha com a chave")} [{selectedKeyName}]. {GetText("Starting automatic brute-force scanner...", "Iniciando scanner de força-bruta automático...")}"));
+                            this.Invoke(() => Log($"⚠️ {GetText("Failed with key", "Falha com a chave")} [{selectedKeyName}]. {GetText("Starting brute-force scan...", "Iniciando scan de força-bruta...")}"));
                         }
 
-                        var result = UpdateKeyDetector.DetectAndSetKey(targetFile, out uint[]? autoDetectedKey, out byte[]? decryptedData, out string document);
-
+                        // Fallback: testa todas as chaves conhecidas
+                        var result = UpdateKeyDetector.DetectAndSetKey(targetFile, out _, out byte[]? decryptedData, out _);
                         if (result == UpdateResult.Sucess && decryptedData != null)
                         {
-                            int num = Array.IndexOf(decryptedData, (byte)0);
-                            string xmlText = Encoding.GetEncoding("euc-kr").GetString(decryptedData, 0, num == -1 ? decryptedData.Length : num);
-
-                            string formattedXml = FormatXml(xmlText);
-
-                            this.Invoke(() => {
-                                txtXmlViewer.Text = formattedXml;
-                                lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here to view the decoded XML in real time.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.");
-                                Log($"✅ [{GetText("BRUTE-FORCE SUCCESS", "BRUTE-FORCE SUCESSO")}] {GetText("Key identified successfully!", "Chave identificada com sucesso!")}");
-                            });
+                            ShowDecryptedXml(decryptedData, GetText("Auto-detected", "Auto-detectada"));
                         }
                         else
                         {
-                            this.Invoke(() => {
-                                lblDropHint.Text = GetText("❌ Error: No key decoded the structure.", "❌ Erro: Nenhuma chave decodificou a estrutura.");
-                                Log($"❌ [{GetText("TOTAL FAILURE", "FALHA TOTAL")}] {GetText("No key from the known database was able to open this file's structure.", "Nenhuma chave do banco de dados conhecido conseguiu abrir a estrutura deste arquivo.")}");
+                            this.Invoke(() =>
+                            {
+                                lblDropHint.Text = GetText("❌ No key decoded the file.", "❌ Nenhuma chave decodificou o arquivo.");
+                                Log($"❌ [{GetText("TOTAL FAILURE", "FALHA TOTAL")}] {GetText("No known key could open this file.", "Nenhuma chave conhecida abriu este arquivo.")}");
                             });
                         }
                     }
                     else if (operacao == OperacaoEnum.Encrypt)
                     {
+                        // Arquivo já está em texto puro
                         string xmlText = File.ReadAllText(targetFile, Encoding.GetEncoding("euc-kr"));
-                        string formattedXml = FormatXml(xmlText);
-
-                        this.Invoke(() => {
-                            txtXmlViewer.Text = formattedXml;
-                            lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here to view the decoded XML in real time.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.");
-                            Log($"📋 {GetText("The dropped file is already in plain text/XML mode. Displayed formatted in the panel.", "O arquivo dropado já está em modo texto/XML puro. Exibido formatado no painel.")}");
-                        });
-                    }
-                    else
-                    {
-                        this.Invoke(() => {
-                            lblDropHint.Text = GetText("⚠️ Invalid or corrupted file.", "⚠️ Arquivo inválido ou corrompido.");
-                            Log(GetText("⚠️ Invalid or corrupted file.", "⚠️ Arquivo inválido ou corrompido."));
+                        this.Invoke(() =>
+                        {
+                            txtXmlViewer.Text = FormatXml(xmlText);
+                            lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui.");
+                            Log($"📋 {GetText("Plain XML file displayed.", "Arquivo XML em texto puro exibido.")}");
                         });
                     }
                 }
                 catch (Exception ex)
                 {
-                    this.Invoke(() => {
-                        lblDropHint.Text = GetText("❌ Critical failure while parsing file.", "❌ Falha crítica ao analisar arquivo.");
-                        Log($"❌ [{GetText("PARSE ERROR", "ERRO DE ANÁLISE")}] {ex.Message}");
+                    this.Invoke(() =>
+                    {
+                        lblDropHint.Text = GetText("❌ Critical failure.", "❌ Falha crítica.");
+                        Log($"❌ {ex.Message}");
                     });
                 }
             });
         }
-        #endregion
 
-        #region ABA 2: GERADOR & MONITOR DE UPDATELIST
+        private void ShowDecryptedXml(byte[] rawDoc, string keyLabel)
+        {
+            int nullIdx = Array.IndexOf(rawDoc, (byte)0);
+            string xmlText = Encoding.GetEncoding("euc-kr").GetString(rawDoc, 0, nullIdx == -1 ? rawDoc.Length : nullIdx);
+            this.Invoke(() =>
+            {
+                txtXmlViewer.Text = FormatXml(xmlText);
+                lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui.");
+                Log($"✅ [{GetText("SUCCESS", "SUCESSO")}] {GetText("Decrypted with key", "Descriptografado com a chave")} [{keyLabel}]!");
+            });
+        }
 
+        // ════════════════════════════════════════════════════════════════════
+        // ABA 2 — GERADOR & MONITOR DE UPDATELIST
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Browse buttons ───────────────────────────────────────────────────
         private void btnBrowsePangya_Click(object sender, EventArgs e)
         {
-            using var fbd = new FolderBrowserDialog { Description = GetText("Select the root Pangya folder (where the executables and .pak files are)", "Selecione a pasta raiz do Pangya (onde ficam os arquivos executáveis e .pak)") };
+            using var fbd = new FolderBrowserDialog
+            {
+                Description = GetText("Select the root Pangya folder (executables and .pak files)", "Selecione a pasta raiz do Pangya (executáveis e .pak)")
+            };
             if (fbd.ShowDialog() == DialogResult.OK) txtPangyaPath.Text = fbd.SelectedPath;
         }
 
         private void btnBrowseUpdate_Click(object sender, EventArgs e)
         {
-            using var fbd = new FolderBrowserDialog { Description = GetText("Select the destination WebServer folder for the Update", "Selecione a pasta do WebServer de destino do Update") };
+            using var fbd = new FolderBrowserDialog
+            {
+                Description = GetText("Select the WebServer destination folder", "Selecione a pasta do WebServer de destino")
+            };
             if (fbd.ShowDialog() == DialogResult.OK) txtUpdatePath.Text = fbd.SelectedPath;
         }
 
+        private void btnBrowseExisting_Click(object sender, EventArgs e)
+        {
+            using var ofd = new OpenFileDialog
+            {
+                Title = GetText("Select existing encrypted updatelist (optional)", "Selecione o updatelist criptografado existente (opcional)"),
+                Filter = GetText("UpdateList files|updatelist*.*|All files|*.*", "Arquivos UpdateList|updatelist*.*|Todos os arquivos|*.*")
+            };
+            if (ofd.ShowDialog() == DialogResult.OK) txtExistingList.Text = ofd.FileName;
+        }
+
+        // ── GERAR AGORA (equivalente ao BtnStart_Click do sistema antigo) ───
+        private async void btnGenerateNow_Click(object sender, EventArgs e)
+        {
+            if (!ValidatePaths()) return;
+
+            btnGenerateNow.Enabled = false;
+            btnToggleWatch.Enabled = false;
+            progressBar.Value = 0;
+            progressBar.Visible = true;
+            lblStatus.Text = GetText("Scanning...", "Varrendo...");
+
+            try
+            {
+                await RunGenerationAsync(isMonitoringTrigger: false);
+                lblStatus.Text = GetText("Done!", "Pronto!");
+            }
+            catch (Exception ex)
+            {
+                Log($"❌ [{GetText("ERROR", "ERRO")}] {ex.Message}");
+                lblStatus.Text = GetText("Error.", "Erro.");
+            }
+            finally
+            {
+                progressBar.Visible = false;
+                btnGenerateNow.Enabled = true;
+                btnToggleWatch.Enabled = true;
+            }
+        }
+
+        // ── MONITORAMENTO ────────────────────────────────────────────────────
         private async void btnToggleWatch_Click(object sender, EventArgs e)
         {
             if (_isMonitoring) StopMonitoring();
@@ -250,40 +297,22 @@ namespace PangYa_Suite_Tools
 
         private async Task StartMonitoringAsync()
         {
-            string pangyaPath = txtPangyaPath.Text;
-            string destPath = txtUpdatePath.Text;
-
-            if (!Directory.Exists(pangyaPath) || !Directory.Exists(destPath))
-            {
-                MessageBox.Show(GetText("Check whether the Source and WebServer Destination folders are valid directory paths.", "Verifique se as pastas de Origem e de Destino do WebServer são caminhos de diretórios válidos."), GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+            if (!ValidatePaths()) return;
 
             btnToggleWatch.Enabled = false;
             lblWatchStatus.Text = GetText("Initializing...", "Inicializando...");
+            progressBar.Value = 0;
+            progressBar.Visible = true;
 
             try
             {
-                string selectedKeyName = cboFileKey.SelectedItem!.ToString()!;
-                string patchVersion = txtPatchVersion.Text;
-                string updateVersion = txtUpdateListVer.Text;
-                string patchNum = txtClientPatchNum.Text;
+                await RunGenerationAsync(isMonitoringTrigger: false);
 
-                uint[] regionKeys = GetKeysByName(selectedKeyName);
-
-                await Task.Run(() =>
-                {
-                    _updateMaker = new UpdateMaker();
-                    this.Invoke(() => Log(GetText("Scanning directory tree and generating initial client mapping...", "Varrendo a árvore de diretórios e gerando mapeamento inicial do cliente...")));
-
-                    string finalOutputPath = Path.Combine(destPath, "updatelist");
-
-                    // Injeção de todos os novos parâmetros capturados direto dos inputs dinâmicos do formulário
-                    _updateMaker.GenerateFromDirectory(pangyaPath, finalOutputPath, regionKeys, patchVersion, updateVersion, patchNum);
-                });
+                string pangyaPath = txtPangyaPath.Text;
 
                 _watcher = new FileSystemWatcher(pangyaPath)
                 {
+                    IncludeSubdirectories = true,
                     NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size
                 };
                 _watcher.Changed += OnFileChanged;
@@ -295,7 +324,7 @@ namespace PangYa_Suite_Tools
                 btnToggleWatch.BackColor = Color.Tomato;
                 lblWatchStatus.Text = GetText("ACTIVELY MONITORING", "MONITORANDO ATIVAMENTE");
                 lblWatchStatus.ForeColor = Color.Green;
-                Log($"[{GetText("SERVICE", "SERVIÇO")}] {GetText("FileSystemWatcher active on folder:", "FileSystemWatcher ativo na pasta:")} {pangyaPath}");
+                Log($"[{GetText("SERVICE", "SERVIÇO")}] {GetText("FileSystemWatcher active on:", "FileSystemWatcher ativo em:")} {pangyaPath}");
             }
             catch (Exception ex)
             {
@@ -304,107 +333,275 @@ namespace PangYa_Suite_Tools
             }
             finally
             {
+                progressBar.Visible = false;
                 btnToggleWatch.Enabled = true;
             }
         }
 
         private void StopMonitoring()
         {
-            if (_watcher != null)
-            {
-                _watcher.EnableRaisingEvents = false;
-                _watcher.Dispose();
-                _watcher = null;
-            }
+            _watcher?.Dispose();
+            _watcher = null;
 
             _isMonitoring = false;
             btnToggleWatch.Text = GetText("▶️ Start Monitoring", "▶️ Iniciar Monitoramento");
             btnToggleWatch.BackColor = Color.LightGreen;
             lblWatchStatus.Text = GetText("INACTIVE", "INATIVO");
             lblWatchStatus.ForeColor = Color.DimGray;
-            Log(GetText("Background monitoring has been stopped.", "Monitoramento em background foi encerrado."));
+            Log(GetText("Monitoring stopped.", "Monitoramento encerrado."));
         }
 
         private void OnFileChanged(object sender, FileSystemEventArgs e)
         {
-            string ext = Path.GetExtension(e.FullPath).ToLower();
+            string ext = Path.GetExtension(e.FullPath).ToLowerInvariant();
             if (ext != ".pak" && ext != ".exe" && ext != ".dll") return;
 
             lock (_generatorLock)
             {
-                Thread.Sleep(1000); // Buffer de segurança física do Windows para liberação do lock do arquivo
+                Thread.Sleep(1000); // Buffer para o Windows liberar o lock do arquivo
 
                 if (!File.Exists(e.FullPath)) return;
 
                 var info = new FileInfo(e.FullPath);
                 var currentState = new FileStateApp { Length = info.Length, LastWriteTime = info.LastWriteTime };
 
-                if (_fileCache.TryGetValue(e.FullPath, out var last) && last.Length == currentState.Length) return;
+                if (_fileCache.TryGetValue(e.FullPath, out var last) &&
+                    last.Length == currentState.Length &&
+                    last.LastWriteTime == currentState.LastWriteTime) return;
+
                 _fileCache[e.FullPath] = currentState;
-
-                this.Invoke(() => Log($"[{GetText("DETECTED", "DETECTADO")}] {GetText("File modification:", "Modificação no arquivo:")} {e.Name}"));
-
-                string pangyaPath = string.Empty;
-                string destPath = string.Empty;
-                string selectedKeyName = string.Empty;
-                string patchVersion = string.Empty;
-                string updateVersion = string.Empty;
-                string patchNum = string.Empty;
-
-                this.Invoke(() => {
-                    pangyaPath = txtPangyaPath.Text;
-                    destPath = txtUpdatePath.Text;
-                    selectedKeyName = cboFileKey.SelectedItem!.ToString()!;
-                    patchVersion = txtPatchVersion.Text;
-                    updateVersion = txtUpdateListVer.Text;
-                    patchNum = txtClientPatchNum.Text;
-                });
+                this.Invoke(() => Log($"[{GetText("DETECTED", "DETECTADO")}] {e.Name}"));
 
                 try
                 {
-                    string destFile = Path.Combine(destPath, e.Name!);
-                    string destFileDir = Path.GetDirectoryName(destFile)!;
-
-                    if (!Directory.Exists(destFileDir)) Directory.CreateDirectory(destFileDir);
+                    // Copia o arquivo modificado para a pasta de destino
+                    string destPath = txtUpdatePath.Text;
+                    string relative = Path.GetRelativePath(txtPangyaPath.Text, e.FullPath);
+                    string destFile = Path.Combine(destPath, relative);
+                    Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
                     File.Copy(e.FullPath, destFile, true);
 
-                    uint[] regionKeys = GetKeysByName(selectedKeyName);
-                    string finalOutputPath = Path.Combine(destPath, "updatelist");
+                    // Regenera o updatelist completo refletindo a mudança
+                    Task.Run(() => RunGenerationAsync(isMonitoringTrigger: true)).Wait();
 
-                    // Gera o patch mantendo a paridade de versões modificadas em tempo real
-                    _updateMaker?.GenerateFromDirectory(pangyaPath, finalOutputPath, regionKeys, patchVersion, updateVersion, patchNum);
-
-                    this.Invoke(() => Log($"✨ [{GetText("COMPILED", "COMPILADO")}] {GetText("updatelist signed successfully! Trigger:", "updatelist assinado com sucesso! Gatilho:")} {e.Name}"));
+                    this.Invoke(() => Log($"✨ [{GetText("COMPILED", "COMPILADO")}] {GetText("updatelist updated. Trigger:", "updatelist atualizado. Gatilho:")} {e.Name}"));
                 }
                 catch (Exception ex)
                 {
-                    this.Invoke(() => Log($"[{GetText("I/O ERROR", "ERRO E/S")}] {GetText("Could not manage the file", "Não foi possível gerenciar o arquivo")} {e.Name}: {ex.Message}"));
+                    this.Invoke(() => Log($"[{GetText("I/O ERROR", "ERRO E/S")}] {e.Name}: {ex.Message}"));
                 }
             }
         }
 
-        #endregion
-
-        #region MÉTODOS AUXILIARES
-
-        private uint[] GetKeysByName(string name)
+        // ── LÓGICA CENTRAL DE GERAÇÃO (inclui delta comparison) ─────────────
+        /// <summary>
+        /// Executa a varredura + geração do updatelist, com delta comparison
+        /// contra um updatelist existente (se informado). Equivale ao fluxo
+        /// do BtnStart_Click do sistema antigo: escaneia, compara CRC, loga
+        /// o que mudou e gera o arquivo final criptografado.
+        /// </summary>
+        private async Task RunGenerationAsync(bool isMonitoringTrigger)
         {
-            return name.ToUpper() switch
+            string pangyaPath, destPath, existingPath, keyLabel,
+                   patchVersion, updateVersion, patchNum;
+
+            this.Invoke(() =>
             {
-                "TH" => UpdateKeys.TH,
-                "JP" => UpdateKeys.JP,
-                "US" => UpdateKeys.GB,
-                "GB" => UpdateKeys.GB,
-                "KR" => UpdateKeys.KR,
-                "ID" => UpdateKeys.ID,
-                "EU" => UpdateKeys.EU,
-                _ => UpdateKeys.JP
-            };
+                pangyaPath = txtPangyaPath.Text;
+                destPath = txtUpdatePath.Text;
+                existingPath = txtExistingList.Text;
+                keyLabel = cboFileKey.SelectedItem!.ToString()!;
+                patchVersion = txtPatchVersion.Text;
+                updateVersion = txtUpdateListVer.Text;
+                patchNum = txtClientPatchNum.Text;
+            });
+
+            // Captura local pra usar na Task (evita acesso cross-thread)
+            string _pangyaPath = string.Empty;
+            string _destPath = string.Empty;
+            string _existingPath = string.Empty;
+            string _keyLabel = string.Empty;
+            string _patchVersion = string.Empty;
+            string _updateVersion = string.Empty;
+            string _patchNum = string.Empty;
+
+            this.Invoke(() =>
+            {
+                _pangyaPath = txtPangyaPath.Text;
+                _destPath = txtUpdatePath.Text;
+                _existingPath = txtExistingList.Text;
+                _keyLabel = cboFileKey.SelectedItem!.ToString()!;
+                _patchVersion = txtPatchVersion.Text;
+                _updateVersion = txtUpdateListVer.Text;
+                _patchNum = txtClientPatchNum.Text;
+            });
+
+            uint[] regionKeys = GetKeysByLabel(_keyLabel);
+            string outputPath = Path.Combine(_destPath, "updatelist");
+            int totalFiles = 0;
+            int doneFiles = 0;
+
+            // Conta arquivos para a barra de progresso
+            await Task.Run(() =>
+            {
+                totalFiles = Directory.EnumerateFiles(_pangyaPath, "*", SearchOption.AllDirectories).Count();
+            });
+
+            this.Invoke(() =>
+            {
+                progressBar.Maximum = Math.Max(totalFiles, 1);
+                progressBar.Value = 0;
+                Log("─────────────────────────────────────────────────────");
+                Log($"📂 {GetText("Source:", "Origem:")} {_pangyaPath}");
+                Log($"🌐 {GetText("Destination:", "Destino:")} {outputPath}");
+                Log($"🔑 {GetText("Key:", "Chave:")} {_keyLabel}");
+                Log($"🏷  {GetText("Version:", "Versão:")} {_patchVersion} | Patch #{_patchNum}");
+                Log(GetText("Scanning files...", "Varrendo arquivos..."));
+            });
+
+            // ── Carrega updatelist existente para delta comparison ────────────
+            List<UpdateEntry>? existingEntries = null;
+            if (!string.IsNullOrEmpty(_existingPath) && File.Exists(_existingPath))
+            {
+                try
+                {
+                    var detectedKey = regionKeys;
+                    var result = UpdateKeyDetector.DetectAndSetKey(_existingPath, out uint[]? autoKey, out _, out _);
+                    if (result == UpdateResult.Sucess && autoKey != null)
+                        detectedKey = autoKey;
+
+                    var reader = new UpdateReader(detectedKey);
+                    var (_, loaded) = reader.ReadUpdateList(_existingPath);
+                    existingEntries = loaded;
+                    this.Invoke(() => Log($"📋 {GetText("Existing updatelist loaded:", "Updatelist existente carregado:")} {loaded.Count} {GetText("files", "arquivos")}"));
+                }
+                catch (Exception ex)
+                {
+                    this.Invoke(() => Log($"⚠️ {GetText("Could not load existing updatelist:", "Não foi possível carregar o updatelist existente:")} {ex.Message}"));
+                }
+            }
+
+            // ── Geração + progress bar ────────────────────────────────────────
+            _updateMaker = new UpdateMaker();
+            List<UpdateEntry> generatedEntries = new();
+
+            await Task.Run(() =>
+            {
+                _updateMaker.GenerateFromDirectory(
+                    _pangyaPath,
+                    outputPath,
+                    regionKeys,
+                    _patchVersion,
+                    _updateVersion,
+                    _patchNum,
+                    onProgress: (done, total) =>
+                    {
+                        this.Invoke(() =>
+                        {
+                            progressBar.Maximum = Math.Max(total, 1);
+                            progressBar.Value = Math.Min(done, total);
+                            lblStatus.Text = $"{GetText("Scanning", "Varrendo")} ({done}/{total})";
+                        });
+                    }
+                );
+            });
+
+            // ── Delta comparison — igual ao Update() do sistema antigo ────────
+            if (existingEntries != null && existingEntries.Count > 0)
+            {
+                var existingByCrc = existingEntries.ToDictionary(
+                    e => e.fname.ToLowerInvariant(),
+                    e => e.fcrc);
+
+                int newFiles = 0;
+                int changedFiles = 0;
+                int unchangedFiles = 0;
+
+                // Usa os entries gerados pelo UpdateMaker para comparação
+                var tempReader = new UpdateReader(regionKeys);
+                var (_, scanned) = tempReader.ReadUpdateList(outputPath);
+
+                foreach (var entry in scanned)
+                {
+                    string key = entry.fname.ToLowerInvariant();
+                    if (!existingByCrc.TryGetValue(key, out int existingCrc))
+                    {
+                        newFiles++;
+                        this.Invoke(() => Log($"  ➕ [{GetText("NEW", "NOVO")}] {entry.fname}"));
+                    }
+                    else if (existingCrc != entry.fcrc)
+                    {
+                        changedFiles++;
+                        this.Invoke(() => Log($"  🔄 [{GetText("CHANGED", "ALTERADO")}] {entry.fname} (CRC: {existingCrc:X8} → {entry.fcrc:X8})"));
+                    }
+                    else
+                    {
+                        unchangedFiles++;
+                    }
+                }
+
+                this.Invoke(() =>
+                {
+                    Log("─────────────────────────────────────────────────────");
+                    Log($"📊 {GetText("Delta Summary", "Resumo Delta")}: "
+                      + $"➕ {newFiles} {GetText("new", "novos")} | "
+                      + $"🔄 {changedFiles} {GetText("changed", "alterados")} | "
+                      + $"✅ {unchangedFiles} {GetText("unchanged", "sem alteração")}");
+                });
+            }
+
+            this.Invoke(() =>
+            {
+                Log($"✅ [{GetText("DONE", "PRONTO")}] {GetText("updatelist generated at:", "updatelist gerado em:")} {outputPath}");
+                Log("─────────────────────────────────────────────────────");
+            });
         }
+
+        // ── Validação de campos ──────────────────────────────────────────────
+        private bool ValidatePaths()
+        {
+            if (!Directory.Exists(txtPangyaPath.Text))
+            {
+                MessageBox.Show(
+                    GetText("The Pangya source folder is invalid.", "A pasta de origem do Pangya é inválida."),
+                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            if (!Directory.Exists(txtUpdatePath.Text))
+            {
+                MessageBox.Show(
+                    GetText("The WebServer destination folder is invalid.", "A pasta do WebServer de destino é inválida."),
+                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(txtPatchVersion.Text))
+            {
+                MessageBox.Show(
+                    GetText("Please fill in the Patch Version.", "Por favor, preencha a Versão do Patch."),
+                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // MÉTODOS AUXILIARES
+        // ════════════════════════════════════════════════════════════════════
+
+        private uint[] GetKeysByLabel(string label) =>
+            UpdateKeys.All.FirstOrDefault(k => string.Equals(k.Label, label, StringComparison.OrdinalIgnoreCase)).Keys
+            ?? UpdateKeys.JP;
 
         private void Log(string text)
         {
-            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {text}{Environment.NewLine}");
+            string line = $"[{DateTime.Now:HH:mm:ss}] {text}{Environment.NewLine}";
+            if (InvokeRequired) this.Invoke(() => AppendLog(line));
+            else AppendLog(line);
+        }
+
+        private void AppendLog(string line)
+        {
+            txtLog.AppendText(line);
             txtLog.SelectionStart = txtLog.Text.Length;
             txtLog.ScrollToCaret();
         }
@@ -414,40 +611,27 @@ namespace PangYa_Suite_Tools
             try
             {
                 if (string.IsNullOrWhiteSpace(rawXml)) return string.Empty;
-
-                // Trata possíveis quebras incorretas ou espaços no início/fim antes do parse
                 rawXml = rawXml.Trim();
-
                 var doc = System.Xml.Linq.XDocument.Parse(rawXml);
                 var settings = new System.Xml.XmlWriterSettings
                 {
                     Indent = true,
-                    IndentChars = "    ", // 4 Espaços para manter legível
-                    NewLineOnAttributes = false, // Atributos na mesma linha
+                    IndentChars = "    ",
+                    NewLineOnAttributes = false,
                     OmitXmlDeclaration = false,
-                    NewLineHandling = System.Xml.NewLineHandling.Replace, // Força o tratamento de novas linhas
-                    NewLineChars = "\r\n" // Garante o padrão do Windows (CRLF) exigido pelo TextBox
+                    NewLineHandling = System.Xml.NewLineHandling.Replace,
+                    NewLineChars = "\r\n"
                 };
-
-                using var stringWriter = new StringWriter();
-                using (var xmlWriter = System.Xml.XmlWriter.Create(stringWriter, settings))
-                {
-                    doc.Save(xmlWriter);
-                }
-
-                string result = stringWriter.ToString();
-
-                // Garantia extra: se o XmlWriter ainda deixar passar algum '\n' isolado, 
-                // normaliza tudo para o padrão que o TextBox do WinForms aceita
-                return result.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
+                using var sw = new StringWriter();
+                using (var xw = System.Xml.XmlWriter.Create(sw, settings))
+                    doc.Save(xw);
+                return sw.ToString().Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
             }
             catch
             {
-                // Fallback de segurança: Caso falhe, tenta pelo menos normalizar as quebras brutas
                 return rawXml.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
             }
         }
-        #endregion
     }
 
     public class FileStateApp

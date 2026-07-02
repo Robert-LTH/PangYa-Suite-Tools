@@ -7,6 +7,11 @@ namespace PangYa_Suite_Tools
     public partial class FrmMenu : Form
     {
         private bool isInitializingLanguages = true;
+
+        // Caminho no registro para salvar as configurações da Suite
+        private const string RegistryKeyPath = @"Software\PangYaSuiteTools";
+        private const string LanguageValueName = "Language";
+
         [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
         private static extern void SHChangeNotify(uint wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
 
@@ -16,28 +21,19 @@ namespace PangYa_Suite_Tools
             InitializeLanguageComboBox();
         }
 
-
         public FrmMenu(string[] args) : this()
         {
             if (args != null && args.Length > 0)
             {
                 string filePath = args[0];
 
-                // Verifica se o arquivo existe e se é uma extensão .pak
                 if (File.Exists(filePath) && filePath.EndsWith(".pak", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Mudamos para o evento 'Shown', que garante uma alternância visual muito mais limpa e sem bugs
                     this.Shown += (s, e) =>
                     {
-                        // Oculta o menu principal
                         this.Hide();
-
-                        // Cria a instância do PakMaker passando o arquivo
                         FrmPakMaker pakMaker = new(filePath);
-
-                        // Quando o PakMaker fechar, fecha o programa inteiro de forma limpa
                         pakMaker.FormClosed += (sender, formArgs) => this.Close();
-
                         pakMaker.Show();
                     };
                 }
@@ -51,10 +47,26 @@ namespace PangYa_Suite_Tools
 
             cboLanguage.Items.Add(new KeyValuePair<string, string>("Português (BR)", "br"));
             cboLanguage.Items.Add(new KeyValuePair<string, string>("English (US)", "en"));
-            cboLanguage.SelectedIndex = 1;
+
+            // 1. Recupera o idioma salvo no Registro do Windows. O padrão é "en" se não existir.
+            string savedLanguage = "en";
+            try
+            {
+                using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(RegistryKeyPath))
+                {
+                    if (key != null)
+                    {
+                        savedLanguage = key.GetValue(LanguageValueName, "en") as string ?? "en";
+                    }
+                }
+            }
+            catch { /* Ignora falhas de leitura silenciosamente */ }
+
+            // 2. Define o índice correto no ComboBox baseado no que foi recuperado
+            cboLanguage.SelectedIndex = (savedLanguage == "br") ? 0 : 1;
 
             isInitializingLanguages = false;
-            ApplyLocalization("en");
+            ApplyLocalization(savedLanguage);
         }
 
         private void cboLanguage_SelectedIndexChanged(object sender, EventArgs e)
@@ -63,7 +75,20 @@ namespace PangYa_Suite_Tools
 
             if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
             {
-                ApplyLocalization(selectedItem.Value);
+                string selectedLang = selectedItem.Value;
+
+                // Aplica o idioma na UI
+                ApplyLocalization(selectedLang);
+
+                // 3. Salva a nova preferência de idioma de forma persistente no Registro
+                try
+                {
+                    using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryKeyPath))
+                    {
+                        key.SetValue(LanguageValueName, selectedLang);
+                    }
+                }
+                catch { /* Ignora falhas de escrita (ex: permissões restritas em sandbox) */ }
             }
         }
 
@@ -78,6 +103,12 @@ namespace PangYa_Suite_Tools
             btnOpenUpdateList.Text = res.GetString($"btnOpenUpdateList{suffix}") ?? btnOpenUpdateList.Text;
             btnOpenIffManager.Text = res.GetString($"btnOpenIffManager{suffix}") ?? btnOpenIffManager.Text;
             lblLanguage.Text = res.GetString($"lblLanguage{suffix}") ?? lblLanguage.Text;
+
+            // Adicionado suporte à tradução do novo botão de Diff se aplicável
+            if (res.GetString($"btnOpenPakDiff{suffix}") != null)
+            {
+                // btnOpenPakDiff.Text = res.GetString($"btnOpenPakDiff{suffix}");
+            }
         }
 
         private void btnOpenPakMaker_Click(object sender, EventArgs e)
@@ -98,9 +129,6 @@ namespace PangYa_Suite_Tools
 
         private void btnOpenIffManager_Click(object sender, EventArgs e)
         {
-            // Vai demorar muito para mim fazer-lo, pois o codigo precisa ser bem organizado
-            // Eu poderia fazer-lo 1 dia, mas eu tenho outras tarefas.
-            // A base sera bem fraca no inicio, mas depois que toma forma, fica algo gigantesco.
             var iffManager = new FrmIFFManager();
             this.Hide();
             iffManager.ShowDialog();
@@ -109,14 +137,12 @@ namespace PangYa_Suite_Tools
 
         private void btnOpenOptions_Click(object sender, EventArgs e)
         {
-            // Obtém o idioma selecionado em tempo real no menu principal ('br' ou 'en')
             string idiomaAtual = "en";
             if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
             {
                 idiomaAtual = selectedItem.Value;
             }
 
-            // Instancia e abre o formulário de opções como diálogo modal
             using (var frmOptions = new FrmOptions(idiomaAtual))
             {
                 frmOptions.ShowDialog();
@@ -133,6 +159,14 @@ namespace PangYa_Suite_Tools
             return "";
         }
 
-        
+        //obter a linguagem atual do comboBox
+        private string GetLanguage()
+        {
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
+            {
+                return selectedItem.Value;
+            }
+            return "_en";
+        }
     }
 }

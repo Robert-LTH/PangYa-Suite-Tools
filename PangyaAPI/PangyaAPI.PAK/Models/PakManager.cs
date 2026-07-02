@@ -277,6 +277,86 @@ namespace PangyaAPI.PAK.Models
                 }
                 throw;
             }
+        }/// <summary>
+         /// Extrai uma lista específica de entradas (entries) de um arquivo .pak para um diretório de saída.
+         /// </summary>
+        public static void ExtractFiles(
+            string currentPakPath,
+            PakReader reader,
+            List<PakFileEntry> entriesToExtract,
+            string outputDir,
+            Action<string> log,
+            Action<int, int> onProgress)
+        {
+            if (string.IsNullOrEmpty(currentPakPath) || reader == null || entriesToExtract == null)
+                throw new ArgumentNullException("Parâmetros de extração inválidos.");
+
+            if (!File.Exists(currentPakPath))
+                throw new FileNotFoundException($"Arquivo PAK não encontrado: {currentPakPath}");
+
+            int totalFiles = entriesToExtract.Count;
+            int currentFileIndex = 0;
+
+            // Abrimos o stream do arquivo PAK principal para leitura dos dados brutos
+            using (var pakStream = new FileStream(currentPakPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                foreach (var entry in entriesToExtract)
+                {
+                    // Ignora registros que sejam marcados como diretórios vazios na tabela do PAK
+                    if (entry.Type == PakFileEntryType.Directory || entry.Size == 0)
+                    {
+                        currentFileIndex++;
+                        onProgress?.Invoke(currentFileIndex, totalFiles);
+                        continue;
+                    }
+
+                    try
+                    {
+                        // Normaliza o caminho interno do PAK para o sistema operacional local
+                        string normalizedPath = entry.Name.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+                        string fullOutputPath = Path.Combine(outputDir, normalizedPath);
+
+                        // Garante que a estrutura de pastas onde o arquivo vai ser salvo exista no seu HD
+                        string? directoryPath = Path.GetDirectoryName(fullOutputPath);
+                        if (!string.IsNullOrEmpty(directoryPath) && !Directory.Exists(directoryPath))
+                        {
+                            Directory.CreateDirectory(directoryPath);
+                        }
+
+                        // Move o ponteiro de leitura do PAK para o início exato do arquivo desejado (Offset)
+                        pakStream.Seek(entry.Offset, SeekOrigin.Begin);
+
+                        // Lê os dados brutos e grava no arquivo de destino de forma otimizada
+                        using (var outputStream = new FileStream(fullOutputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                        {
+                            byte[] buffer = new byte[8192]; // Buffer de 8KB para performance de leitura/escrita
+                            long bytesRemaining = entry.Size;
+
+                            while (bytesRemaining > 0)
+                            {
+                                int bytesToRead = (int)Math.Min(buffer.Length, bytesRemaining);
+                                int bytesRead = pakStream.Read(buffer, 0, bytesToRead);
+
+                                if (bytesRead == 0) break; // Fim inesperado do stream
+
+                                outputStream.Write(buffer, 0, bytesRead);
+                                bytesRemaining -= bytesRead;
+                            }
+                        }
+
+                        log?.Invoke($"Extraído com sucesso: {entry.Name}");
+                    }
+                    catch (Exception ex)
+                    {
+                        log?.Invoke($"Falha ao extrair o arquivo {entry.Name}: {ex.Message}");
+                        // Dependendo do seu fluxo, você pode optar por lançar o erro 'throw;' ou ignorar e continuar
+                    }
+
+                    // Atualiza o contador de progresso após concluir a extração deste arquivo
+                    currentFileIndex++;
+                    onProgress?.Invoke(currentFileIndex, totalFiles);
+                }
+            }
         }
 
         private static void TryDeleteDirectory(string path)
@@ -284,5 +364,6 @@ namespace PangyaAPI.PAK.Models
             try { if (Directory.Exists(path)) Directory.Delete(path, true); }
             catch { /* limpeza best-effort, não deve interromper o fluxo principal */ }
         }
+
     }
 }
