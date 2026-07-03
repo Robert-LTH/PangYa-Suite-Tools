@@ -26,7 +26,8 @@ namespace PangYa_Suite_Tools
 
             cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_PortugueseBrazil, LocalizationManager.PortugueseBrazil));
             cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_EnglishUS, LocalizationManager.English));
-            cboLanguage.SelectedIndex = LocalizationManager.CurrentCulture.Name == LocalizationManager.PortugueseBrazil ? 0 : 1;
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_Swedish, LocalizationManager.Swedish));
+            cboLanguage.SelectedIndex = LocalizationManager.CurrentCultureIndex;
 
             isInitializingLanguages = false;
             ApplyLocalization();
@@ -45,7 +46,7 @@ namespace PangYa_Suite_Tools
         private void LocalizationManager_CultureChanged(object? sender, EventArgs e)
         {
             isInitializingLanguages = true;
-            cboLanguage.SelectedIndex = LocalizationManager.CurrentCulture.Name == LocalizationManager.PortugueseBrazil ? 0 : 1;
+            cboLanguage.SelectedIndex = LocalizationManager.CurrentCultureIndex;
             isInitializingLanguages = false;
             ApplyLocalization();
         }
