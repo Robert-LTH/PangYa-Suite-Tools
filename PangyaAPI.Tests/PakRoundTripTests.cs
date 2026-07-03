@@ -1,5 +1,6 @@
 using PangyaAPI.PAK.Flags;
 using PangyaAPI.PAK.Models;
+using System.Text;
 
 namespace PangyaAPI.Tests;
 
@@ -64,6 +65,67 @@ public sealed class PakRoundTripTests
             string sourcePath = System.IO.Path.Combine(source, entry.Name.Replace('/', System.IO.Path.DirectorySeparatorChar));
             Assert.Equal(File.ReadAllBytes(sourcePath), reader.ExtractEntryToBytes(entry));
         }
+    }
+
+    [Fact]
+    public void Version3_RoundTripsEucKrEntryNames()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = temp.Combine("source");
+        string koreanDirectory = System.IO.Path.Combine(source, "한글");
+        string koreanFile = System.IO.Path.Combine(koreanDirectory, "파일.txt");
+        string pak = temp.Combine("korean-names.pak");
+        Directory.CreateDirectory(koreanDirectory);
+        File.WriteAllText(koreanFile, "PangYa");
+
+        new PakWriter
+        {
+            EntryVersion = PakFileEntryVersion.V3,
+            EntryType = PakFileEntryType.LZ772,
+            LocationKeys = PakKeys.KR
+        }.CreateFromDirectoryContents(source, pak);
+
+        using var reader = new PakReader(pak);
+        reader.Parse(PakKeys.KR);
+        PakFileEntry entry = Assert.Single(reader.Entries,
+            item => item.Type != PakFileEntryType.Directory);
+
+        Assert.Equal(@"한글\파일.txt", entry.Name);
+        Assert.Equal(File.ReadAllBytes(koreanFile), reader.ExtractEntryToBytes(entry));
+    }
+
+    [Fact]
+    public void ReadersKeepIndependentFilenameEncodings()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        Encoding shiftJis = Encoding.GetEncoding(932);
+        using var temp = new TemporaryDirectory();
+
+        string koreanSource = temp.Combine("korean");
+        string koreanFile = System.IO.Path.Combine(koreanSource, "한글.txt");
+        Directory.CreateDirectory(koreanSource);
+        File.WriteAllText(koreanFile, "KR");
+        string koreanPak = temp.Combine("korean.pak");
+        new PakWriter { LocationKeys = PakKeys.KR }
+            .CreateFromDirectoryContents(koreanSource, koreanPak);
+
+        string japaneseSource = temp.Combine("japanese");
+        string japaneseFile = System.IO.Path.Combine(japaneseSource, "日本.txt");
+        Directory.CreateDirectory(japaneseSource);
+        File.WriteAllText(japaneseFile, "JP");
+        string japanesePak = temp.Combine("japanese.pak");
+        new PakWriter { LocationKeys = PakKeys.JP, FileNameEncoding = shiftJis }
+            .CreateFromDirectoryContents(japaneseSource, japanesePak);
+
+        using var koreanReader = new PakReader(koreanPak);
+        using var japaneseReader = new PakReader(japanesePak, shiftJis);
+        koreanReader.Parse(PakKeys.KR);
+        japaneseReader.Parse(PakKeys.JP);
+
+        Assert.Equal(51949, koreanReader.FileNameEncoding.CodePage);
+        Assert.Equal(932, japaneseReader.FileNameEncoding.CodePage);
+        Assert.Contains(koreanReader.Entries, entry => entry.Name == "한글.txt");
+        Assert.Contains(japaneseReader.Entries, entry => entry.Name == "日本.txt");
     }
 
     public static IEnumerable<object[]> AllPakKeys() =>

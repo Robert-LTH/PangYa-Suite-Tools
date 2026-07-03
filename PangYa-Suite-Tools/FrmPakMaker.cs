@@ -1,8 +1,10 @@
 using PangYa_Suite_Tools.Localization;
+using PangYa_Suite_Tools.Configuration;
 using PangyaAPI.PAK.Flags;
 using PangyaAPI.PAK.Models;
 using System.ComponentModel;
 using System.Data;
+using System.Text;
 
 namespace PangYa_Suite_Tools
 {
@@ -20,6 +22,7 @@ namespace PangYa_Suite_Tools
         private List<PakFileEntry> _scopedEntries = [];
         private sealed record RegionOption(string Label, uint[] Keys);
         private bool isInitializingLanguages = true;
+        private bool _isInitializingEncodings = true;
         public FrmPakMaker()
         {
             InitializeComponent();
@@ -29,7 +32,11 @@ namespace PangYa_Suite_Tools
             SetupContextMenu(); // Inicializa o menu de contexto da ListView
             CleanupOldTempDragFolders(); // Remove resíduos de exportações de drag-out de execuções anteriores
             LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
-            Disposed += (_, _) => LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
+            Disposed += (_, _) =>
+            {
+                LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
+                _currentReader?.Dispose();
+            };
         }
 
 
@@ -83,6 +90,9 @@ namespace PangYa_Suite_Tools
         {
             Text = Strings.Pak_Title;
             lblLanguage.Text = Strings.Common_Language;
+            lblFilenameEncoding.Text = Strings.Pak_FilenameEncoding;
+            lblFilenameEncoding.ToolTipText = Strings.Pak_FilenameEncodingTooltip;
+            cboFilenameEncoding.ToolTipText = Strings.Pak_FilenameEncodingTooltip;
 
             // --- ABA 1: LEITOR & MODIFICAÇÕES ---
             tabExtract.Text = Strings.Pak_TabExtract;
@@ -389,6 +399,8 @@ namespace PangYa_Suite_Tools
 
         private void LoadSetupOptions()
         {
+            InitializeFilenameEncodingComboBox();
+
             // Popula os seletores usando os Enums e Listas da sua PangyaAPI
             cboVersion.DataSource = Enum.GetValues(typeof(PakFileEntryVersion));
             cboVersion.SelectedItem = PakFileEntryVersion.V3;
@@ -408,6 +420,38 @@ namespace PangYa_Suite_Tools
                 .ToList();
             cboNewRegion.DisplayMember = "Label";
             cboNewRegion.SelectedIndex = 0;
+        }
+
+        private void InitializeFilenameEncodingComboBox()
+        {
+            IReadOnlyList<PakEncodingOption> encodings =
+                PakFilenameEncodingPreferences.GetAvailableEncodings();
+            int savedCodePage = PakFilenameEncodingPreferences.LoadCodePage();
+
+            _isInitializingEncodings = true;
+            cboFilenameEncoding.ComboBox.DisplayMember = nameof(PakEncodingOption.Label);
+            cboFilenameEncoding.ComboBox.ValueMember = nameof(PakEncodingOption.CodePage);
+            cboFilenameEncoding.ComboBox.DataSource = encodings.ToList();
+            cboFilenameEncoding.ComboBox.SelectedItem =
+                encodings.First(option => option.CodePage == savedCodePage);
+            _isInitializingEncodings = false;
+        }
+
+        private Encoding SelectedFilenameEncoding =>
+            cboFilenameEncoding.SelectedItem is PakEncodingOption option
+                ? PakFilenameEncodingPreferences.GetEncoding(option.CodePage)
+                : PakFilenameEncodingPreferences.GetEncoding(
+                    PakFilenameEncodingPreferences.DefaultCodePage);
+
+        private void cboFilenameEncoding_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (_isInitializingEncodings ||
+                cboFilenameEncoding.SelectedItem is not PakEncodingOption option)
+                return;
+
+            PakFilenameEncodingPreferences.SaveCodePage(option.CodePage);
+            if (_currentReader != null)
+                lblStatus.Text = Strings.Pak_EncodingAppliesNextLoad;
         }
 
         private void FrmPakMaker_DragEnter(object? sender, DragEventArgs e)
@@ -530,7 +574,7 @@ namespace PangYa_Suite_Tools
             }
         }
 
-        private void LoadPak(string path)
+        private void LoadPak(string path, Encoding? filenameEncoding = null)
         {
             if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
 
@@ -540,7 +584,7 @@ namespace PangYa_Suite_Tools
                     txtPakPath.Text = path;
 
                 _currentReader?.Dispose();
-                var reader = new PakReader(path);
+                var reader = new PakReader(path, filenameEncoding ?? SelectedFilenameEncoding);
                 _currentReader = reader;
                 reader.Parse();
                 // Atualiza as Labels de informação do Header
@@ -730,7 +774,7 @@ namespace PangYa_Suite_Tools
                     Strings.PakMaker_TheFolderAndItsItemsWere,
                     Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                LoadPak(pakPath);
+                LoadPak(pakPath, options.FileNameEncoding);
             }
             catch (Exception ex)
             {
@@ -1156,6 +1200,7 @@ namespace PangYa_Suite_Tools
 
             // Mesma região/chave do PAK atualmente carregado (se houver), evita ficar perguntando por console.
             uint[]? sharedKeys = _currentReader?.LocationKeys;
+            Encoding filenameEncoding = SelectedFilenameEncoding;
 
             btnBatchExtract.Enabled = false;
             progressBar1.Visible = true;
@@ -1178,7 +1223,7 @@ namespace PangYa_Suite_Tools
                         if (!Directory.Exists(specificDestFolder))
                             Directory.CreateDirectory(specificDestFolder);
 
-                        using var batchReader = new PakReader(pakPath);
+                        using var batchReader = new PakReader(pakPath, filenameEncoding);
                         batchReader.Parse(sharedKeys);
                         batchReader.Extract("*", specificDestFolder);
                     });
@@ -1269,7 +1314,10 @@ namespace PangYa_Suite_Tools
                 CompressLevel: (byte)numCompressLevel.Value,
                 LocationKeys: _currentReader?.LocationKeys ?? (uint[])selectedRegion.Keys,
                 Author: _currentReader?.Header.Author ?? "PakMaker"
-            );
+            )
+            {
+                FileNameEncoding = _currentReader?.FileNameEncoding ?? SelectedFilenameEncoding
+            };
         }
 
 
@@ -1333,7 +1381,7 @@ namespace PangYa_Suite_Tools
                 MessageBox.Show(
                       $"{items.Count} {Strings.PakMaker_FileSInjectedAndThePAK}",
                       Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                LoadPak(pakPath);
+                LoadPak(pakPath, options.FileNameEncoding);
             }
             catch (Exception ex)
             {
@@ -1541,7 +1589,7 @@ namespace PangYa_Suite_Tools
                     Strings.PakMaker_TheSelectedItemsWereRemovedSuccessfully,
                     Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                LoadPak(pakPath);
+                LoadPak(pakPath, options.FileNameEncoding);
             }
             catch (Exception ex)
             {
@@ -1604,7 +1652,8 @@ namespace PangYa_Suite_Tools
                             CompressLevel = (byte)numCompressLevel.Value,
                             // Se não for Raw e selectedKeys vier nulo por falha de seleção, aplica o fallback JP
                             LocationKeys = selectedKeys ?? (selectedVersion == PakFileEntryVersion.Raw ? Array.Empty<uint>() : PakKeys.JP),
-                            Author = txtNewAuthorPak.Text // Assinatura do PAK
+                            Author = txtNewAuthorPak.Text, // Assinatura do PAK
+                            FileNameEncoding = SelectedFilenameEncoding
                         };
                         //inicia a criacao do pak
                         await Task.Run(() => writer.CreateFromDirectory(source, saveFileDialog.FileName));
@@ -1682,7 +1731,7 @@ namespace PangYa_Suite_Tools
                 MessageBox.Show($"{Strings.PakMaker_ThePAKWasRebuiltWithThe} \"{selectedRegion.Label}\"!",
                     Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                LoadPak(pakPath);
+                LoadPak(pakPath, newOptions.FileNameEncoding);
             }
             catch (Exception ex)
             {

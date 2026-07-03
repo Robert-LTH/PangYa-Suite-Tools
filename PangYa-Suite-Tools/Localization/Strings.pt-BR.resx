@@ -654,4 +654,13 @@
   <data name="Pak_SecurityPak" xml:space="preserve">
     <value>PAK de segurança</value>
   </data>
+  <data name="Pak_FilenameEncoding" xml:space="preserve">
+    <value>Nomes:</value>
+  </data>
+  <data name="Pak_FilenameEncodingTooltip" xml:space="preserve">
+    <value>Codificação usada para ler e gravar nomes de arquivos dentro dos pacotes PAK.</value>
+  </data>
+  <data name="Pak_EncodingAppliesNextLoad" xml:space="preserve">
+    <value>A codificação dos nomes será usada na próxima vez que um PAK for carregado.</value>
+  </data>
 </root>

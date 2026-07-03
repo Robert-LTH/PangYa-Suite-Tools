@@ -226,5 +226,8 @@ internal static class Strings
     public static string Pak_OpenFileFilter => ResourceManager.GetString(nameof(Pak_OpenFileFilter), Culture) ?? "";
     public static string Pak_SaveFileFilter => ResourceManager.GetString(nameof(Pak_SaveFileFilter), Culture) ?? "";
     public static string Pak_SecurityPak => ResourceManager.GetString(nameof(Pak_SecurityPak), Culture) ?? "";
+    public static string Pak_FilenameEncoding => ResourceManager.GetString(nameof(Pak_FilenameEncoding), Culture) ?? "";
+    public static string Pak_FilenameEncodingTooltip => ResourceManager.GetString(nameof(Pak_FilenameEncodingTooltip), Culture) ?? "";
+    public static string Pak_EncodingAppliesNextLoad => ResourceManager.GetString(nameof(Pak_EncodingAppliesNextLoad), Culture) ?? "";
 }
 

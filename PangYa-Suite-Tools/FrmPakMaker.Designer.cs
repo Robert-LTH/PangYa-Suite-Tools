@@ -50,6 +50,8 @@ namespace PangYa_Suite_Tools
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel lblStatus;
         private System.Windows.Forms.ToolStripProgressBar progressBar1;
+        private System.Windows.Forms.ToolStripStatusLabel lblFilenameEncoding;
+        private System.Windows.Forms.ToolStripComboBox cboFilenameEncoding;
 
         // Troca de chave XTEA
         private System.Windows.Forms.Label lblNewKey;
@@ -116,6 +118,8 @@ namespace PangYa_Suite_Tools
             statusStrip1 = new StatusStrip();
             lblStatus = new ToolStripStatusLabel();
             progressBar1 = new ToolStripProgressBar();
+            lblFilenameEncoding = new ToolStripStatusLabel();
+            cboFilenameEncoding = new ToolStripComboBox();
             lblLanguage = new ToolStripStatusLabel();
             cboLanguage = new ToolStripComboBox();
             ckSecurityPak = new CheckBox();
@@ -518,7 +522,7 @@ namespace PangYa_Suite_Tools
             // statusStrip1
             // 
             statusStrip1.ImageScalingSize = new Size(20, 20);
-            statusStrip1.Items.AddRange(new ToolStripItem[] { lblStatus, progressBar1, lblLanguage, cboLanguage });
+            statusStrip1.Items.AddRange(new ToolStripItem[] { lblStatus, progressBar1, lblFilenameEncoding, cboFilenameEncoding, lblLanguage, cboLanguage });
             statusStrip1.Location = new Point(9, 438);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Padding = new Padding(1, 0, 12, 0);
@@ -529,11 +533,26 @@ namespace PangYa_Suite_Tools
             // 
             lblStatus.Name = "lblStatus";
             lblStatus.Size = new Size(43, 18);
+            lblStatus.Spring = true;
+            lblStatus.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // progressBar1
             // 
             progressBar1.Name = "progressBar1";
             progressBar1.Size = new Size(150, 17);
+            //
+            // lblFilenameEncoding
+            //
+            lblFilenameEncoding.Margin = new Padding(10, 0, 0, 0);
+            lblFilenameEncoding.Name = "lblFilenameEncoding";
+            //
+            // cboFilenameEncoding
+            //
+            cboFilenameEncoding.DropDownStyle = ComboBoxStyle.DropDownList;
+            cboFilenameEncoding.DropDownWidth = 360;
+            cboFilenameEncoding.Name = "cboFilenameEncoding";
+            cboFilenameEncoding.Size = new Size(175, 23);
+            cboFilenameEncoding.SelectedIndexChanged += cboFilenameEncoding_SelectedIndexChanged;
             // 
             // lblLanguage
             // 
