@@ -225,6 +225,7 @@ public static class PakManager
         {
             if (File.Exists(candidate)) File.Delete(candidate);
         }
+
     }
 
     private static string CombineArchivePath(string folder, string fileName) =>

@@ -11,6 +11,9 @@
     <Compile Update="FrmOptions.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="FrmPakDiff.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="FrmPakMaker.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -4,19 +4,24 @@ using System.ComponentModel;
 using System.Text; 
 using PangyaAPI.UpdateList.Flags; 
 using PangyaAPI.UpdateList.Models;
+using System.ComponentModel;
+using System.Text;
+
 namespace PangYa_Suite_Tools
 {
     public partial class FrmUpdateList : Form
     {
-        private readonly Dictionary<string, FileStateApp> _fileCache = new(StringComparer.OrdinalIgnoreCase); 
+        // ── Estado interno ───────────────────────────────────────────────────
+        private readonly Dictionary<string, FileStateApp> _fileCache = new(StringComparer.OrdinalIgnoreCase);
         private UpdateMaker? _updateMaker;
         private List<UpdateEntry> _updateEntries = new();
 
         private FileSystemWatcher? _watcher;
         private readonly Lock _generatorLock = new();
         private bool _isMonitoring = false;
-        private bool isInitializingLanguages = true;
+        private bool _isInitializingLanguages = true;
 
+        // ── Construtor ───────────────────────────────────────────────────────
         public FrmUpdateList()
         {
             InitializeComponent();
@@ -26,10 +31,18 @@ namespace PangYa_Suite_Tools
             Disposed += (_, _) => LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
         }
 
-        private void InitializeLanguageComboBox()
+        public FrmUpdateList(string idiomaAtual)
         {
+            InitializeComponent();
             cboLanguage.ComboBox.DisplayMember = "Key";
             cboLanguage.ComboBox.ValueMember = "Value";
+            cboLanguage.Items.Add(new KeyValuePair<string, string>("Português (BR)", "br"));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>("English (US)", "en"));
+            cboLanguage.SelectedIndex = idiomaAtual == "en" ? 1: 0;
+            _isInitializingLanguages = false;
+            ApplyLocalization(idiomaAtual);
+            SetupComponents();
+        }
 
             cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_PortugueseBrazil, LocalizationManager.PortugueseBrazil));
             cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_EnglishUS, LocalizationManager.English));
@@ -95,17 +108,18 @@ private void SetupComponents()
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-            // Ativa o suporte de Drag-and-Drop visual na Aba 1
+            // Aba 1 — Drag-and-Drop
             pnlCryptoDrop.AllowDrop = true;
             pnlCryptoDrop.DragEnter += PnlCryptoDrop_DragEnter;
-            pnlCryptoDrop.DragDrop += pnlCryptoDrop_DragDrop;
+            pnlCryptoDrop.DragDrop += PnlCryptoDrop_DragDrop;
 
-            // Alinha as chaves predefinidas do ComboBox de Região
+            // Aba 2 — ComboBox de região
             cboFileKey.Items.Clear();
-            cboFileKey.Items.AddRange(new string[] { "JP", "TH", "US", "KR", "ID", "EU" });
-            cboFileKey.SelectedIndex = 0; // "JP" como padrão estável
+            foreach (var (label, _) in UpdateKeys.All)
+                cboFileKey.Items.Add(label);
+            cboFileKey.SelectedIndex = 0;
 
-            // Valores de inicialização padrão sugeridos para os novos inputs da Aba 2
+            // Defaults dos campos de versão
             txtPatchVersion.Text = "JP.R7.983.00";
             txtUpdateListVer.Text = DateTime.Now.ToString("yyyyMMdd01");
             txtClientPatchNum.Text = "1";
@@ -113,7 +127,9 @@ private void SetupComponents()
             Log(Strings.UpdateList_InterfaceInitializedInMultiTabMode);
         }
 
-        #region ABA 1: VISUALIZADOR / DECRYPT DE XML
+        // ════════════════════════════════════════════════════════════════════
+        // ABA 1 — VISUALIZADOR / DECRYPT DE UPDATELIST
+        // ════════════════════════════════════════════════════════════════════
 
         private void PnlCryptoDrop_DragEnter(object? sender, DragEventArgs e)
         {
@@ -128,7 +144,6 @@ private void SetupComponents()
             if (files.Length == 0) return;
 
             string targetFile = files[0];
-
             txtXmlViewer.Clear();
             lblDropHint.Text = $"{Strings.UpdateList_Processing} {Path.GetFileName(targetFile)}...";
 
@@ -145,13 +160,12 @@ private void SetupComponents()
                     {
                         this.Invoke(() => Log($"🔒 {Strings.UpdateList_ProtectedFileDetectedTestingKey} [{selectedKeyName}]..."));
 
-                        uint[] selectedKey = GetKeysByName(selectedKeyName);
+                        uint[] selectedKey = GetKeysByLabel(selectedKeyName);
                         var reader = new UpdateReader(selectedKey);
 
                         try
                         {
                             var (header, entries) = reader.ReadUpdateList(targetFile);
-
                             if (entries != null && entries.Count > 0)
                             {
                                 byte[] rawDoc = reader.XteaDecrypt(targetFile);
@@ -174,8 +188,8 @@ private void SetupComponents()
                             this.Invoke(() => Log($"⚠️ {Strings.UpdateList_FailedWithKey} [{selectedKeyName}]. {Strings.UpdateList_StartingAutomaticBruteForceScanner}"));
                         }
 
-                        var result = UpdateKeyDetector.DetectAndSetKey(targetFile, out uint[]? autoDetectedKey, out byte[]? decryptedData, out string document);
-
+                        // Fallback: testa todas as chaves conhecidas
+                        var result = UpdateKeyDetector.DetectAndSetKey(targetFile, out _, out byte[]? decryptedData, out _);
                         if (result == UpdateResult.Sucess && decryptedData != null)
                         {
                             int num = Array.IndexOf(decryptedData, (byte)0);
@@ -199,6 +213,7 @@ private void SetupComponents()
                     }
                     else if (operacao == OperacaoEnum.Encrypt)
                     {
+                        // Arquivo já está em texto puro
                         string xmlText = File.ReadAllText(targetFile, Encoding.GetEncoding("euc-kr"));
                         string formattedXml = FormatXml(xmlText);
 
@@ -225,10 +240,24 @@ private void SetupComponents()
                 }
             });
         }
-        #endregion
 
-        #region ABA 2: GERADOR & MONITOR DE UPDATELIST
+        private void ShowDecryptedXml(byte[] rawDoc, string keyLabel)
+        {
+            int nullIdx = Array.IndexOf(rawDoc, (byte)0);
+            string xmlText = Encoding.GetEncoding("euc-kr").GetString(rawDoc, 0, nullIdx == -1 ? rawDoc.Length : nullIdx);
+            this.Invoke(() =>
+            {
+                txtXmlViewer.Text = FormatXml(xmlText);
+                lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui.");
+                Log($"✅ [{GetText("SUCCESS", "SUCESSO")}] {GetText("Decrypted with key", "Descriptografado com a chave")} [{keyLabel}]!");
+            });
+        }
 
+        // ════════════════════════════════════════════════════════════════════
+        // ABA 2 — GERADOR & MONITOR DE UPDATELIST
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Browse buttons ───────────────────────────────────────────────────
         private void btnBrowsePangya_Click(object sender, EventArgs e)
         {
             using var fbd = new FolderBrowserDialog { Description = Strings.UpdateList_SelectTheRootPangyaFolderWhere };
@@ -241,6 +270,46 @@ private void SetupComponents()
             if (fbd.ShowDialog() == DialogResult.OK) txtUpdatePath.Text = fbd.SelectedPath;
         }
 
+        private void btnBrowseExisting_Click(object sender, EventArgs e)
+        {
+            using var ofd = new OpenFileDialog
+            {
+                Title = GetText("Select existing encrypted updatelist (optional)", "Selecione o updatelist criptografado existente (opcional)"),
+                Filter = GetText("UpdateList files|updatelist*.*|All files|*.*", "Arquivos UpdateList|updatelist*.*|Todos os arquivos|*.*")
+            };
+            if (ofd.ShowDialog() == DialogResult.OK) txtExistingList.Text = ofd.FileName;
+        }
+
+        // ── GERAR AGORA (equivalente ao BtnStart_Click do sistema antigo) ───
+        private async void btnGenerateNow_Click(object sender, EventArgs e)
+        {
+            if (!ValidatePaths()) return;
+
+            btnGenerateNow.Enabled = false;
+            btnToggleWatch.Enabled = false;
+            progressBar.Value = 0;
+            progressBar.Visible = true;
+            lblStatus.Text = GetText("Scanning...", "Varrendo...");
+
+            try
+            {
+                await RunGenerationAsync(isMonitoringTrigger: false);
+                lblStatus.Text = GetText("Done!", "Pronto!");
+            }
+            catch (Exception ex)
+            {
+                Log($"❌ [{GetText("ERROR", "ERRO")}] {ex.Message}");
+                lblStatus.Text = GetText("Error.", "Erro.");
+            }
+            finally
+            {
+                progressBar.Visible = false;
+                btnGenerateNow.Enabled = true;
+                btnToggleWatch.Enabled = true;
+            }
+        }
+
+        // ── MONITORAMENTO ────────────────────────────────────────────────────
         private async void btnToggleWatch_Click(object sender, EventArgs e)
         {
             if (_isMonitoring) StopMonitoring();
@@ -263,10 +332,7 @@ private void SetupComponents()
 
             try
             {
-                string selectedKeyName = cboFileKey.SelectedItem!.ToString()!;
-                string patchVersion = txtPatchVersion.Text;
-                string updateVersion = txtUpdateListVer.Text;
-                string patchNum = txtClientPatchNum.Text;
+                await RunGenerationAsync(isMonitoringTrigger: false);
 
                 uint[] regionKeys = GetKeysByName(selectedKeyName);
 
@@ -283,6 +349,7 @@ private void SetupComponents()
 
                 _watcher = new FileSystemWatcher(pangyaPath)
                 {
+                    IncludeSubdirectories = true,
                     NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size
                 };
                 _watcher.Changed += OnFileChanged;
@@ -303,18 +370,15 @@ private void SetupComponents()
             }
             finally
             {
+                progressBar.Visible = false;
                 btnToggleWatch.Enabled = true;
             }
         }
 
         private void StopMonitoring()
         {
-            if (_watcher != null)
-            {
-                _watcher.EnableRaisingEvents = false;
-                _watcher.Dispose();
-                _watcher = null;
-            }
+            _watcher?.Dispose();
+            _watcher = null;
 
             _isMonitoring = false;
             btnToggleWatch.Text = Strings.UpdateList_StartMonitoring;
@@ -326,20 +390,21 @@ private void SetupComponents()
 
         private void OnFileChanged(object sender, FileSystemEventArgs e)
         {
-            string ext = Path.GetExtension(e.FullPath).ToLower();
+            string ext = Path.GetExtension(e.FullPath).ToLowerInvariant();
             if (ext != ".pak" && ext != ".exe" && ext != ".dll") return;
 
             lock (_generatorLock)
             {
-                Thread.Sleep(1000); // Buffer de segurança física do Windows para liberação do lock do arquivo
+                Thread.Sleep(1000); // Buffer para o Windows liberar o lock do arquivo
 
                 if (!File.Exists(e.FullPath)) return;
 
                 var info = new FileInfo(e.FullPath);
                 var currentState = new FileStateApp { Length = info.Length, LastWriteTime = info.LastWriteTime };
 
-                if (_fileCache.TryGetValue(e.FullPath, out var last) && last.Length == currentState.Length) return;
-                _fileCache[e.FullPath] = currentState;
+                if (_fileCache.TryGetValue(e.FullPath, out var last) &&
+                    last.Length == currentState.Length &&
+                    last.LastWriteTime == currentState.LastWriteTime) return;
 
                 this.Invoke(() => Log($"[{Strings.UpdateList_DETECTED}] {Strings.UpdateList_FileModification} {e.Name}"));
 
@@ -361,17 +426,15 @@ private void SetupComponents()
 
                 try
                 {
-                    string destFile = Path.Combine(destPath, e.Name!);
-                    string destFileDir = Path.GetDirectoryName(destFile)!;
-
-                    if (!Directory.Exists(destFileDir)) Directory.CreateDirectory(destFileDir);
+                    // Copia o arquivo modificado para a pasta de destino
+                    string destPath = txtUpdatePath.Text;
+                    string relative = Path.GetRelativePath(txtPangyaPath.Text, e.FullPath);
+                    string destFile = Path.Combine(destPath, relative);
+                    Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
                     File.Copy(e.FullPath, destFile, true);
 
-                    uint[] regionKeys = GetKeysByName(selectedKeyName);
-                    string finalOutputPath = Path.Combine(destPath, "updatelist");
-
-                    // Gera o patch mantendo a paridade de versões modificadas em tempo real
-                    _updateMaker?.GenerateFromDirectory(pangyaPath, finalOutputPath, regionKeys, patchVersion, updateVersion, patchNum);
+                    // Regenera o updatelist completo refletindo a mudança
+                    Task.Run(() => RunGenerationAsync(isMonitoringTrigger: true)).Wait();
 
                     this.Invoke(() => Log($"✨ [{Strings.UpdateList_COMPILED}] {Strings.UpdateList_UpdatelistSignedSuccessfullyTrigger} {e.Name}"));
                 }
@@ -382,28 +445,215 @@ private void SetupComponents()
             }
         }
 
-        #endregion
-
-        #region MÉTODOS AUXILIARES
-
-        private uint[] GetKeysByName(string name)
+        // ── LÓGICA CENTRAL DE GERAÇÃO (inclui delta comparison) ─────────────
+        /// <summary>
+        /// Executa a varredura + geração do updatelist, com delta comparison
+        /// contra um updatelist existente (se informado). Equivale ao fluxo
+        /// do BtnStart_Click do sistema antigo: escaneia, compara CRC, loga
+        /// o que mudou e gera o arquivo final criptografado.
+        /// </summary>
+        private async Task RunGenerationAsync(bool isMonitoringTrigger)
         {
-            return name.ToUpper() switch
+            string pangyaPath, destPath, existingPath, keyLabel,
+                   patchVersion, updateVersion, patchNum;
+
+            this.Invoke(() =>
             {
-                "TH" => UpdateKeys.TH,
-                "JP" => UpdateKeys.JP,
-                "US" => UpdateKeys.GB,
-                "GB" => UpdateKeys.GB,
-                "KR" => UpdateKeys.KR,
-                "ID" => UpdateKeys.ID,
-                "EU" => UpdateKeys.EU,
-                _ => UpdateKeys.JP
-            };
+                pangyaPath = txtPangyaPath.Text;
+                destPath = txtUpdatePath.Text;
+                existingPath = txtExistingList.Text;
+                keyLabel = cboFileKey.SelectedItem!.ToString()!;
+                patchVersion = txtPatchVersion.Text;
+                updateVersion = txtUpdateListVer.Text;
+                patchNum = txtClientPatchNum.Text;
+            });
+
+            // Captura local pra usar na Task (evita acesso cross-thread)
+            string _pangyaPath = string.Empty;
+            string _destPath = string.Empty;
+            string _existingPath = string.Empty;
+            string _keyLabel = string.Empty;
+            string _patchVersion = string.Empty;
+            string _updateVersion = string.Empty;
+            string _patchNum = string.Empty;
+
+            this.Invoke(() =>
+            {
+                _pangyaPath = txtPangyaPath.Text;
+                _destPath = txtUpdatePath.Text;
+                _existingPath = txtExistingList.Text;
+                _keyLabel = cboFileKey.SelectedItem!.ToString()!;
+                _patchVersion = txtPatchVersion.Text;
+                _updateVersion = txtUpdateListVer.Text;
+                _patchNum = txtClientPatchNum.Text;
+            });
+
+            uint[] regionKeys = GetKeysByLabel(_keyLabel);
+            string outputPath = Path.Combine(_destPath, "updatelist");
+            int totalFiles = 0;
+            int doneFiles = 0;
+
+            // Conta arquivos para a barra de progresso
+            await Task.Run(() =>
+            {
+                totalFiles = Directory.EnumerateFiles(_pangyaPath, "*", SearchOption.AllDirectories).Count();
+            });
+
+            this.Invoke(() =>
+            {
+                progressBar.Maximum = Math.Max(totalFiles, 1);
+                progressBar.Value = 0;
+                Log("─────────────────────────────────────────────────────");
+                Log($"📂 {GetText("Source:", "Origem:")} {_pangyaPath}");
+                Log($"🌐 {GetText("Destination:", "Destino:")} {outputPath}");
+                Log($"🔑 {GetText("Key:", "Chave:")} {_keyLabel}");
+                Log($"🏷  {GetText("Version:", "Versão:")} {_patchVersion} | Patch #{_patchNum}");
+                Log(GetText("Scanning files...", "Varrendo arquivos..."));
+            });
+
+            // ── Carrega updatelist existente para delta comparison ────────────
+            List<UpdateEntry>? existingEntries = null;
+            if (!string.IsNullOrEmpty(_existingPath) && File.Exists(_existingPath))
+            {
+                try
+                {
+                    var detectedKey = regionKeys;
+                    var result = UpdateKeyDetector.DetectAndSetKey(_existingPath, out uint[]? autoKey, out _, out _);
+                    if (result == UpdateResult.Sucess && autoKey != null)
+                        detectedKey = autoKey;
+
+                    var reader = new UpdateReader(detectedKey);
+                    var (_, loaded) = reader.ReadUpdateList(_existingPath);
+                    existingEntries = loaded;
+                    this.Invoke(() => Log($"📋 {GetText("Existing updatelist loaded:", "Updatelist existente carregado:")} {loaded.Count} {GetText("files", "arquivos")}"));
+                }
+                catch (Exception ex)
+                {
+                    this.Invoke(() => Log($"⚠️ {GetText("Could not load existing updatelist:", "Não foi possível carregar o updatelist existente:")} {ex.Message}"));
+                }
+            }
+
+            // ── Geração + progress bar ────────────────────────────────────────
+            _updateMaker = new UpdateMaker();
+            List<UpdateEntry> generatedEntries = new();
+
+            await Task.Run(() =>
+            {
+                _updateMaker.GenerateFromDirectory(
+                    _pangyaPath,
+                    outputPath,
+                    regionKeys,
+                    _patchVersion,
+                    _updateVersion,
+                    _patchNum,
+                    onProgress: (done, total) =>
+                    {
+                        this.Invoke(() =>
+                        {
+                            progressBar.Maximum = Math.Max(total, 1);
+                            progressBar.Value = Math.Min(done, total);
+                            lblStatus.Text = $"{GetText("Scanning", "Varrendo")} ({done}/{total})";
+                        });
+                    }
+                );
+            });
+
+            // ── Delta comparison — igual ao Update() do sistema antigo ────────
+            if (existingEntries != null && existingEntries.Count > 0)
+            {
+                var existingByCrc = existingEntries.ToDictionary(
+                    e => e.fname.ToLowerInvariant(),
+                    e => e.fcrc);
+
+                int newFiles = 0;
+                int changedFiles = 0;
+                int unchangedFiles = 0;
+
+                // Usa os entries gerados pelo UpdateMaker para comparação
+                var tempReader = new UpdateReader(regionKeys);
+                var (_, scanned) = tempReader.ReadUpdateList(outputPath);
+
+                foreach (var entry in scanned)
+                {
+                    string key = entry.fname.ToLowerInvariant();
+                    if (!existingByCrc.TryGetValue(key, out int existingCrc))
+                    {
+                        newFiles++;
+                        this.Invoke(() => Log($"  ➕ [{GetText("NEW", "NOVO")}] {entry.fname}"));
+                    }
+                    else if (existingCrc != entry.fcrc)
+                    {
+                        changedFiles++;
+                        this.Invoke(() => Log($"  🔄 [{GetText("CHANGED", "ALTERADO")}] {entry.fname} (CRC: {existingCrc:X8} → {entry.fcrc:X8})"));
+                    }
+                    else
+                    {
+                        unchangedFiles++;
+                    }
+                }
+
+                this.Invoke(() =>
+                {
+                    Log("─────────────────────────────────────────────────────");
+                    Log($"📊 {GetText("Delta Summary", "Resumo Delta")}: "
+                      + $"➕ {newFiles} {GetText("new", "novos")} | "
+                      + $"🔄 {changedFiles} {GetText("changed", "alterados")} | "
+                      + $"✅ {unchangedFiles} {GetText("unchanged", "sem alteração")}");
+                });
+            }
+
+            this.Invoke(() =>
+            {
+                Log($"✅ [{GetText("DONE", "PRONTO")}] {GetText("updatelist generated at:", "updatelist gerado em:")} {outputPath}");
+                Log("─────────────────────────────────────────────────────");
+            });
         }
+
+        // ── Validação de campos ──────────────────────────────────────────────
+        private bool ValidatePaths()
+        {
+            if (!Directory.Exists(txtPangyaPath.Text))
+            {
+                MessageBox.Show(
+                    GetText("The Pangya source folder is invalid.", "A pasta de origem do Pangya é inválida."),
+                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            if (!Directory.Exists(txtUpdatePath.Text))
+            {
+                MessageBox.Show(
+                    GetText("The WebServer destination folder is invalid.", "A pasta do WebServer de destino é inválida."),
+                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(txtPatchVersion.Text))
+            {
+                MessageBox.Show(
+                    GetText("Please fill in the Patch Version.", "Por favor, preencha a Versão do Patch."),
+                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // MÉTODOS AUXILIARES
+        // ════════════════════════════════════════════════════════════════════
+
+        private uint[] GetKeysByLabel(string label) =>
+            UpdateKeys.All.FirstOrDefault(k => string.Equals(k.Label, label, StringComparison.OrdinalIgnoreCase)).Keys
+            ?? UpdateKeys.JP;
 
         private void Log(string text)
         {
-            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {text}{Environment.NewLine}");
+            string line = $"[{DateTime.Now:HH:mm:ss}] {text}{Environment.NewLine}";
+            if (InvokeRequired) this.Invoke(() => AppendLog(line));
+            else AppendLog(line);
+        }
+
+        private void AppendLog(string line)
+        {
+            txtLog.AppendText(line);
             txtLog.SelectionStart = txtLog.Text.Length;
             txtLog.ScrollToCaret();
         }
@@ -413,40 +663,27 @@ private void SetupComponents()
             try
             {
                 if (string.IsNullOrWhiteSpace(rawXml)) return string.Empty;
-
-                // Trata possíveis quebras incorretas ou espaços no início/fim antes do parse
                 rawXml = rawXml.Trim();
-
                 var doc = System.Xml.Linq.XDocument.Parse(rawXml);
                 var settings = new System.Xml.XmlWriterSettings
                 {
                     Indent = true,
-                    IndentChars = "    ", // 4 Espaços para manter legível
-                    NewLineOnAttributes = false, // Atributos na mesma linha
+                    IndentChars = "    ",
+                    NewLineOnAttributes = false,
                     OmitXmlDeclaration = false,
-                    NewLineHandling = System.Xml.NewLineHandling.Replace, // Força o tratamento de novas linhas
-                    NewLineChars = "\r\n" // Garante o padrão do Windows (CRLF) exigido pelo TextBox
+                    NewLineHandling = System.Xml.NewLineHandling.Replace,
+                    NewLineChars = "\r\n"
                 };
-
-                using var stringWriter = new StringWriter();
-                using (var xmlWriter = System.Xml.XmlWriter.Create(stringWriter, settings))
-                {
-                    doc.Save(xmlWriter);
-                }
-
-                string result = stringWriter.ToString();
-
-                // Garantia extra: se o XmlWriter ainda deixar passar algum '\n' isolado, 
-                // normaliza tudo para o padrão que o TextBox do WinForms aceita
-                return result.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
+                using var sw = new StringWriter();
+                using (var xw = System.Xml.XmlWriter.Create(sw, settings))
+                    doc.Save(xw);
+                return sw.ToString().Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
             }
             catch
             {
-                // Fallback de segurança: Caso falhe, tenta pelo menos normalizar as quebras brutas
                 return rawXml.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
             }
         }
-        #endregion
     }
 
     public class FileStateApp

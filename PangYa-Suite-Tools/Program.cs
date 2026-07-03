@@ -57,7 +57,7 @@ namespace PangYa_Suite_Tools
 
                 if (File.Exists(filePath) && filePath.EndsWith(".pak", StringComparison.OrdinalIgnoreCase))
                 {
-                    Application.Run(new FrmPakMaker(filePath));
+                    Application.Run(new FrmPakMaker("en",filePath));
                     return;
                 }
             }

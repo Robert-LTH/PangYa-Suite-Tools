@@ -1,6 +1,5 @@
 using PangyaAPI.Utilities.Cryptography;
 using System.Text;
-using System.Xml;
 
 namespace PangyaAPI.UpdateList.Models
 {
@@ -40,9 +39,8 @@ namespace PangyaAPI.UpdateList.Models
         }
 
         /// <summary>
-        /// Monta o elemento &lt;fileinfo .../&gt; iterando sobre UpdateEntryFieldMap.Fields,
-        /// em vez de uma interpolação manual com os 8 nomes de atributo hardcoded — assim
-        /// qualquer campo adicionado ao mapa aparece aqui automaticamente.
+        /// Monta o elemento &lt;fileinfo /&gt; iterando sobre UpdateEntryFieldMap.Fields —
+        /// espelha exatamente o ToString() do FileItem original (XMLParser.cs).
         /// </summary>
         private static string BuildFileInfoElement(UpdateEntry entry)
         {
@@ -59,20 +57,18 @@ namespace PangyaAPI.UpdateList.Models
             return sb.ToString();
         }
 
-        /// <summary>Escapa caracteres especiais de XML em valores de atributo (nomes de arquivo podem conter & " etc.).</summary>
-        private static string XmlEscape(string? value) => SecurityElementEscape(value ?? "");
-
-        private static string SecurityElementEscape(string value) =>
-            value.Replace("&", "&amp;")
-                 .Replace("\"", "&quot;")
-                 .Replace("'", "&apos;")
-                 .Replace("<", "&lt;")
-                 .Replace(">", "&gt;");
+        private static string XmlEscape(string? value) =>
+            (value ?? "")
+                .Replace("&",  "&amp;")
+                .Replace("\"", "&quot;")
+                .Replace("'",  "&apos;")
+                .Replace("<",  "&lt;")
+                .Replace(">",  "&gt;");
 
         public byte[] XteaEncrypt(byte[] rawData)
         {
-            Xtea.EncipherStreamPadNull(_cryptoKeys, new MemoryStream(rawData), out byte[] _result);
-            return _result;
+            Xtea.EncipherStreamPadNull(_cryptoKeys, new MemoryStream(rawData), out byte[] result);
+            return result;
         }
     }
 }

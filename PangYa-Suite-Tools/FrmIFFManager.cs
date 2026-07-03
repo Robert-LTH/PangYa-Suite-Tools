@@ -16,6 +16,20 @@ namespace PangYa_Suite_Tools
             Disposed += (_, _) => LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
         }
 
+        public FrmIFFManager(string idiomaAtual)
+        {
+            InitializeComponent();
+            cboLanguage.ComboBox.DisplayMember = "Key";
+            cboLanguage.ComboBox.ValueMember = "Value";
+
+            cboLanguage.Items.Add(new KeyValuePair<string, string>("Português (BR)", "br"));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>("English (US)", "en"));
+            cboLanguage.SelectedIndex = idiomaAtual == "en" ? 1 : 0;
+
+            isInitializingLanguages = false;
+            ApplyLocalization(idiomaAtual);
+        }
+
         private void InitializeLanguageComboBox()
         {
             cboLanguage.ComboBox.DisplayMember = "Key";

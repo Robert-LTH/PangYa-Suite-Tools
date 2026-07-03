@@ -40,8 +40,26 @@ namespace PangYa_Suite_Tools
         }
 
 
-        public FrmPakMaker(string initialPakPath) : this()
+        public FrmPakMaker(string idiomaAtual, string initialPakPath) 
         {
+            InitializeComponent();
+            cboLanguage.ComboBox.DisplayMember = "Key";
+            cboLanguage.ComboBox.ValueMember = "Value";
+
+            // Usando KeyValuePair para garantir tipagem forte e evitar bugs no ToolStrip
+            cboLanguage.Items.Add(new KeyValuePair<string, string>("Português (BR)", "br"));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>("English (US)", "en"));
+            cboLanguage.SelectedIndex = idiomaAtual == "en" ? 1 : 0;
+
+            isInitializingLanguages = false;
+
+            // Executa a primeira tradução com base na seleção inicial
+            ApplyLocalization(idiomaAtual);
+            SetupCustomComponents();
+            LoadSetupOptions();
+            SetupContextMenu(); // Inicializa o menu de contexto da ListView
+            CleanupOldTempDragFolders(); // Remove resíduos de exportações de drag-out de execuções anteriores
+
             this.Shown += (s, e) =>
             {
                 if (!string.IsNullOrEmpty(initialPakPath) && File.Exists(initialPakPath))
@@ -164,7 +182,7 @@ namespace PangYa_Suite_Tools
             this.DragEnter += FrmPakMaker_DragEnter;
             this.DragLeave += FrmPakMaker_DragLeave;
             this.DragDrop += FrmPakMaker_DragDrop;
-            tvFolders.CheckBoxes = true; 
+            tvFolders.CheckBoxes = true;
             lstEntries.MultiSelect = true;
             lstEntries.DoubleClick += LstEntries_DoubleClick;
             tvFolders.AfterSelect += TvFolders_AfterSelect;
@@ -1640,7 +1658,7 @@ namespace PangYa_Suite_Tools
                         //minha tecnica antiga para criar paks raw
                         if (selectedVersion == PakFileEntryVersion.Raw)
                         {
-                            selectedKeys = Array.Empty<uint>(); // Ou mantenha null se o Writer aceitar
+                            selectedKeys = Array.Empty<uint>(); 
                         }
 
                         //tambem tem a versao raw ou universal key, que nao inserimos chave, pois ela se trata de dados brutos diferentes

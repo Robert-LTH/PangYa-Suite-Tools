@@ -1,5 +1,4 @@
 ﻿using System.Xml.Linq;
-
 namespace PangYa_Suite_Tools
 {
     partial class FrmUpdateList
@@ -9,9 +8,7 @@ namespace PangYa_Suite_Tools
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
-            {
                 components.Dispose();
-            }
             base.Dispose(disposing);
         }
 
@@ -26,27 +23,34 @@ namespace PangYa_Suite_Tools
             txtXmlViewer = new TextBox();
             tabGenerator = new TabPage();
             grpConfig = new GroupBox();
-            txtClientPatchNum = new TextBox();
-            lblClientPatchNum = new Label();
-            txtUpdateListVer = new TextBox();
-            lblUpdateListVer = new Label();
-            txtPatchVersion = new TextBox();
-            lblPatchVersion = new Label();
-            cboFileKey = new ComboBox();
-            lblFileKey = new Label();
-            btnBrowseUpdate = new Button();
-            txtUpdatePath = new TextBox();
-            lblUpdatePath = new Label();
-            btnBrowsePangya = new Button();
-            txtPangyaPath = new TextBox();
             lblPangyaPath = new Label();
+            txtPangyaPath = new TextBox();
+            btnBrowsePangya = new Button();
+            lblUpdatePath = new Label();
+            txtUpdatePath = new TextBox();
+            btnBrowseUpdate = new Button();
+            lblExistingList = new Label();
+            txtExistingList = new TextBox();
+            btnBrowseExisting = new Button();
+            lblFileKey = new Label();
+            cboFileKey = new ComboBox();
+            lblPatchVersion = new Label();
+            txtPatchVersion = new TextBox();
+            lblUpdateListVer = new Label();
+            txtUpdateListVer = new TextBox();
+            lblClientPatchNum = new Label();
+            txtClientPatchNum = new TextBox();
+            btnGenerateNow = new Button();
             btnToggleWatch = new Button();
             lblWatchStatus = new Label();
-            txtLog = new TextBox();
+            progressBar = new ProgressBar();
+            lblStatus = new Label();
             lblLog = new Label();
+            txtLog = new TextBox();
             statusStrip1 = new StatusStrip();
             lblLanguage = new ToolStripStatusLabel();
             cboLanguage = new ToolStripComboBox();
+
             tabMain.SuspendLayout();
             tabDecrypt.SuspendLayout();
             pnlCryptoDrop.SuspendLayout();
@@ -54,31 +58,24 @@ namespace PangYa_Suite_Tools
             grpConfig.SuspendLayout();
             statusStrip1.SuspendLayout();
             SuspendLayout();
-            // 
-            // tabMain
-            // 
             tabMain.Controls.Add(tabDecrypt);
             tabMain.Controls.Add(tabGenerator);
             tabMain.Dock = DockStyle.Fill;
             tabMain.Location = new Point(0, 0);
             tabMain.Name = "tabMain";
             tabMain.SelectedIndex = 0;
-            tabMain.Size = new Size(784, 538);
+            tabMain.Size = new Size(784, 572);
             tabMain.TabIndex = 0;
-            // 
-            // tabDecrypt
-            // 
             tabDecrypt.Controls.Add(pnlCryptoDrop);
             tabDecrypt.Controls.Add(txtXmlViewer);
             tabDecrypt.Location = new Point(4, 24);
             tabDecrypt.Name = "tabDecrypt";
             tabDecrypt.Padding = new Padding(3);
-            tabDecrypt.Size = new Size(776, 510);
+            tabDecrypt.Size = new Size(776, 544);
             tabDecrypt.TabIndex = 0;
             tabDecrypt.UseVisualStyleBackColor = true;
-            // 
+
             // pnlCryptoDrop
-            // 
             pnlCryptoDrop.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             pnlCryptoDrop.BackColor = Color.GhostWhite;
             pnlCryptoDrop.BorderStyle = BorderStyle.FixedSingle;
@@ -87,9 +84,8 @@ namespace PangYa_Suite_Tools
             pnlCryptoDrop.Name = "pnlCryptoDrop";
             pnlCryptoDrop.Size = new Size(760, 100);
             pnlCryptoDrop.TabIndex = 0;
-            // 
+
             // lblDropHint
-            // 
             lblDropHint.Dock = DockStyle.Fill;
             lblDropHint.Font = new Font("Segoe UI", 10F, FontStyle.Italic);
             lblDropHint.ForeColor = Color.RoyalBlue;
@@ -98,9 +94,8 @@ namespace PangYa_Suite_Tools
             lblDropHint.Size = new Size(758, 98);
             lblDropHint.TabIndex = 0;
             lblDropHint.TextAlign = ContentAlignment.MiddleCenter;
-            // 
+
             // txtXmlViewer
-            // 
             txtXmlViewer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             txtXmlViewer.BackColor = Color.White;
             txtXmlViewer.Font = new Font("Consolas", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
@@ -110,44 +105,44 @@ namespace PangYa_Suite_Tools
             txtXmlViewer.Name = "txtXmlViewer";
             txtXmlViewer.ReadOnly = true;
             txtXmlViewer.ScrollBars = ScrollBars.Both;
-            txtXmlViewer.Size = new Size(760, 390);
+            txtXmlViewer.Size = new Size(760, 424);
             txtXmlViewer.TabIndex = 1;
-            // 
-            // tabGenerator
-            // 
             tabGenerator.Controls.Add(grpConfig);
+            tabGenerator.Controls.Add(btnGenerateNow);
             tabGenerator.Controls.Add(btnToggleWatch);
             tabGenerator.Controls.Add(lblWatchStatus);
-            tabGenerator.Controls.Add(txtLog);
+            tabGenerator.Controls.Add(progressBar);
+            tabGenerator.Controls.Add(lblStatus);
             tabGenerator.Controls.Add(lblLog);
+            tabGenerator.Controls.Add(txtLog);
             tabGenerator.Location = new Point(4, 24);
             tabGenerator.Name = "tabGenerator";
             tabGenerator.Padding = new Padding(3);
-            tabGenerator.Size = new Size(776, 510);
+            tabGenerator.Size = new Size(776, 544);
             tabGenerator.TabIndex = 1;
             tabGenerator.UseVisualStyleBackColor = true;
-            // 
-            // grpConfig
-            // 
             grpConfig.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            grpConfig.Controls.Add(txtClientPatchNum);
-            grpConfig.Controls.Add(lblClientPatchNum);
-            grpConfig.Controls.Add(txtUpdateListVer);
-            grpConfig.Controls.Add(lblUpdateListVer);
-            grpConfig.Controls.Add(txtPatchVersion);
-            grpConfig.Controls.Add(lblPatchVersion);
-            grpConfig.Controls.Add(cboFileKey);
-            grpConfig.Controls.Add(lblFileKey);
-            grpConfig.Controls.Add(btnBrowseUpdate);
-            grpConfig.Controls.Add(txtUpdatePath);
-            grpConfig.Controls.Add(lblUpdatePath);
-            grpConfig.Controls.Add(btnBrowsePangya);
-            grpConfig.Controls.Add(txtPangyaPath);
             grpConfig.Controls.Add(lblPangyaPath);
+            grpConfig.Controls.Add(txtPangyaPath);
+            grpConfig.Controls.Add(btnBrowsePangya);
+            grpConfig.Controls.Add(lblUpdatePath);
+            grpConfig.Controls.Add(txtUpdatePath);
+            grpConfig.Controls.Add(btnBrowseUpdate);
+            grpConfig.Controls.Add(lblExistingList);
+            grpConfig.Controls.Add(txtExistingList);
+            grpConfig.Controls.Add(btnBrowseExisting);
+            grpConfig.Controls.Add(lblFileKey);
+            grpConfig.Controls.Add(cboFileKey);
+            grpConfig.Controls.Add(lblPatchVersion);
+            grpConfig.Controls.Add(txtPatchVersion);
+            grpConfig.Controls.Add(lblUpdateListVer);
+            grpConfig.Controls.Add(txtUpdateListVer);
+            grpConfig.Controls.Add(lblClientPatchNum);
+            grpConfig.Controls.Add(txtClientPatchNum);
             grpConfig.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpConfig.Location = new Point(8, 6);
             grpConfig.Name = "grpConfig";
-            grpConfig.Size = new Size(760, 185);
+            grpConfig.Size = new Size(760, 235);   // +50 pra nova linha
             grpConfig.TabIndex = 0;
             grpConfig.TabStop = false;
             // 
@@ -284,32 +279,52 @@ namespace PangYa_Suite_Tools
             btnToggleWatch.BackColor = Color.LightGreen;
             btnToggleWatch.FlatStyle = FlatStyle.Flat;
             btnToggleWatch.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            btnToggleWatch.Location = new Point(8, 203);
+            btnToggleWatch.Location = new Point(256, 253);
             btnToggleWatch.Name = "btnToggleWatch";
             btnToggleWatch.Size = new Size(240, 45);
             btnToggleWatch.TabIndex = 1;
             btnToggleWatch.UseVisualStyleBackColor = false;
             btnToggleWatch.Click += btnToggleWatch_Click;
-            // 
-            // lblWatchStatus
-            // 
             lblWatchStatus.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             lblWatchStatus.BorderStyle = BorderStyle.Fixed3D;
             lblWatchStatus.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
             lblWatchStatus.ForeColor = Color.DimGray;
-            lblWatchStatus.Location = new Point(256, 203);
+            lblWatchStatus.Location = new Point(504, 253);
             lblWatchStatus.Name = "lblWatchStatus";
             lblWatchStatus.Size = new Size(512, 45);
             lblWatchStatus.TabIndex = 2;
             lblWatchStatus.TextAlign = ContentAlignment.MiddleCenter;
-            // 
-            // txtLog
-            // 
+            progressBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            progressBar.Location = new Point(8, 306);
+            progressBar.Name = "progressBar";
+            progressBar.Size = new Size(680, 18);
+            progressBar.Style = ProgressBarStyle.Continuous;
+            progressBar.TabIndex = 4;
+            progressBar.Visible = false;
+
+            lblStatus.AutoSize = false;
+            lblStatus.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lblStatus.Font = new Font("Segoe UI", 8.5F);
+            lblStatus.ForeColor = Color.DimGray;
+            lblStatus.Location = new Point(694, 306);
+            lblStatus.Name = "lblStatus";
+            lblStatus.Size = new Size(74, 18);
+            lblStatus.TabIndex = 5;
+            lblStatus.TextAlign = ContentAlignment.MiddleLeft;
+
+            lblLog.AutoSize = true;
+            lblLog.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblLog.Location = new Point(8, 332);
+            lblLog.Name = "lblLog";
+            lblLog.Size = new Size(142, 15);
+            lblLog.TabIndex = 6;
+            lblLog.Text = "Log / Terminal:";
+
             txtLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             txtLog.BackColor = Color.Black;
             txtLog.Font = new Font("Consolas", 9F);
             txtLog.ForeColor = Color.Cyan;
-            txtLog.Location = new Point(8, 275);
+            txtLog.Location = new Point(8, 350);
             txtLog.Multiline = true;
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
@@ -329,13 +344,11 @@ namespace PangYa_Suite_Tools
             // statusStrip1
             // 
             statusStrip1.Items.AddRange(new ToolStripItem[] { lblLanguage, cboLanguage });
-            statusStrip1.Location = new Point(0, 538);
+            statusStrip1.Location = new Point(0, 572);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Size = new Size(784, 23);
             statusStrip1.TabIndex = 1;
-            // 
-            // lblLanguage
-            // 
+
             lblLanguage.Name = "lblLanguage";
             lblLanguage.Size = new Size(47, 18);
             // 
@@ -345,18 +358,20 @@ namespace PangYa_Suite_Tools
             cboLanguage.Name = "cboLanguage";
             cboLanguage.Size = new Size(120, 23);
             cboLanguage.SelectedIndexChanged += cboLanguage_SelectedIndexChanged;
-            // 
+
+            // ─────────────────────────────────────────────────────────────────
             // FrmUpdateList
-            // 
+            // ─────────────────────────────────────────────────────────────────
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(784, 561);
+            ClientSize = new Size(784, 595); 
             Controls.Add(tabMain);
             Controls.Add(statusStrip1);
-            MinimumSize = new Size(800, 600);
+            MinimumSize = new Size(800, 634);
             Name = "FrmUpdateList";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "Updatelist - Interface";
+            Text = "UpdateList Manager";
+
             tabMain.ResumeLayout(false);
             tabDecrypt.ResumeLayout(false);
             tabDecrypt.PerformLayout();
@@ -373,33 +388,58 @@ namespace PangYa_Suite_Tools
 
         #endregion
 
-        private System.Windows.Forms.TabControl tabMain;
-        private System.Windows.Forms.TabPage tabDecrypt;
-        private System.Windows.Forms.TabPage tabGenerator;
-        private System.Windows.Forms.TextBox txtXmlViewer;
-        private System.Windows.Forms.GroupBox grpConfig;
-        private System.Windows.Forms.Button btnBrowseUpdate;
-        private System.Windows.Forms.TextBox txtUpdatePath;
-        private System.Windows.Forms.Label lblUpdatePath;
-        private System.Windows.Forms.Button btnBrowsePangya;
-        private System.Windows.Forms.TextBox txtPangyaPath;
-        private System.Windows.Forms.Label lblPangyaPath;
-        private System.Windows.Forms.TextBox txtPatchVersion;
-        private System.Windows.Forms.Label lblPatchVersion;
-        private System.Windows.Forms.TextBox txtUpdateListVer;
-        private System.Windows.Forms.Label lblUpdateListVer;
-        private System.Windows.Forms.TextBox txtClientPatchNum;
-        private System.Windows.Forms.Label lblClientPatchNum;
-        private System.Windows.Forms.ComboBox cboFileKey;
-        private System.Windows.Forms.Label lblFileKey;
-        private System.Windows.Forms.Button btnToggleWatch;
-        private System.Windows.Forms.Label lblWatchStatus;
-        private System.Windows.Forms.Panel pnlCryptoDrop;
-        private System.Windows.Forms.Label lblDropHint;
-        private System.Windows.Forms.TextBox txtLog;
-        private System.Windows.Forms.Label lblLog;
-        private System.Windows.Forms.StatusStrip statusStrip1;
-        private System.Windows.Forms.ToolStripStatusLabel lblLanguage;
-        private System.Windows.Forms.ToolStripComboBox cboLanguage;
+        // ── Controles — Aba 1 ────────────────────────────────────────────────
+        private TabControl tabMain;
+        private TabPage tabDecrypt;
+        private Panel pnlCryptoDrop;
+        private Label lblDropHint;
+        private TextBox txtXmlViewer;
+
+        // ── Controles — Aba 2 ────────────────────────────────────────────────
+        private TabPage tabGenerator;
+        private GroupBox grpConfig;
+
+        // linha 1: Pangya
+        private Label lblPangyaPath;
+        private TextBox txtPangyaPath;
+        private Button btnBrowsePangya;
+
+        // linha 2: WebServer
+        private Label lblUpdatePath;
+        private TextBox txtUpdatePath;
+        private Button btnBrowseUpdate;
+
+        // linha 3: Updatelist existente (NOVO)
+        private Label lblExistingList;
+        private TextBox txtExistingList;
+        private Button btnBrowseExisting;
+
+        // linha 4: Região + versões
+        private Label lblFileKey;
+        private ComboBox cboFileKey;
+        private Label lblPatchVersion;
+        private TextBox txtPatchVersion;
+        private Label lblUpdateListVer;
+        private TextBox txtUpdateListVer;
+        private Label lblClientPatchNum;
+        private TextBox txtClientPatchNum;
+
+        // botões de ação
+        private Button btnGenerateNow;    // NOVO
+        private Button btnToggleWatch;
+        private Label lblWatchStatus;
+
+        // progresso (NOVOS)
+        private ProgressBar progressBar;
+        private Label lblStatus;
+
+        // log
+        private Label lblLog;
+        private TextBox txtLog;
+
+        // status strip
+        private StatusStrip statusStrip1;
+        private ToolStripStatusLabel lblLanguage;
+        private ToolStripComboBox cboLanguage;
     }
 }

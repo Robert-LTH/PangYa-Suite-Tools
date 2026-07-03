@@ -8,43 +8,16 @@ namespace PangYa_Suite_Tools
     public partial class FrmMenu : Form
     {
         private bool isInitializingLanguages = true;
-        [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
-        private static extern void SHChangeNotify(uint wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
 
+        // Caminho no registro para salvar as configurações da Suite
+        private const string RegistryKeyPath = @"Software\PangYaSuiteTools";
+        private const string LanguageValueName = "Language";
         public FrmMenu()
         {
             InitializeComponent();
             InitializeLanguageComboBox();
             LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
             Disposed += (_, _) => LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
-        }
-
-
-        public FrmMenu(string[] args) : this()
-        {
-            if (args != null && args.Length > 0)
-            {
-                string filePath = args[0];
-
-                // Verifica se o arquivo existe e se é uma extensão .pak
-                if (File.Exists(filePath) && filePath.EndsWith(".pak", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Mudamos para o evento 'Shown', que garante uma alternância visual muito mais limpa e sem bugs
-                    this.Shown += (s, e) =>
-                    {
-                        // Oculta o menu principal
-                        this.Hide();
-
-                        // Cria a instância do PakMaker passando o arquivo
-                        FrmPakMaker pakMaker = new(filePath);
-
-                        // Quando o PakMaker fechar, fecha o programa inteiro de forma limpa
-                        pakMaker.FormClosed += (sender, formArgs) => this.Close();
-
-                        pakMaker.Show();
-                    };
-                }
-            }
         }
 
         private void InitializeLanguageComboBox()
@@ -91,28 +64,49 @@ namespace PangYa_Suite_Tools
 
         private void btnOpenPakMaker_Click(object sender, EventArgs e)
         {
-            var pakMaker = new FrmPakMaker();
+            string idiomaAtual = "en";
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
+            {
+                idiomaAtual = selectedItem.Value;
+            }
+
             this.Hide();
-            pakMaker.ShowDialog();
+            using (var pakMaker = new FrmPakMaker(idiomaAtual, ""))
+            {
+                pakMaker.ShowDialog();
+            }
             this.Show();
         }
 
         private void btnOpenUpdateList_Click(object sender, EventArgs e)
         {
-            var updateList = new FrmUpdateList();
+            string idiomaAtual = "en";
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
+            {
+                idiomaAtual = selectedItem.Value;
+            }
+
             this.Hide();
-            updateList.ShowDialog();
+            using (var updateList = new FrmUpdateList(idiomaAtual))
+            {
+                updateList.ShowDialog();
+            }
             this.Show();
         }
 
         private void btnOpenIffManager_Click(object sender, EventArgs e)
         {
-            // Vai demorar muito para mim fazer-lo, pois o codigo precisa ser bem organizado
-            // Eu poderia fazer-lo 1 dia, mas eu tenho outras tarefas.
-            // A base sera bem fraca no inicio, mas depois que toma forma, fica algo gigantesco.
-            var iffManager = new FrmIFFManager();
+            string idiomaAtual = "en";
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
+            {
+                idiomaAtual = selectedItem.Value;
+            }
+
             this.Hide();
-            iffManager.ShowDialog();
+            using (var iffManager = new FrmIFFManager(idiomaAtual))
+            {
+                iffManager.ShowDialog();
+            }
             this.Show();
         }
 
@@ -123,6 +117,7 @@ namespace PangYa_Suite_Tools
             {
                 frmOptions.ShowDialog();
             }
+            this.Show();
         }
 
         
