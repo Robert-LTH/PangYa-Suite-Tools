@@ -13,6 +13,20 @@ namespace PangYa_Suite_Tools
             InitializeLanguageComboBox();
         }
 
+        public FrmIFFManager(string idiomaAtual)
+        {
+            InitializeComponent();
+            cboLanguage.ComboBox.DisplayMember = "Key";
+            cboLanguage.ComboBox.ValueMember = "Value";
+
+            cboLanguage.Items.Add(new KeyValuePair<string, string>("Português (BR)", "br"));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>("English (US)", "en"));
+            cboLanguage.SelectedIndex = idiomaAtual == "en" ? 1 : 0;
+
+            isInitializingLanguages = false;
+            ApplyLocalization(idiomaAtual);
+        }
+
         private void InitializeLanguageComboBox()
         {
             cboLanguage.ComboBox.DisplayMember = "Key";

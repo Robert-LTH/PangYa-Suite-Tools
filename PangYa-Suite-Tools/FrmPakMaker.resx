@@ -117,10 +117,206 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <metadata name="toolTip1.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-    <value>132, 17</value>
-  </metadata>
   <metadata name="statusStrip1.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>17, 17</value>
   </metadata>
+  <data name="FrmPakMaker_br" xml:space="preserve">
+    <value>PakManager - Interface do Desenvolvedor</value>
+  </data>
+  <data name="FrmPakMaker_en" xml:space="preserve">
+    <value>PakManager - Developer Interface</value>
+  </data>
+  <data name="lblLanguage_br" xml:space="preserve">
+    <value>Idioma:</value>
+  </data>
+  <data name="lblLanguage_en" xml:space="preserve">
+    <value>Language:</value>
+  </data>
+  <data name="lblStatus_br" xml:space="preserve">
+    <value>Pronto</value>
+  </data>
+  <data name="lblStatus_en" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+
+  <data name="tabExtract_br" xml:space="preserve">
+    <value>Leitor &amp; Modificações</value>
+  </data>
+  <data name="tabExtract_en" xml:space="preserve">
+    <value>Reader &amp; Modifications</value>
+  </data>
+  <data name="btnBrowsePak_br" xml:space="preserve">
+    <value>Buscar...</value>
+  </data>
+  <data name="btnBrowsePak_en" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="txtPakPathHint_br" xml:space="preserve">
+    <value>Arraste um arquivo .pak aqui ou clique em Buscar...</value>
+  </data>
+  <data name="txtPakPathHint_en" xml:space="preserve">
+    <value>Drag a .pak file here or click Browse...</value>
+  </data>
+
+  <data name="groupHeader_br" xml:space="preserve">
+    <value>Informações do Cabeçalho</value>
+  </data>
+  <data name="groupHeader_en" xml:space="preserve">
+    <value>Header Information</value>
+  </data>
+  <data name="lblAuthor_br" xml:space="preserve">
+    <value>Autor: ---</value>
+  </data>
+  <data name="lblAuthor_en" xml:space="preserve">
+    <value>Author: ---</value>
+  </data>
+  <data name="lblVersion_br" xml:space="preserve">
+    <value>Versão: ---</value>
+  </data>
+  <data name="lblVersion_en" xml:space="preserve">
+    <value>Version: ---</value>
+  </data>
+  <data name="lblEntries_br" xml:space="preserve">
+    <value>Entradas: ---</value>
+  </data>
+  <data name="lblEntries_en" xml:space="preserve">
+    <value>Entries: ---</value>
+  </data>
+
+  <data name="lblSearch_br" xml:space="preserve">
+    <value>🔎 Pesquisar:</value>
+  </data>
+  <data name="lblSearch_en" xml:space="preserve">
+    <value>🔎 Search:</value>
+  </data>
+  <data name="txtSearchHint_br" xml:space="preserve">
+    <value>Filtrar por nome do objeto/arquivo...</value>
+  </data>
+  <data name="txtSearchHint_en" xml:space="preserve">
+    <value>Filter by object/file name...</value>
+  </data>
+  <data name="lblCurrentPath_br" xml:space="preserve">
+    <value>📂 Caminho: (todos os arquivos)</value>
+  </data>
+  <data name="lblCurrentPath_en" xml:space="preserve">
+    <value>📂 Path: (all files)</value>
+  </data>
+
+  <data name="btnExtractSelected_br" xml:space="preserve">
+    <value>📤 EXTRAIR SELECIONADO(S)</value>
+  </data>
+  <data name="btnExtractSelected_en" xml:space="preserve">
+    <value>📤 EXTRACT SELECTED</value>
+  </data>
+  <data name="btnRemoveSelected_br" xml:space="preserve">
+    <value>🗑️ REMOVER SELECIONADO(S)</value>
+  </data>
+  <data name="btnRemoveSelected_en" xml:space="preserve">
+    <value>🗑️ REMOVE SELECTED</value>
+  </data>
+  <data name="btnBatchExtract_br" xml:space="preserve">
+    <value>📂 EXTRAIR PASTA (LOTE)</value>
+  </data>
+  <data name="btnBatchExtract_en" xml:space="preserve">
+    <value>📂 BATCH EXTRACT FOLDER</value>
+  </data>
+  <data name="btnUpdatePak_br" xml:space="preserve">
+    <value>🔄 INJETAR / ATUALIZAR</value>
+  </data>
+  <data name="btnUpdatePak_en" xml:space="preserve">
+    <value>🔄 INJECT / UPDATE</value>
+  </data>
+  <data name="btnExtractAll_br" xml:space="preserve">
+    <value>💥 EXTRAIR TUDO</value>
+  </data>
+  <data name="btnExtractAll_en" xml:space="preserve">
+    <value>💥 EXTRACT ALL</value>
+  </data>
+
+  <data name="colName_br" xml:space="preserve">
+    <value>Nome do Arquivo</value>
+  </data>
+  <data name="colName_en" xml:space="preserve">
+    <value>File Name</value>
+  </data>
+  <data name="colType_br" xml:space="preserve">
+    <value>Tipo</value>
+  </data>
+  <data name="colType_en" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="colSize_br" xml:space="preserve">
+    <value>Tamanho Real</value>
+  </data>
+  <data name="colSize_en" xml:space="preserve">
+    <value>Original Size</value>
+  </data>
+  <data name="colCompSize_br" xml:space="preserve">
+    <value>Tam. Compactado</value>
+  </data>
+  <data name="colCompSize_en" xml:space="preserve">
+    <value>Compressed Size</value>
+  </data>
+
+  <data name="lblNewKey_br" xml:space="preserve">
+    <value>🔑 Nova Chave (XTEA):</value>
+  </data>
+  <data name="lblNewKey_en" xml:space="preserve">
+    <value>🔑 New Key (XTEA):</value>
+  </data>
+  <data name="btnChangeKey_br" xml:space="preserve">
+    <value>🔐 TROCAR CHAVE DO PAK</value>
+  </data>
+  <data name="btnChangeKey_en" xml:space="preserve">
+    <value>🔐 CHANGE PAK CIPHER KEY</value>
+  </data>
+
+  <data name="tabCreate_br" xml:space="preserve">
+    <value>Criar Novo PAK</value>
+  </data>
+  <data name="tabCreate_en" xml:space="preserve">
+    <value>Create New PAK</value>
+  </data>
+  <data name="txtSourceFolderHint_br" xml:space="preserve">
+    <value>Arraste uma pasta aqui...</value>
+  </data>
+  <data name="txtSourceFolderHint_en" xml:space="preserve">
+    <value>Drag a folder here...</value>
+  </data>
+  <data name="btnBrowseFolder_br" xml:space="preserve">
+    <value>Selecionar...</value>
+  </data>
+  <data name="btnBrowseFolder_en" xml:space="preserve">
+    <value>Select Folder...</value>
+  </data>
+  <data name="lblVol_br" xml:space="preserve">
+    <value>Versão da Entrada:</value>
+  </data>
+  <data name="lblVol_en" xml:space="preserve">
+    <value>Entry Version:</value>
+  </data>
+  <data name="lblComp_br" xml:space="preserve">
+    <value>Tipo de Compressão:</value>
+  </data>
+  <data name="lblComp_en" xml:space="preserve">
+    <value>Compression Type:</value>
+  </data>
+  <data name="lblLevel_br" xml:space="preserve">
+    <value>Nível de Compressão (0-9):</value>
+  </data>
+  <data name="lblLevel_en" xml:space="preserve">
+    <value>Compression Level (0-9):</value>
+  </data>
+  <data name="lblReg_br" xml:space="preserve">
+    <value>Região / Chaves (XTEA):</value>
+  </data>
+  <data name="lblReg_en" xml:space="preserve">
+    <value>Region / Keys (XTEA):</value>
+  </data>
+  <data name="btnCreatePak_br" xml:space="preserve">
+    <value>📦 GERAR ARQUIVO .PAK</value>
+  </data>
+  <data name="btnCreatePak_en" xml:space="preserve">
+    <value>📦 GENERATE .PAK FILE</value>
+  </data>
 </root>

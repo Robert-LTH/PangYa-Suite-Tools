@@ -11,33 +11,10 @@ namespace PangYa_Suite_Tools
         // Caminho no registro para salvar as configurações da Suite
         private const string RegistryKeyPath = @"Software\PangYaSuiteTools";
         private const string LanguageValueName = "Language";
-
-        [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
-        private static extern void SHChangeNotify(uint wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
-
         public FrmMenu()
         {
             InitializeComponent();
             InitializeLanguageComboBox();
-        }
-
-        public FrmMenu(string[] args) : this()
-        {
-            if (args != null && args.Length > 0)
-            {
-                string filePath = args[0];
-
-                if (File.Exists(filePath) && filePath.EndsWith(".pak", StringComparison.OrdinalIgnoreCase))
-                {
-                    this.Shown += (s, e) =>
-                    {
-                        this.Hide();
-                        FrmPakMaker pakMaker = new(filePath);
-                        pakMaker.FormClosed += (sender, formArgs) => this.Close();
-                        pakMaker.Show();
-                    };
-                }
-            }
         }
 
         private void InitializeLanguageComboBox()
@@ -62,7 +39,6 @@ namespace PangYa_Suite_Tools
             }
             catch { /* Ignora falhas de leitura silenciosamente */ }
 
-            // 2. Define o índice correto no ComboBox baseado no que foi recuperado
             cboLanguage.SelectedIndex = (savedLanguage == "br") ? 0 : 1;
 
             isInitializingLanguages = false;
@@ -113,25 +89,49 @@ namespace PangYa_Suite_Tools
 
         private void btnOpenPakMaker_Click(object sender, EventArgs e)
         {
-            var pakMaker = new FrmPakMaker();
+            string idiomaAtual = "en";
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
+            {
+                idiomaAtual = selectedItem.Value;
+            }
+
             this.Hide();
-            pakMaker.ShowDialog();
+            using (var pakMaker = new FrmPakMaker(idiomaAtual, ""))
+            {
+                pakMaker.ShowDialog();
+            }
             this.Show();
         }
 
         private void btnOpenUpdateList_Click(object sender, EventArgs e)
         {
-            var updateList = new FrmUpdateList();
+            string idiomaAtual = "en";
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
+            {
+                idiomaAtual = selectedItem.Value;
+            }
+
             this.Hide();
-            updateList.ShowDialog();
+            using (var updateList = new FrmUpdateList(idiomaAtual))
+            {
+                updateList.ShowDialog();
+            }
             this.Show();
         }
 
         private void btnOpenIffManager_Click(object sender, EventArgs e)
         {
-            var iffManager = new FrmIFFManager();
+            string idiomaAtual = "en";
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
+            {
+                idiomaAtual = selectedItem.Value;
+            }
+
             this.Hide();
-            iffManager.ShowDialog();
+            using (var iffManager = new FrmIFFManager(idiomaAtual))
+            {
+                iffManager.ShowDialog();
+            }
             this.Show();
         }
 
@@ -142,31 +142,29 @@ namespace PangYa_Suite_Tools
             {
                 idiomaAtual = selectedItem.Value;
             }
+            this.Hide();
 
             using (var frmOptions = new FrmOptions(idiomaAtual))
             {
                 frmOptions.ShowDialog();
             }
+            this.Show();
         }
 
-        private string GetText(string en, string br)
+        private void btnOpenPakDiff_Click(object sender, EventArgs e)
         {
+            string idiomaAtual = "en";
             if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
             {
-                string _currentLanguage = selectedItem.Value;
-                return (_currentLanguage == "br") ? br : en;
+                idiomaAtual = selectedItem.Value;
             }
-            return "";
-        }
+            this.Hide();
+            using (var frmOptions = new FrmPakDiff(idiomaAtual))
+            {
+                frmOptions.ShowDialog();
+            }
+            this.Show();
 
-        //obter a linguagem atual do comboBox
-        private string GetLanguage()
-        {
-            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
-            {
-                return selectedItem.Value;
-            }
-            return "_en";
         }
     }
 }

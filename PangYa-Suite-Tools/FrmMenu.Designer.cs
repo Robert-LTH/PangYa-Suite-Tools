@@ -11,7 +11,7 @@
         private System.Windows.Forms.ToolStripStatusLabel lblLanguage;
         private System.Windows.Forms.ToolStripComboBox cboLanguage;
         private System.Windows.Forms.Button btnOpenOptions;
-
+        private System.Windows.Forms.Button btnOpenPakDiff;
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null)) components.Dispose();
@@ -23,6 +23,7 @@
             btnOpenPakMaker = new Button();
             btnOpenUpdateList = new Button();
             btnOpenIffManager = new Button();
+            btnOpenPakDiff = new Button();
             btnOpenOptions = new Button();
             lblTitle = new Label();
             statusStrip1 = new StatusStrip();
@@ -64,12 +65,23 @@
             btnOpenIffManager.UseVisualStyleBackColor = true;
             btnOpenIffManager.Click += btnOpenIffManager_Click;
             // 
+            // btnOpenPakDiff
+            // 
+            btnOpenPakDiff.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnOpenPakDiff.Location = new Point(42, 265);
+            btnOpenPakDiff.Name = "btnOpenPakDiff";
+            btnOpenPakDiff.Size = new Size(300, 50);
+            btnOpenPakDiff.TabIndex = 4;
+            btnOpenPakDiff.Text = "🔍 Comparador PAK (Diff)";
+            btnOpenPakDiff.UseVisualStyleBackColor = true;
+            btnOpenPakDiff.Click += btnOpenPakDiff_Click;
+            // 
             // btnOpenOptions
             // 
-            btnOpenOptions.Location = new Point(103, 268);
+            btnOpenOptions.Location = new Point(103, 330);
             btnOpenOptions.Name = "btnOpenOptions";
             btnOpenOptions.Size = new Size(180, 35);
-            btnOpenOptions.TabIndex = 4;
+            btnOpenOptions.TabIndex = 5;
             btnOpenOptions.Text = "Options";
             btnOpenOptions.UseVisualStyleBackColor = true;
             btnOpenOptions.Click += btnOpenOptions_Click;
@@ -87,10 +99,10 @@
             // statusStrip1
             // 
             statusStrip1.Items.AddRange(new ToolStripItem[] { lblLanguage, cboLanguage });
-            statusStrip1.Location = new Point(0, 323);
+            statusStrip1.Location = new Point(0, 385);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Size = new Size(402, 23);
-            statusStrip1.TabIndex = 4;
+            statusStrip1.TabIndex = 6;
             // 
             // lblLanguage
             // 
@@ -109,8 +121,9 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(402, 346);
+            ClientSize = new Size(402, 408);
             Controls.Add(btnOpenOptions);
+            Controls.Add(btnOpenPakDiff);
             Controls.Add(btnOpenIffManager);
             Controls.Add(btnOpenUpdateList);
             Controls.Add(btnOpenPakMaker);
