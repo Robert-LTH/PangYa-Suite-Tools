@@ -31,6 +31,11 @@ namespace PangYa_Suite_Tools
             cboLanguage.SelectedIndex = LocalizationManager.CurrentCultureIndex;
 
             isInitializingLanguages = false;
+            //init lang
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
+            {
+                LocalizationManager.SetCulture(selectedItem.Value);
+            }
             ApplyLocalization();
         }
 

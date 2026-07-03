@@ -149,4 +149,28 @@
   <data name="PakDiff_ColumnFilePath" xml:space="preserve"><value>Filsökväg</value></data>
   <data name="PakDiff_ColumnSourcePak" xml:space="preserve"><value>Käll-PAK</value></data>
   <data name="PakDiff_ExtractSelected" xml:space="preserve"><value>📦 Extrahera valda</value></data>
+  <data name="PakMaker_RenameThisPAK" xml:space="preserve">
+    <value>✏️ Byt namn på mapp/fil (F2)</value>
+  </data>
+  <data name="PakMaker_RenameProcess" xml:space="preserve">
+    <value>Bearbetar nya sökvägar och uppdaterar PAK-filen...</value>
+  </data>
+  <data name="PakMaker_RenameNotFound" xml:space="preserve">
+    <value>Inget matchande objekt hittades i PAK-trädet.</value>
+  </data>
+  <data name="PakMaker_RenameWriter" xml:space="preserve">
+    <value>Skriver struktur...</value>
+  </data>
+  <data name="PakMaker_RenameSuccess" xml:space="preserve">
+    <value>PAK-filen har bytt namn och sparats framgångsrikt!</value>
+  </data>
+  <data name="PakMaker_RenameError" xml:space="preserve">
+    <value>Fel vid tillämpning av namnbyte.</value>
+  </data>
+  <data name="PakMaker_RenamePhysicalFailed" xml:space="preserve">
+    <value>Misslyckades under fysisk omstrukturering av PAK-filen:</value>
+  </data>
+  <data name="PakMaker_InvalidCharacters" xml:space="preserve">
+    <value>Det angivna namnet innehåller ogiltiga tecken eller mappseparatorer.</value>
+  </data>
 </root>
