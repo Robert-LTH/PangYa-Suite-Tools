@@ -1,4 +1,5 @@
-﻿
+using PangYa_Suite_Tools.Localization;
+
 using System.ComponentModel;
 using System.Text; 
 using PangyaAPI.UpdateList.Flags; 
@@ -9,7 +10,6 @@ namespace PangYa_Suite_Tools
     {
         private readonly Dictionary<string, FileStateApp> _fileCache = new(StringComparer.OrdinalIgnoreCase); 
         private UpdateMaker? _updateMaker;
-        private UpdateHeader? _updateHeader;
         private List<UpdateEntry> _updateEntries = new();
 
         private FileSystemWatcher? _watcher;
@@ -22,6 +22,8 @@ namespace PangYa_Suite_Tools
             InitializeComponent();
             InitializeLanguageComboBox();
             SetupComponents();
+            LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
+            Disposed += (_, _) => LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
         }
 
         private void InitializeLanguageComboBox()
@@ -29,12 +31,12 @@ namespace PangYa_Suite_Tools
             cboLanguage.ComboBox.DisplayMember = "Key";
             cboLanguage.ComboBox.ValueMember = "Value";
 
-            cboLanguage.Items.Add(new KeyValuePair<string, string>("Português (BR)", "br"));
-            cboLanguage.Items.Add(new KeyValuePair<string, string>("English (US)", "en"));
-            cboLanguage.SelectedIndex = 1;
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_PortugueseBrazil, LocalizationManager.PortugueseBrazil));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_EnglishUS, LocalizationManager.English));
+            cboLanguage.SelectedIndex = LocalizationManager.CurrentCulture.Name == LocalizationManager.PortugueseBrazil ? 0 : 1;
 
             isInitializingLanguages = false;
-            ApplyLocalization("en");
+            ApplyLocalization();
         }
 
         private void cboLanguage_SelectedIndexChanged(object sender, EventArgs e)
@@ -43,56 +45,53 @@ namespace PangYa_Suite_Tools
 
             if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
             {
-                ApplyLocalization(selectedItem.Value);
+                LocalizationManager.SetCulture(selectedItem.Value);
             }
         }
 
-        private void ApplyLocalization(string lang)
+        private void LocalizationManager_CultureChanged(object? sender, EventArgs e)
         {
-            ComponentResourceManager res = new ComponentResourceManager(typeof(FrmUpdateList));
-            string suffix = (lang == "en") ? "_en" : "_br";
+            isInitializingLanguages = true;
+            cboLanguage.SelectedIndex = LocalizationManager.CurrentCulture.Name == LocalizationManager.PortugueseBrazil ? 0 : 1;
+            isInitializingLanguages = false;
+            ApplyLocalization();
+        }
 
-            this.Text = res.GetString($"FrmUpdateList{suffix}") ?? this.Text;
-            tabDecrypt.Text = res.GetString($"tabDecrypt{suffix}") ?? tabDecrypt.Text;
-            tabGenerator.Text = res.GetString($"tabGenerator{suffix}") ?? tabGenerator.Text;
-            grpConfig.Text = res.GetString($"grpConfig{suffix}") ?? grpConfig.Text;
-            lblPangyaPath.Text = res.GetString($"lblPangyaPath{suffix}") ?? lblPangyaPath.Text;
-            lblUpdatePath.Text = res.GetString($"lblUpdatePath{suffix}") ?? lblUpdatePath.Text;
-            lblFileKey.Text = res.GetString($"lblFileKey{suffix}") ?? lblFileKey.Text;
-            lblPatchVersion.Text = res.GetString($"lblPatchVersion{suffix}") ?? lblPatchVersion.Text;
-            lblUpdateListVer.Text = res.GetString($"lblUpdateListVer{suffix}") ?? lblUpdateListVer.Text;
-            lblClientPatchNum.Text = res.GetString($"lblClientPatchNum{suffix}") ?? lblClientPatchNum.Text;
-            btnBrowsePangya.Text = res.GetString($"btnBrowsePangya{suffix}") ?? btnBrowsePangya.Text;
-            btnBrowseUpdate.Text = res.GetString($"btnBrowseUpdate{suffix}") ?? btnBrowseUpdate.Text;
-            lblLog.Text = res.GetString($"lblLog{suffix}") ?? lblLog.Text;
-            lblLanguage.Text = res.GetString($"lblLanguage{suffix}") ?? lblLanguage.Text;
+        private void ApplyLocalization()
+        {
+            Text = Strings.Update_Title;
+            tabDecrypt.Text = Strings.Update_DecryptTab;
+            tabGenerator.Text = Strings.Update_GeneratorTab;
+            grpConfig.Text = Strings.Update_Config;
+            lblPangyaPath.Text = Strings.Update_Source;
+            lblUpdatePath.Text = Strings.Update_Destination;
+            lblFileKey.Text = Strings.Update_Key;
+            lblPatchVersion.Text = Strings.Update_PatchVersion;
+            lblUpdateListVer.Text = Strings.Update_ListVersion;
+            lblClientPatchNum.Text = Strings.Update_PatchNumber;
+            btnBrowsePangya.Text = Strings.Pak_Browse;
+            btnBrowseUpdate.Text = Strings.Pak_Browse;
+            lblLog.Text = Strings.Update_Log;
+            lblLanguage.Text = Strings.Common_Language;
 
             // Estados dinâmicos: só atualiza se não houver monitoramento/drop em andamento, para não confundir o usuário no meio de uma operação
             if (!_isMonitoring)
             {
-                btnToggleWatch.Text = GetText("▶️ Start Monitoring", "▶️ Iniciar Monitoramento");
-                lblWatchStatus.Text = GetText("INACTIVE", "INATIVO");
+                btnToggleWatch.Text = Strings.UpdateList_StartMonitoring;
+                lblWatchStatus.Text = Strings.UpdateList_INACTIVE;
             }
             else
             {
-                btnToggleWatch.Text = GetText("🛑 Stop Monitoring", "🛑 Parar Monitoramento");
-                lblWatchStatus.Text = GetText("ACTIVELY MONITORING", "MONITORANDO ATIVAMENTE");
+                btnToggleWatch.Text = Strings.UpdateList_StopMonitoring;
+                lblWatchStatus.Text = Strings.UpdateList_ACTIVELYMONITORING;
             }
 
             if (string.IsNullOrEmpty(txtXmlViewer.Text))
             {
-                lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here to view the decoded XML in real time.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.");
+                lblDropHint.Text = Strings.UpdateList_DragAndDropAnEncryptedUpdatelist;
             }
         }
-
-        private string GetText(string en, string br)
-        {
-            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
-                return (selectedItem.Value == "br") ? br : en;
-            return en;
-        }
-
-        private void SetupComponents()
+private void SetupComponents()
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
@@ -111,18 +110,18 @@ namespace PangYa_Suite_Tools
             txtUpdateListVer.Text = DateTime.Now.ToString("yyyyMMdd01");
             txtClientPatchNum.Text = "1";
 
-            Log(GetText("Interface initialized in multi-tab mode (PakMaker style). Ready to use.", "Interface inicializada no formato multi-abas (Estilo PakMaker). Pronta para uso."));
+            Log(Strings.UpdateList_InterfaceInitializedInMultiTabMode);
         }
 
         #region ABA 1: VISUALIZADOR / DECRYPT DE XML
 
-        private void PnlCryptoDrop_DragEnter(object sender, DragEventArgs e)
+        private void PnlCryptoDrop_DragEnter(object? sender, DragEventArgs e)
         {
             if (e.Data != null && e.Data.GetDataPresent(DataFormats.FileDrop))
                 e.Effect = DragDropEffects.Copy;
         }
 
-        private async void pnlCryptoDrop_DragDrop(object sender, DragEventArgs e)
+        private async void pnlCryptoDrop_DragDrop(object? sender, DragEventArgs e)
         {
             if (e.Data == null) return;
             string[] files = (string[])e.Data.GetData(DataFormats.FileDrop)!;
@@ -131,7 +130,7 @@ namespace PangYa_Suite_Tools
             string targetFile = files[0];
 
             txtXmlViewer.Clear();
-            lblDropHint.Text = $"{GetText("Processing:", "Processando:")} {Path.GetFileName(targetFile)}...";
+            lblDropHint.Text = $"{Strings.UpdateList_Processing} {Path.GetFileName(targetFile)}...";
 
             string selectedKeyName = string.Empty;
             this.Invoke(() => selectedKeyName = cboFileKey.SelectedItem!.ToString()!);
@@ -144,7 +143,7 @@ namespace PangYa_Suite_Tools
 
                     if (operacao == OperacaoEnum.Decrypt)
                     {
-                        this.Invoke(() => Log($"🔒 {GetText("Protected file detected. Testing key", "Arquivo protegido detectado. Testando chave")} [{selectedKeyName}]..."));
+                        this.Invoke(() => Log($"🔒 {Strings.UpdateList_ProtectedFileDetectedTestingKey} [{selectedKeyName}]..."));
 
                         uint[] selectedKey = GetKeysByName(selectedKeyName);
                         var reader = new UpdateReader(selectedKey);
@@ -164,15 +163,15 @@ namespace PangYa_Suite_Tools
 
                                 this.Invoke(() => {
                                     txtXmlViewer.Text = formattedXml;
-                                    lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here to view the decoded XML in real time.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.");
-                                    Log($"✅ [{GetText("SUCCESS", "SUCESSO")}] {GetText("Decrypted with key", "Descriptografado com a chave")} {selectedKeyName}!");
+                                    lblDropHint.Text = Strings.UpdateList_DragAndDropAnEncryptedUpdatelist;
+                                    Log($"✅ [{Strings.UpdateList_SUCCESS}] {Strings.UpdateList_DecryptedWithKey} {selectedKeyName}!");
                                 });
                                 return;
                             }
                         }
                         catch
                         {
-                            this.Invoke(() => Log($"⚠️ {GetText("Failed with key", "Falha com a chave")} [{selectedKeyName}]. {GetText("Starting automatic brute-force scanner...", "Iniciando scanner de força-bruta automático...")}"));
+                            this.Invoke(() => Log($"⚠️ {Strings.UpdateList_FailedWithKey} [{selectedKeyName}]. {Strings.UpdateList_StartingAutomaticBruteForceScanner}"));
                         }
 
                         var result = UpdateKeyDetector.DetectAndSetKey(targetFile, out uint[]? autoDetectedKey, out byte[]? decryptedData, out string document);
@@ -186,15 +185,15 @@ namespace PangYa_Suite_Tools
 
                             this.Invoke(() => {
                                 txtXmlViewer.Text = formattedXml;
-                                lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here to view the decoded XML in real time.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.");
-                                Log($"✅ [{GetText("BRUTE-FORCE SUCCESS", "BRUTE-FORCE SUCESSO")}] {GetText("Key identified successfully!", "Chave identificada com sucesso!")}");
+                                lblDropHint.Text = Strings.UpdateList_DragAndDropAnEncryptedUpdatelist;
+                                Log($"✅ [{Strings.UpdateList_BRUTEFORCESUCCESS}] {Strings.UpdateList_KeyIdentifiedSuccessfully}");
                             });
                         }
                         else
                         {
                             this.Invoke(() => {
-                                lblDropHint.Text = GetText("❌ Error: No key decoded the structure.", "❌ Erro: Nenhuma chave decodificou a estrutura.");
-                                Log($"❌ [{GetText("TOTAL FAILURE", "FALHA TOTAL")}] {GetText("No key from the known database was able to open this file's structure.", "Nenhuma chave do banco de dados conhecido conseguiu abrir a estrutura deste arquivo.")}");
+                                lblDropHint.Text = Strings.UpdateList_ErrorNoKeyDecodedTheStructure;
+                                Log($"❌ [{Strings.UpdateList_TOTALFAILURE}] {Strings.UpdateList_NoKeyFromTheKnownDatabase}");
                             });
                         }
                     }
@@ -205,23 +204,23 @@ namespace PangYa_Suite_Tools
 
                         this.Invoke(() => {
                             txtXmlViewer.Text = formattedXml;
-                            lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here to view the decoded XML in real time.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.");
-                            Log($"📋 {GetText("The dropped file is already in plain text/XML mode. Displayed formatted in the panel.", "O arquivo dropado já está em modo texto/XML puro. Exibido formatado no painel.")}");
+                            lblDropHint.Text = Strings.UpdateList_DragAndDropAnEncryptedUpdatelist;
+                            Log($"📋 {Strings.UpdateList_TheDroppedFileIsAlreadyIn}");
                         });
                     }
                     else
                     {
                         this.Invoke(() => {
-                            lblDropHint.Text = GetText("⚠️ Invalid or corrupted file.", "⚠️ Arquivo inválido ou corrompido.");
-                            Log(GetText("⚠️ Invalid or corrupted file.", "⚠️ Arquivo inválido ou corrompido."));
+                            lblDropHint.Text = Strings.UpdateList_InvalidOrCorruptedFile;
+                            Log(Strings.UpdateList_InvalidOrCorruptedFile);
                         });
                     }
                 }
                 catch (Exception ex)
                 {
                     this.Invoke(() => {
-                        lblDropHint.Text = GetText("❌ Critical failure while parsing file.", "❌ Falha crítica ao analisar arquivo.");
-                        Log($"❌ [{GetText("PARSE ERROR", "ERRO DE ANÁLISE")}] {ex.Message}");
+                        lblDropHint.Text = Strings.UpdateList_CriticalFailureWhileParsingFile;
+                        Log($"❌ [{Strings.UpdateList_PARSEERROR}] {ex.Message}");
                     });
                 }
             });
@@ -232,13 +231,13 @@ namespace PangYa_Suite_Tools
 
         private void btnBrowsePangya_Click(object sender, EventArgs e)
         {
-            using var fbd = new FolderBrowserDialog { Description = GetText("Select the root Pangya folder (where the executables and .pak files are)", "Selecione a pasta raiz do Pangya (onde ficam os arquivos executáveis e .pak)") };
+            using var fbd = new FolderBrowserDialog { Description = Strings.UpdateList_SelectTheRootPangyaFolderWhere };
             if (fbd.ShowDialog() == DialogResult.OK) txtPangyaPath.Text = fbd.SelectedPath;
         }
 
         private void btnBrowseUpdate_Click(object sender, EventArgs e)
         {
-            using var fbd = new FolderBrowserDialog { Description = GetText("Select the destination WebServer folder for the Update", "Selecione a pasta do WebServer de destino do Update") };
+            using var fbd = new FolderBrowserDialog { Description = Strings.UpdateList_SelectTheDestinationWebServerFolderFor };
             if (fbd.ShowDialog() == DialogResult.OK) txtUpdatePath.Text = fbd.SelectedPath;
         }
 
@@ -255,12 +254,12 @@ namespace PangYa_Suite_Tools
 
             if (!Directory.Exists(pangyaPath) || !Directory.Exists(destPath))
             {
-                MessageBox.Show(GetText("Check whether the Source and WebServer Destination folders are valid directory paths.", "Verifique se as pastas de Origem e de Destino do WebServer são caminhos de diretórios válidos."), GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(Strings.UpdateList_CheckWhetherTheSourceAndWebServer, Strings.UpdateList_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             btnToggleWatch.Enabled = false;
-            lblWatchStatus.Text = GetText("Initializing...", "Inicializando...");
+            lblWatchStatus.Text = Strings.UpdateList_Initializing;
 
             try
             {
@@ -274,7 +273,7 @@ namespace PangYa_Suite_Tools
                 await Task.Run(() =>
                 {
                     _updateMaker = new UpdateMaker();
-                    this.Invoke(() => Log(GetText("Scanning directory tree and generating initial client mapping...", "Varrendo a árvore de diretórios e gerando mapeamento inicial do cliente...")));
+                    this.Invoke(() => Log(Strings.UpdateList_ScanningDirectoryTreeAndGeneratingInitial));
 
                     string finalOutputPath = Path.Combine(destPath, "updatelist");
 
@@ -291,15 +290,15 @@ namespace PangYa_Suite_Tools
                 _watcher.EnableRaisingEvents = true;
 
                 _isMonitoring = true;
-                btnToggleWatch.Text = GetText("🛑 Stop Monitoring", "🛑 Parar Monitoramento");
+                btnToggleWatch.Text = Strings.UpdateList_StopMonitoring;
                 btnToggleWatch.BackColor = Color.Tomato;
-                lblWatchStatus.Text = GetText("ACTIVELY MONITORING", "MONITORANDO ATIVAMENTE");
+                lblWatchStatus.Text = Strings.UpdateList_ACTIVELYMONITORING;
                 lblWatchStatus.ForeColor = Color.Green;
-                Log($"[{GetText("SERVICE", "SERVIÇO")}] {GetText("FileSystemWatcher active on folder:", "FileSystemWatcher ativo na pasta:")} {pangyaPath}");
+                Log($"[{Strings.UpdateList_SERVICE}] {Strings.UpdateList_FileSystemWatcherActiveOnFolder} {pangyaPath}");
             }
             catch (Exception ex)
             {
-                Log($"[{GetText("INIT ERROR", "ERRO INICIALIZAÇÃO")}] {ex.Message}");
+                Log($"[{Strings.UpdateList_INITERROR}] {ex.Message}");
                 StopMonitoring();
             }
             finally
@@ -318,11 +317,11 @@ namespace PangYa_Suite_Tools
             }
 
             _isMonitoring = false;
-            btnToggleWatch.Text = GetText("▶️ Start Monitoring", "▶️ Iniciar Monitoramento");
+            btnToggleWatch.Text = Strings.UpdateList_StartMonitoring;
             btnToggleWatch.BackColor = Color.LightGreen;
-            lblWatchStatus.Text = GetText("INACTIVE", "INATIVO");
+            lblWatchStatus.Text = Strings.UpdateList_INACTIVE;
             lblWatchStatus.ForeColor = Color.DimGray;
-            Log(GetText("Background monitoring has been stopped.", "Monitoramento em background foi encerrado."));
+            Log(Strings.UpdateList_BackgroundMonitoringHasBeenStopped);
         }
 
         private void OnFileChanged(object sender, FileSystemEventArgs e)
@@ -342,7 +341,7 @@ namespace PangYa_Suite_Tools
                 if (_fileCache.TryGetValue(e.FullPath, out var last) && last.Length == currentState.Length) return;
                 _fileCache[e.FullPath] = currentState;
 
-                this.Invoke(() => Log($"[{GetText("DETECTED", "DETECTADO")}] {GetText("File modification:", "Modificação no arquivo:")} {e.Name}"));
+                this.Invoke(() => Log($"[{Strings.UpdateList_DETECTED}] {Strings.UpdateList_FileModification} {e.Name}"));
 
                 string pangyaPath = string.Empty;
                 string destPath = string.Empty;
@@ -374,11 +373,11 @@ namespace PangYa_Suite_Tools
                     // Gera o patch mantendo a paridade de versões modificadas em tempo real
                     _updateMaker?.GenerateFromDirectory(pangyaPath, finalOutputPath, regionKeys, patchVersion, updateVersion, patchNum);
 
-                    this.Invoke(() => Log($"✨ [{GetText("COMPILED", "COMPILADO")}] {GetText("updatelist signed successfully! Trigger:", "updatelist assinado com sucesso! Gatilho:")} {e.Name}"));
+                    this.Invoke(() => Log($"✨ [{Strings.UpdateList_COMPILED}] {Strings.UpdateList_UpdatelistSignedSuccessfullyTrigger} {e.Name}"));
                 }
                 catch (Exception ex)
                 {
-                    this.Invoke(() => Log($"[{GetText("I/O ERROR", "ERRO E/S")}] {GetText("Could not manage the file", "Não foi possível gerenciar o arquivo")} {e.Name}: {ex.Message}"));
+                    this.Invoke(() => Log($"[{Strings.UpdateList_IOERROR}] {Strings.UpdateList_CouldNotManageTheFile} {e.Name}: {ex.Message}"));
                 }
             }
         }

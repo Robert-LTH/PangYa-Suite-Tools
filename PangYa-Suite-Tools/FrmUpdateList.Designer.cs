@@ -75,7 +75,6 @@ namespace PangYa_Suite_Tools
             tabDecrypt.Padding = new Padding(3);
             tabDecrypt.Size = new Size(776, 510);
             tabDecrypt.TabIndex = 0;
-            tabDecrypt.Text = " 🔍 Visualizador / Decrypter ";
             tabDecrypt.UseVisualStyleBackColor = true;
             // 
             // pnlCryptoDrop
@@ -98,7 +97,6 @@ namespace PangYa_Suite_Tools
             lblDropHint.Name = "lblDropHint";
             lblDropHint.Size = new Size(758, 98);
             lblDropHint.TabIndex = 0;
-            lblDropHint.Text = "\U0001fa82 Arraste e solte um arquivo 'updatelist' criptografado aqui para visualizar o XML decodificado em tempo real.";
             lblDropHint.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // txtXmlViewer
@@ -127,7 +125,6 @@ namespace PangYa_Suite_Tools
             tabGenerator.Padding = new Padding(3);
             tabGenerator.Size = new Size(776, 510);
             tabGenerator.TabIndex = 1;
-            tabGenerator.Text = " 🛠️ Gerador & Monitoramento ";
             tabGenerator.UseVisualStyleBackColor = true;
             // 
             // grpConfig
@@ -153,7 +150,6 @@ namespace PangYa_Suite_Tools
             grpConfig.Size = new Size(760, 185);
             grpConfig.TabIndex = 0;
             grpConfig.TabStop = false;
-            grpConfig.Text = " Configurações do Servidor de Update ";
             // 
             // txtClientPatchNum
             // 
@@ -171,7 +167,6 @@ namespace PangYa_Suite_Tools
             lblClientPatchNum.Name = "lblClientPatchNum";
             lblClientPatchNum.Size = new Size(87, 15);
             lblClientPatchNum.TabIndex = 12;
-            lblClientPatchNum.Text = "Patch Number:";
             // 
             // txtUpdateListVer
             // 
@@ -189,7 +184,6 @@ namespace PangYa_Suite_Tools
             lblUpdateListVer.Name = "lblUpdateListVer";
             lblUpdateListVer.Size = new Size(107, 15);
             lblUpdateListVer.TabIndex = 10;
-            lblUpdateListVer.Text = "UpdateList Version:";
             // 
             // txtPatchVersion
             // 
@@ -207,7 +201,6 @@ namespace PangYa_Suite_Tools
             lblPatchVersion.Name = "lblPatchVersion";
             lblPatchVersion.Size = new Size(94, 15);
             lblPatchVersion.TabIndex = 8;
-            lblPatchVersion.Text = "Versão do Patch:";
             // 
             // cboFileKey
             // 
@@ -227,7 +220,6 @@ namespace PangYa_Suite_Tools
             lblFileKey.Name = "lblFileKey";
             lblFileKey.Size = new Size(90, 15);
             lblFileKey.TabIndex = 6;
-            lblFileKey.Text = "Região / Chave:";
             // 
             // btnBrowseUpdate
             // 
@@ -237,7 +229,6 @@ namespace PangYa_Suite_Tools
             btnBrowseUpdate.Name = "btnBrowseUpdate";
             btnBrowseUpdate.Size = new Size(85, 25);
             btnBrowseUpdate.TabIndex = 5;
-            btnBrowseUpdate.Text = "Buscar...";
             btnBrowseUpdate.UseVisualStyleBackColor = true;
             btnBrowseUpdate.Click += btnBrowseUpdate_Click;
             // 
@@ -258,7 +249,6 @@ namespace PangYa_Suite_Tools
             lblUpdatePath.Name = "lblUpdatePath";
             lblUpdatePath.Size = new Size(165, 15);
             lblUpdatePath.TabIndex = 3;
-            lblUpdatePath.Text = "Pasta do WebServer (Destino):";
             // 
             // btnBrowsePangya
             // 
@@ -268,7 +258,6 @@ namespace PangYa_Suite_Tools
             btnBrowsePangya.Name = "btnBrowsePangya";
             btnBrowsePangya.Size = new Size(85, 25);
             btnBrowsePangya.TabIndex = 2;
-            btnBrowsePangya.Text = "Buscar...";
             btnBrowsePangya.UseVisualStyleBackColor = true;
             btnBrowsePangya.Click += btnBrowsePangya_Click;
             // 
@@ -289,7 +278,6 @@ namespace PangYa_Suite_Tools
             lblPangyaPath.Name = "lblPangyaPath";
             lblPangyaPath.Size = new Size(148, 15);
             lblPangyaPath.TabIndex = 0;
-            lblPangyaPath.Text = "Pasta do Pangya (Origem):";
             // 
             // btnToggleWatch
             // 
@@ -300,7 +288,6 @@ namespace PangYa_Suite_Tools
             btnToggleWatch.Name = "btnToggleWatch";
             btnToggleWatch.Size = new Size(240, 45);
             btnToggleWatch.TabIndex = 1;
-            btnToggleWatch.Text = "▶️ Iniciar Monitoramento";
             btnToggleWatch.UseVisualStyleBackColor = false;
             btnToggleWatch.Click += btnToggleWatch_Click;
             // 
@@ -314,7 +301,6 @@ namespace PangYa_Suite_Tools
             lblWatchStatus.Name = "lblWatchStatus";
             lblWatchStatus.Size = new Size(512, 45);
             lblWatchStatus.TabIndex = 2;
-            lblWatchStatus.Text = "INATIVO";
             lblWatchStatus.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // txtLog
@@ -339,7 +325,6 @@ namespace PangYa_Suite_Tools
             lblLog.Name = "lblLog";
             lblLog.Size = new Size(142, 15);
             lblLog.TabIndex = 3;
-            lblLog.Text = "Histórico / Terminal Log:";
             // 
             // statusStrip1
             // 
@@ -353,7 +338,6 @@ namespace PangYa_Suite_Tools
             // 
             lblLanguage.Name = "lblLanguage";
             lblLanguage.Size = new Size(47, 18);
-            lblLanguage.Text = "Idioma:";
             // 
             // cboLanguage
             // 

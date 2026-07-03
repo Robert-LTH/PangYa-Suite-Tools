@@ -1,4 +1,5 @@
-﻿using Microsoft.Win32;
+using PangYa_Suite_Tools.Localization;
+using Microsoft.Win32;
 using System.ComponentModel;
 using System.Diagnostics;
 
@@ -14,6 +15,8 @@ namespace PangYa_Suite_Tools
         {
             InitializeComponent();
             InitializeLanguageComboBox();
+            LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
+            Disposed += (_, _) => LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
         }
 
 
@@ -49,12 +52,12 @@ namespace PangYa_Suite_Tools
             cboLanguage.ComboBox.DisplayMember = "Key";
             cboLanguage.ComboBox.ValueMember = "Value";
 
-            cboLanguage.Items.Add(new KeyValuePair<string, string>("Português (BR)", "br"));
-            cboLanguage.Items.Add(new KeyValuePair<string, string>("English (US)", "en"));
-            cboLanguage.SelectedIndex = 1;
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_PortugueseBrazil, LocalizationManager.PortugueseBrazil));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_EnglishUS, LocalizationManager.English));
+            cboLanguage.SelectedIndex = LocalizationManager.CurrentCulture.Name == LocalizationManager.PortugueseBrazil ? 0 : 1;
 
             isInitializingLanguages = false;
-            ApplyLocalization("en");
+            ApplyLocalization();
         }
 
         private void cboLanguage_SelectedIndexChanged(object sender, EventArgs e)
@@ -63,21 +66,27 @@ namespace PangYa_Suite_Tools
 
             if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
             {
-                ApplyLocalization(selectedItem.Value);
+                LocalizationManager.SetCulture(selectedItem.Value);
             }
         }
 
-        private void ApplyLocalization(string lang)
+        private void LocalizationManager_CultureChanged(object? sender, EventArgs e)
         {
-            ComponentResourceManager res = new ComponentResourceManager(typeof(FrmMenu));
-            string suffix = (lang == "en") ? "_en" : "_br";
+            isInitializingLanguages = true;
+            cboLanguage.SelectedIndex = LocalizationManager.CurrentCulture.Name == LocalizationManager.PortugueseBrazil ? 0 : 1;
+            isInitializingLanguages = false;
+            ApplyLocalization();
+        }
 
-            this.Text = res.GetString($"FrmMenu{suffix}") ?? this.Text;
-            lblTitle.Text = res.GetString($"lblTitle{suffix}") ?? lblTitle.Text;
-            btnOpenPakMaker.Text = res.GetString($"btnOpenPakMaker{suffix}") ?? btnOpenPakMaker.Text;
-            btnOpenUpdateList.Text = res.GetString($"btnOpenUpdateList{suffix}") ?? btnOpenUpdateList.Text;
-            btnOpenIffManager.Text = res.GetString($"btnOpenIffManager{suffix}") ?? btnOpenIffManager.Text;
-            lblLanguage.Text = res.GetString($"lblLanguage{suffix}") ?? lblLanguage.Text;
+        private void ApplyLocalization()
+        {
+            Text = Strings.Menu_Title;
+            lblTitle.Text = Strings.Menu_Title;
+            btnOpenPakMaker.Text = Strings.Menu_PakManager;
+            btnOpenUpdateList.Text = Strings.Menu_UpdateList;
+            btnOpenIffManager.Text = Strings.Menu_IffManager;
+            btnOpenOptions.Text = Strings.Menu_Options;
+            lblLanguage.Text = Strings.Common_Language;
         }
 
         private void btnOpenPakMaker_Click(object sender, EventArgs e)
@@ -110,27 +119,10 @@ namespace PangYa_Suite_Tools
         private void btnOpenOptions_Click(object sender, EventArgs e)
         {
             // Obtém o idioma selecionado em tempo real no menu principal ('br' ou 'en')
-            string idiomaAtual = "en";
-            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
-            {
-                idiomaAtual = selectedItem.Value;
-            }
-
-            // Instancia e abre o formulário de opções como diálogo modal
-            using (var frmOptions = new FrmOptions(idiomaAtual))
+            using (var frmOptions = new FrmOptions())
             {
                 frmOptions.ShowDialog();
             }
-        }
-
-        private string GetText(string en, string br)
-        {
-            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
-            {
-                string _currentLanguage = selectedItem.Value;
-                return (_currentLanguage == "br") ? br : en;
-            }
-            return "";
         }
 
         
