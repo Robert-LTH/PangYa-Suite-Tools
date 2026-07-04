@@ -50,6 +50,7 @@ namespace PangYa_Suite_Tools
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel lblStatus;
         private System.Windows.Forms.ToolStripProgressBar progressBar1;
+        private System.Windows.Forms.ToolStripButton btnCancelOperation;
         private System.Windows.Forms.ToolStripStatusLabel lblFilenameEncoding;
         private System.Windows.Forms.ToolStripComboBox cboFilenameEncoding;
 
@@ -118,6 +119,7 @@ namespace PangYa_Suite_Tools
             statusStrip1 = new StatusStrip();
             lblStatus = new ToolStripStatusLabel();
             progressBar1 = new ToolStripProgressBar();
+            btnCancelOperation = new ToolStripButton();
             lblFilenameEncoding = new ToolStripStatusLabel();
             cboFilenameEncoding = new ToolStripComboBox();
             lblLanguage = new ToolStripStatusLabel();
@@ -522,7 +524,7 @@ namespace PangYa_Suite_Tools
             // statusStrip1
             // 
             statusStrip1.ImageScalingSize = new Size(20, 20);
-            statusStrip1.Items.AddRange(new ToolStripItem[] { lblStatus, progressBar1, lblFilenameEncoding, cboFilenameEncoding, lblLanguage, cboLanguage });
+            statusStrip1.Items.AddRange(new ToolStripItem[] { lblStatus, progressBar1, btnCancelOperation, lblFilenameEncoding, cboFilenameEncoding, lblLanguage, cboLanguage });
             statusStrip1.Location = new Point(9, 438);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Padding = new Padding(1, 0, 12, 0);
@@ -540,6 +542,13 @@ namespace PangYa_Suite_Tools
             // 
             progressBar1.Name = "progressBar1";
             progressBar1.Size = new Size(150, 17);
+            //
+            // btnCancelOperation
+            //
+            btnCancelOperation.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            btnCancelOperation.Enabled = false;
+            btnCancelOperation.Name = "btnCancelOperation";
+            btnCancelOperation.Click += btnCancelOperation_Click;
             //
             // lblFilenameEncoding
             //

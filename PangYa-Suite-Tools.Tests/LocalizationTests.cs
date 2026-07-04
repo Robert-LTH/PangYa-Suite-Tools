@@ -20,6 +20,8 @@ public sealed class LocalizationTests : IDisposable
         LocalizationManager.PreferencePathOverride = Path.Combine(_tempDirectory, "culture.txt");
         PakFilenameEncodingPreferences.PreferencePathOverride =
             Path.Combine(_tempDirectory, "filename-encoding.txt");
+        IffStringEncodingPreferences.PreferencePathOverride =
+            Path.Combine(_tempDirectory, "iff-string-encoding.txt");
     }
 
     [Fact]
@@ -84,6 +86,17 @@ public sealed class LocalizationTests : IDisposable
     }
 
     [Fact]
+    public void IffStringEncodingPreference_PersistsAndInvalidValuesFallBackToEucKr()
+    {
+        IffStringEncodingPreferences.SaveCodePage(932);
+        Assert.Equal(932, IffStringEncodingPreferences.LoadCodePage());
+
+        File.WriteAllText(IffStringEncodingPreferences.PreferencePathOverride!, "invalid");
+        Assert.Equal(IffStringEncodingPreferences.DefaultCodePage,
+            IffStringEncodingPreferences.LoadCodePage());
+    }
+
+    [Fact]
     public void FilenameEncodingChange_AppliesOnlyToTheNextPakLoad()
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -144,6 +157,7 @@ public sealed class LocalizationTests : IDisposable
                 using var iff = new FrmIFFManager();
                 using var options = new FrmOptions();
                 using var diff = new FrmPakDiff();
+                using var log = new FrmLog();
 
                 LocalizationManager.SetCulture(LocalizationManager.PortugueseBrazil);
                 Assert.Equal(Strings.Menu_Title, menu.Text);
@@ -152,6 +166,11 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Equal(Strings.Iff_Title, iff.Text);
                 Assert.Equal(Strings.Options_Title, options.Text);
                 Assert.Equal(Strings.PakDiff_Title, diff.Text);
+                Assert.Equal(Strings.Log_Title, log.Text);
+                Assert.Equal(Strings.Log_ToFile, log.Controls.Find("chkLogToFile", true).Single().Text);
+                Assert.NotEmpty(PrivateField<ToolStripComboBox>(iff, "cboStringEncoding").Items);
+                Assert.Equal(Strings.IFFManager_AddRow, iff.Controls.Find("btnAddRow", true).Single().Text);
+                Assert.Equal(Strings.IFFManager_DeleteRows, iff.Controls.Find("btnDeleteRows", true).Single().Text);
                 Assert.Equal(Strings.Common_OK, options.Controls.Find("btnOK", true).Single().Text);
                 Assert.Equal(Strings.PakMaker_Author, pak.Controls.Find("label1", true).Single().Text);
                 Assert.Equal(Strings.PakMaker_Author, pak.Controls.Find("label2", true).Single().Text);
@@ -181,6 +200,7 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Equal(Strings.Iff_Title, iff.Text);
                 Assert.Equal(Strings.Options_Title, options.Text);
                 Assert.Equal(Strings.PakDiff_Title, diff.Text);
+                Assert.Equal(Strings.Log_Title, log.Text);
                 Assert.Equal(LocalizationManager.Swedish,
                     ((KeyValuePair<string, string>)PrivateField<ToolStripComboBox>(diff, "cboLanguage").SelectedItem!).Value);
             }
@@ -207,6 +227,7 @@ public sealed class LocalizationTests : IDisposable
         LocalizationManager.SetCulture(LocalizationManager.English);
         LocalizationManager.PreferencePathOverride = null;
         PakFilenameEncodingPreferences.PreferencePathOverride = null;
+        IffStringEncodingPreferences.PreferencePathOverride = null;
         Directory.Delete(_tempDirectory, recursive: true);
     }
 }
