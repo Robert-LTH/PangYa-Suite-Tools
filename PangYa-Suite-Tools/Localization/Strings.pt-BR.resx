@@ -792,4 +792,22 @@
   <data name="IFFManager_BitShift" xml:space="preserve"><value>Deslocamento de bits:</value></data>
   <data name="IFFManager_ShowRawRecord" xml:space="preserve"><value>Mostrar registro bruto</value></data>
   <data name="IFFManager_UnrepresentedBytes" xml:space="preserve"><value>Bytes não representados: {0} / {1}</value></data>
+  <data name="IFFManager_FieldVisible" xml:space="preserve"><value>Exibir campo</value></data>
+  <data name="IFFManager_CloneColumn" xml:space="preserve"><value>Clonar coluna</value></data>
+  <data name="IFFManager_MoveUp" xml:space="preserve"><value>Para cima</value></data>
+  <data name="IFFManager_MoveDown" xml:space="preserve"><value>Para baixo</value></data>
+  <data name="IFFManager_DefaultStringSize" xml:space="preserve"><value>Tamanho padrão da string:</value></data>
+  <data name="IFFManager_ContainerKey" xml:space="preserve"><value>Chave IFF:</value></data>
+  <data name="IFFManager_KeyNone" xml:space="preserve"><value>Nenhuma</value></data>
+  <data name="IFFManager_KeyPlainZip" xml:space="preserve"><value>ZIP sem criptografia</value></data>
+  <data name="IFFManager_SelectTemplate" xml:space="preserve"><value>Selecionar modelo de campo</value></data>
+  <data name="IFFManager_TemplateSchema" xml:space="preserve"><value>Esquema:</value></data>
+  <data name="IFFManager_Select" xml:space="preserve"><value>Selecionar</value></data>
+  <data name="IFFManager_CurrentSchema" xml:space="preserve"><value>Esquema atual</value></data>
+  <data name="IFFManager_SortByOffset" xml:space="preserve"><value>Ordenar por deslocamento</value></data>
+  <data name="IFFManager_AfterPreviousField" xml:space="preserve"><value>Após o anterior</value></data>
+  <data name="IFFManager_DefineRawColumnTitle" xml:space="preserve"><value>Definir coluna a partir dos bytes brutos</value></data>
+  <data name="IFFManager_ByteValue" xml:space="preserve"><value>Valor do byte</value></data>
+  <data name="IFFManager_DefineColumn" xml:space="preserve"><value>Definir coluna</value></data>
+  <data name="IFFManager_SelectContiguousBytes" xml:space="preserve"><value>Selecione um intervalo contínuo de bytes.</value></data>
 </root>

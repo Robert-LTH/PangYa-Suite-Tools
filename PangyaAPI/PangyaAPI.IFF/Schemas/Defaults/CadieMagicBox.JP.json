@@ -15,7 +15,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Valid",
@@ -27,7 +28,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "ShowOnPage",
@@ -39,7 +41,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown4",
@@ -51,7 +54,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "RequiredLevel",
@@ -63,7 +67,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "ProductItem",
@@ -75,7 +80,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "ProductCount",
@@ -87,7 +93,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Item1",
@@ -99,7 +106,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Item2",
@@ -111,7 +119,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Item3",
@@ -123,7 +132,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Item4",
@@ -135,7 +145,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Item1Count",
@@ -147,7 +158,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Item2Count",
@@ -159,7 +171,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Item3Count",
@@ -171,7 +184,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Item4Count",
@@ -183,7 +197,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown16",
@@ -195,7 +210,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown17",
@@ -207,7 +223,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown18",
@@ -219,7 +236,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown19",
@@ -231,7 +249,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown20",
@@ -243,7 +262,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown21",
@@ -255,7 +275,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown22",
@@ -267,7 +288,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown23",
@@ -279,7 +301,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown24",
@@ -291,7 +314,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown25",
@@ -303,7 +327,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown26",
@@ -315,7 +340,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Raw record",
@@ -327,7 +353,9 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": false
     }
-  ]
+  ],
+  "defaultStringSize": 32
 }

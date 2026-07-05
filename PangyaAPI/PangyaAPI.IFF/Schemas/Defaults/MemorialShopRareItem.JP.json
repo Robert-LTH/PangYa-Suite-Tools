@@ -15,7 +15,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Number",
@@ -27,7 +28,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Count",
@@ -39,7 +41,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "TypeId",
@@ -51,7 +54,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Probability",
@@ -63,7 +67,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Rarity",
@@ -75,7 +80,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "ItemType",
@@ -87,7 +93,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Sex",
@@ -99,7 +106,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Value",
@@ -111,7 +119,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Item",
@@ -123,7 +132,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "CharacterType",
@@ -135,7 +145,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown",
@@ -147,7 +158,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Raw record",
@@ -159,7 +171,9 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": false
     }
-  ]
+  ],
+  "defaultStringSize": 32
 }

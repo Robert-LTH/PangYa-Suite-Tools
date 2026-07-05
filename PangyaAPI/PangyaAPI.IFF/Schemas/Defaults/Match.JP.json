@@ -15,7 +15,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "ItemId",
@@ -27,7 +28,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Name",
@@ -39,7 +41,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "RequiredLevel",
@@ -51,7 +54,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Raw record",
@@ -63,7 +67,9 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": false
     }
-  ]
+  ],
+  "defaultStringSize": 80
 }

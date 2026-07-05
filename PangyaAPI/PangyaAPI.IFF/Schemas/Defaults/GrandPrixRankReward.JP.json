@@ -15,7 +15,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "TypeId",
@@ -27,7 +28,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Rank",
@@ -39,7 +41,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward1TypeId",
@@ -51,7 +54,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward2TypeId",
@@ -63,7 +67,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward3TypeId",
@@ -75,7 +80,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward4TypeId",
@@ -87,7 +93,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward5TypeId",
@@ -99,7 +106,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward1Quantity",
@@ -111,7 +119,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward2Quantity",
@@ -123,7 +132,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward3Quantity",
@@ -135,7 +145,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward4Quantity",
@@ -147,7 +158,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Reward5Quantity",
@@ -159,7 +171,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Unknown",
@@ -171,7 +184,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Trophy",
@@ -183,7 +197,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Raw record",
@@ -195,7 +210,9 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": false
     }
-  ]
+  ],
+  "defaultStringSize": 20
 }

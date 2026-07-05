@@ -9,6 +9,8 @@ public enum IffContainerKind { LooseFile, ZipArchive, XorZipArchive, EncryptedZi
 
 public sealed record IffContainerOptions(bool LeaveOpen = false, string? TemporaryDirectory = null);
 
+public sealed record IffContainerSaveOptions(IffContainerKind Kind, string? EncryptionRegion = null);
+
 public sealed record IffContainerEntry(string Name, long Length, Func<CancellationToken, ValueTask<Stream>> OpenAsync);
 
 public sealed class IffContainer : IDisposable, IAsyncDisposable
@@ -21,12 +23,14 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
 
     public IffContainerKind Kind { get; }
     public string? EncryptionRegion { get; }
+    public string? FileNameRegion { get; }
     public IReadOnlyList<IffContainerEntry> Entries { get; }
 
     private IffContainer(string path)
     {
         _sourcePath = path;
         Kind = IffContainerKind.LooseFile;
+        FileNameRegion = IffRegionDetector.FromFileName(path);
         var info = new FileInfo(path);
         Entries = [new IffContainerEntry(info.Name, info.Length, _ =>
             ValueTask.FromResult<Stream>(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan)))];
@@ -37,6 +41,7 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
         _sourcePath = path;
         Kind = kind;
         EncryptionRegion = region;
+        FileNameRegion = IffRegionDetector.FromFileName(path);
         _temporaryPath = temporaryPath;
         _archiveStream = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, FileOptions.Asynchronous | FileOptions.RandomAccess);
         try
@@ -99,9 +104,19 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
         throw new InvalidDataException("The file is neither a loose IFF nor a supported ZIP/XTEA IFF container.");
     }
 
-    public async Task SaveEntryAsync(string entryName, IffHeader header, IReadOnlyList<IffRecord> records, CancellationToken cancellationToken = default)
+    public async Task SaveEntryAsync(string entryName, IffHeader header, IReadOnlyList<IffRecord> records,
+        CancellationToken cancellationToken = default, IffContainerSaveOptions? saveOptions = null)
     {
         ThrowIfDisposed();
+        IffContainerKind outputKind = saveOptions?.Kind ?? Kind;
+        string? outputRegion = saveOptions?.EncryptionRegion ?? EncryptionRegion;
+        if (Kind == IffContainerKind.LooseFile && outputKind != IffContainerKind.LooseFile)
+            throw new InvalidOperationException("Loose IFF files cannot be converted to archive containers.");
+        if (Kind != IffContainerKind.LooseFile && outputKind == IffContainerKind.LooseFile)
+            throw new InvalidOperationException("Archive containers cannot be saved as loose IFF files.");
+        if (outputKind == IffContainerKind.EncryptedZipArchive &&
+            !PakKeys.All.Any(item => item.Label == outputRegion))
+            throw new ArgumentException("A supported XTEA key is required for encrypted IFF output.", nameof(saveOptions));
         IffContainerEntry entry = Entries.Single(item => item.Name.Equals(entryName, StringComparison.OrdinalIgnoreCase));
         string directory = Path.GetDirectoryName(_sourcePath)!;
         string temporaryOutput = Path.Combine(directory, $".{Path.GetFileName(_sourcePath)}.{Guid.NewGuid():N}.tmp");
@@ -114,19 +129,19 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
             else
             {
                 string replacementIff = Path.Combine(Path.GetTempPath(), $"pangya-iff-entry-{Guid.NewGuid():N}.iff");
-                bool encoded = Kind is IffContainerKind.EncryptedZipArchive or IffContainerKind.XorZipArchive;
+                bool encoded = outputKind is IffContainerKind.EncryptedZipArchive or IffContainerKind.XorZipArchive;
                 string plainZip = encoded ? Path.Combine(Path.GetTempPath(), $"pangya-iff-save-{Guid.NewGuid():N}.zip") : temporaryOutput;
                 try
                 {
                     await WriteIffFileAsync(replacementIff, header, records, cancellationToken).ConfigureAwait(false);
                     await ValidateLooseIffAsync(replacementIff, entry.Name, cancellationToken).ConfigureAwait(false);
                     await RebuildZipAsync(plainZip, entry.Name, replacementIff, cancellationToken).ConfigureAwait(false);
-                    if (Kind == IffContainerKind.EncryptedZipArchive)
+                    if (outputKind == IffContainerKind.EncryptedZipArchive)
                     {
-                        uint[] keys = PakKeys.All.Single(item => item.Label == EncryptionRegion).Keys;
+                        uint[] keys = PakKeys.All.Single(item => item.Label == outputRegion).Keys;
                         await TransformXteaAsync(plainZip, temporaryOutput, keys, decrypt: false, cancellationToken).ConfigureAwait(false);
                     }
-                    else if (Kind == IffContainerKind.XorZipArchive)
+                    else if (outputKind == IffContainerKind.XorZipArchive)
                         await TransformXorAsync(plainZip, temporaryOutput, cancellationToken).ConfigureAwait(false);
                 }
                 finally
@@ -135,7 +150,7 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
                     if (plainZip != temporaryOutput) TryDelete(plainZip);
                 }
             }
-            await ValidateOutputAsync(temporaryOutput, entry.Name, cancellationToken).ConfigureAwait(false);
+            await ValidateOutputAsync(temporaryOutput, entry.Name, outputKind, cancellationToken).ConfigureAwait(false);
             if (Kind != IffContainerKind.LooseFile)
             {
                 _archive?.Dispose();
@@ -173,14 +188,15 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
         await IffWriter.WriteAsync(output, header, Enumerate(records, token), token).ConfigureAwait(false);
     }
 
-    private async Task ValidateOutputAsync(string path, string entryName, CancellationToken token)
+    private static async Task ValidateOutputAsync(string path, string entryName, IffContainerKind outputKind,
+        CancellationToken token)
     {
-        if (Kind == IffContainerKind.LooseFile)
+        if (outputKind == IffContainerKind.LooseFile)
         {
             await ValidateLooseIffAsync(path, entryName, token).ConfigureAwait(false);
             return;
         }
-        if (Kind == IffContainerKind.ZipArchive)
+        if (outputKind == IffContainerKind.ZipArchive)
         {
             using ZipArchive zip = ZipFile.OpenRead(path);
             ZipArchiveEntry? entry = zip.Entries.SingleOrDefault(item => item.FullName.Equals(entryName, StringComparison.OrdinalIgnoreCase));

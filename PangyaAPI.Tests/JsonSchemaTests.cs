@@ -22,6 +22,41 @@ public sealed class JsonSchemaTests : IDisposable
     }
 
     [Fact]
+    public void Json_RoundTripsStringDefaultVisibilityAndFieldOrder()
+    {
+        var definition = new IffSchemaDefinition(1, "Data.iff", "JP", 16, true,
+        [
+            new("Second", 4, 4, IffFieldType.FixedString, IsVisible: false),
+            new("First", 0, 4, IffFieldType.UInt32, IsVisible: true)
+        ], DefaultStringSize: 7);
+
+        IffSchemaDefinition result = IffSchemaJson.Deserialize(IffSchemaJson.Serialize(definition));
+
+        Assert.Equal(7, result.DefaultStringSize);
+        Assert.Equal(["Second", "First"], result.Fields.Select(field => field.Name));
+        Assert.False(result.Fields[0].IsVisible);
+        Assert.True(result.Fields[1].IsVisible);
+    }
+
+    [Fact]
+    public void LegacyJson_DefaultsVisibilityAndStringSize()
+    {
+        const string json = """
+            { "schemaVersion": 1, "fileName": "Data.iff", "region": "*",
+              "minimumRecordSize": 4, "isEditable": true, "fields": [
+                { "name": "Value", "offset": 0, "width": 4, "type": "UInt32" },
+                { "name": "Raw record", "offset": 0, "width": 4, "type": "Raw" }
+              ] }
+            """;
+
+        IffSchema schema = IffSchemaJson.ToSchema(IffSchemaJson.Deserialize(json), 4);
+
+        Assert.Equal(4, schema.DefaultStringSize);
+        Assert.True(schema.Fields[0].IsVisible);
+        Assert.False(schema.Fields[1].IsVisible);
+    }
+
+    [Fact]
     public void DirectoryProvider_PrefersRegionThenUsesDefaultFallback()
     {
         Directory.CreateDirectory(_directory);
@@ -31,6 +66,18 @@ public sealed class JsonSchemaTests : IDisposable
 
         Assert.Equal("Thailand", Assert.Single(provider.Resolve("Item.iff", "TH", 8).Schema!.Fields).Name);
         Assert.Equal("Default", Assert.Single(provider.Resolve("Item.iff", "JP", 8).Schema!.Fields).Name);
+    }
+
+    [Fact]
+    public void DirectoryProvider_UsesEmbeddedFallbackWhenUserSchemaIsMissing()
+    {
+        var provider = new DirectoryIffSchemaProvider(_directory, new EmbeddedIffSchemaProvider());
+
+        IffSchemaResolution result = provider.Resolve("Character.iff", "TH", 628);
+
+        Assert.NotNull(result.Schema);
+        Assert.Equal(40, result.Schema.DefaultStringSize);
+        Assert.Contains(result.Schema.Fields, field => field.Name == "ItemId");
     }
 
     [Fact]
@@ -64,7 +111,7 @@ public sealed class JsonSchemaTests : IDisposable
     }
 
     [Fact]
-    public async Task SelectedRegion_IsUsedForUnknownHeaderButDetectionTakesPrecedence()
+    public async Task SelectedOrFilenameRegion_DeterminesSchemaInsteadOfHeader()
     {
         Directory.CreateDirectory(_directory);
         var provider = new DirectoryIffSchemaProvider(_directory);
@@ -82,8 +129,8 @@ public sealed class JsonSchemaTests : IDisposable
         await using var detectedStream = new MemoryStream(IffBytes(revision: 0, magic: 11));
         await using IffReader detected = IffReader.Open(detectedStream, "Data.iff",
             new(SchemaProvider: provider, SchemaRegion: "JP"));
-        Assert.Equal("TH", detected.Info.Region);
-        Assert.Equal("Thailand", Assert.Single(detected.Info.Schema!.Fields).Name);
+        Assert.Equal("JP", detected.Info.Region);
+        Assert.Equal("Japanese", Assert.Single(detected.Info.Schema!.Fields).Name);
     }
 
     [Fact]

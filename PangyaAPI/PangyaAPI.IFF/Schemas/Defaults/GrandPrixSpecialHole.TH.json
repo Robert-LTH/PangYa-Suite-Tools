@@ -15,7 +15,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "TypeId",
@@ -27,7 +28,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "HolePosition",
@@ -39,7 +41,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Map",
@@ -51,7 +54,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Hole",
@@ -63,7 +67,8 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": true
     },
     {
       "name": "Raw record",
@@ -75,7 +80,9 @@
       "minimum": null,
       "maximum": null,
       "bitMask": null,
-      "bitShift": 0
+      "bitShift": 0,
+      "isVisible": false
     }
-  ]
+  ],
+  "defaultStringSize": 20
 }

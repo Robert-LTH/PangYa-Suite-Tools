@@ -205,4 +205,22 @@
   <data name="IFFManager_BitShift" xml:space="preserve"><value>Bitförskjutning:</value></data>
   <data name="IFFManager_ShowRawRecord" xml:space="preserve"><value>Visa råpost</value></data>
   <data name="IFFManager_UnrepresentedBytes" xml:space="preserve"><value>Ej representerade byte: {0} / {1}</value></data>
+  <data name="IFFManager_FieldVisible" xml:space="preserve"><value>Visa fält</value></data>
+  <data name="IFFManager_CloneColumn" xml:space="preserve"><value>Klona kolumn</value></data>
+  <data name="IFFManager_MoveUp" xml:space="preserve"><value>Upp</value></data>
+  <data name="IFFManager_MoveDown" xml:space="preserve"><value>Ned</value></data>
+  <data name="IFFManager_DefaultStringSize" xml:space="preserve"><value>Standardstorlek för sträng:</value></data>
+  <data name="IFFManager_ContainerKey" xml:space="preserve"><value>IFF-nyckel:</value></data>
+  <data name="IFFManager_KeyNone" xml:space="preserve"><value>Ingen</value></data>
+  <data name="IFFManager_KeyPlainZip" xml:space="preserve"><value>Oskyddad ZIP</value></data>
+  <data name="IFFManager_SelectTemplate" xml:space="preserve"><value>Välj fältmall</value></data>
+  <data name="IFFManager_TemplateSchema" xml:space="preserve"><value>Schema:</value></data>
+  <data name="IFFManager_Select" xml:space="preserve"><value>Välj</value></data>
+  <data name="IFFManager_CurrentSchema" xml:space="preserve"><value>Aktuellt schema</value></data>
+  <data name="IFFManager_SortByOffset" xml:space="preserve"><value>Sortera efter offset</value></data>
+  <data name="IFFManager_AfterPreviousField" xml:space="preserve"><value>Efter föregående</value></data>
+  <data name="IFFManager_DefineRawColumnTitle" xml:space="preserve"><value>Definiera kolumn från råbyte</value></data>
+  <data name="IFFManager_ByteValue" xml:space="preserve"><value>Bytevärde</value></data>
+  <data name="IFFManager_DefineColumn" xml:space="preserve"><value>Definiera kolumn</value></data>
+  <data name="IFFManager_SelectContiguousBytes" xml:space="preserve"><value>Välj ett sammanhängande byteintervall.</value></data>
 </root>

@@ -9,7 +9,7 @@ public enum IffFieldType { Boolean, Byte, UInt16, Int16, UInt32, Int32, Single, 
 public sealed record IffField(
     string Name, int Offset, int Width, IffFieldType Type, bool IsEditable = true,
     Encoding? Encoding = null, long? Minimum = null, long? Maximum = null,
-    uint? BitMask = null, int BitShift = 0)
+    uint? BitMask = null, int BitShift = 0, bool IsVisible = true)
 {
     public object GetValue(ReadOnlySpan<byte> record, Encoding? stringEncoding = null)
     {
@@ -183,6 +183,11 @@ public sealed record IffField(
     private static void EncodeDate(Span<byte> value, object? input)
     {
         if (value.Length != 16) throw new InvalidDataException("PangYa dates occupy 16 bytes.");
+        if (input is null || string.IsNullOrWhiteSpace(Convert.ToString(input, CultureInfo.InvariantCulture)))
+        {
+            value.Clear();
+            return;
+        }
         DateTime date = input is DateTime typed ? typed : DateTime.Parse(Convert.ToString(input, CultureInfo.InvariantCulture)!, CultureInfo.CurrentCulture);
         value.Clear();
         ushort[] parts = [(ushort)date.Year, (ushort)date.Month, (ushort)date.DayOfWeek, (ushort)date.Day,
@@ -197,4 +202,9 @@ public sealed record IffField(
     }
 }
 
-public sealed record IffSchema(string Name, int MinimumRecordSize, IReadOnlyList<IffField> Fields, bool IsEditable = true);
+public sealed record IffSchema(
+    string Name,
+    int MinimumRecordSize,
+    IReadOnlyList<IffField> Fields,
+    bool IsEditable = true,
+    int DefaultStringSize = 32);

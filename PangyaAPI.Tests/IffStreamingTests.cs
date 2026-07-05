@@ -164,6 +164,22 @@ public sealed class IffStreamingTests
     }
 
     [Fact]
+    public void DateTimeField_WritesWindowsSystemTimeLayout()
+    {
+        var field = new IffField("Created", 0, 16, IffFieldType.DateTime);
+        byte[] record = new byte[16];
+        var selected = new DateTime(2026, 7, 5, 14, 33, 42, 123, DateTimeKind.Unspecified);
+
+        field.SetValue(record, selected);
+
+        ushort[] systemTime = Enumerable.Range(0, 8)
+            .Select(index => System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(record.AsSpan(index * 2, 2)))
+            .ToArray();
+        Assert.Equal([2026, 7, (ushort)DayOfWeek.Sunday, 5, 14, 33, 42, 123], systemTime);
+        Assert.Equal(selected, field.GetValue(record));
+    }
+
+    [Fact]
     public void ItemIdBitFields_FollowDocumentedLayoutAndPreserveNeighbors()
     {
         var header = new IffHeader(1, 0, 11, [0, 0, 0]);
@@ -362,6 +378,94 @@ public sealed class IffStreamingTests
         await using Stream reopenedStream = await reopenedEntry.OpenAsync(default);
         await using IffReader reopenedReader = IffReader.Open(reopenedStream, reopenedEntry.Name);
         Assert.Equal(71u, Convert.ToUInt32((await SingleAsync(reopenedReader.ReadRecordsAsync())).GetValue("Price")));
+    }
+
+    [Theory]
+    [InlineData("pangya-JP-data.iff", "JP")]
+    [InlineData("archive_th.zip", "TH")]
+    [InlineData("Pangya-Japan.zip", "JP")]
+    [InlineData("PangyaThailand.iff", null)]
+    [InlineData("something-eu.iff", null)]
+    public void Region_IsDetectedFromDelimitedFilenameToken(string path, string? expected)
+    {
+        Assert.Equal(expected, IffRegionDetector.FromFileName(path));
+    }
+
+    [Fact]
+    public async Task Container_KeyDetectionStillTriesKeysIndependentOfFilenameRegion()
+    {
+        using var temp = new TemporaryDirectory();
+        string encodedPath = temp.Combine("pangya-TH-data.iff");
+        using (ZipArchive zip = ZipFile.Open(encodedPath, ZipArchiveMode.Create))
+        {
+            ZipArchiveEntry zipEntry = zip.CreateEntry("Item.iff");
+            await using Stream output = zipEntry.Open();
+            await output.WriteAsync(BuildIff("Item.iff", 1, 196));
+        }
+        await using (IffContainer plain = await IffContainer.OpenAsync(encodedPath))
+        {
+            IffContainerEntry entry = Assert.Single(plain.Entries);
+            await using Stream stream = await entry.OpenAsync(default);
+            await using IffReader reader = IffReader.Open(stream, entry.Name);
+            IffRecord record = await SingleAsync(reader.ReadRecordsAsync());
+            await plain.SaveEntryAsync(entry.Name, reader.Info.Header, [record], saveOptions:
+                new(IffContainerKind.EncryptedZipArchive, "Japan"));
+        }
+
+        await using IffContainer container = await IffContainer.OpenAsync(encodedPath);
+
+        Assert.Equal("TH", container.FileNameRegion);
+        Assert.Equal("Japan", container.EncryptionRegion);
+    }
+
+    [Fact]
+    public async Task Container_CanChangeBetweenPlainAndXteaOutput()
+    {
+        using var temp = new TemporaryDirectory();
+        string path = temp.Combine("data.zip");
+        using (ZipArchive zip = ZipFile.Open(path, ZipArchiveMode.Create))
+        {
+            ZipArchiveEntry zipEntry = zip.CreateEntry("Item.iff");
+            await using Stream output = zipEntry.Open();
+            await output.WriteAsync(BuildIff("Item.iff", 1, 196));
+        }
+
+        await SaveWithOptions(new(IffContainerKind.EncryptedZipArchive, "Japan"));
+        await using (IffContainer encrypted = await IffContainer.OpenAsync(path))
+        {
+            Assert.Equal(IffContainerKind.EncryptedZipArchive, encrypted.Kind);
+            Assert.Equal("Japan", encrypted.EncryptionRegion);
+        }
+        await SaveWithOptions(new(IffContainerKind.ZipArchive));
+        await using IffContainer plain = await IffContainer.OpenAsync(path);
+        Assert.Equal(IffContainerKind.ZipArchive, plain.Kind);
+
+        async Task SaveWithOptions(IffContainerSaveOptions options)
+        {
+            await using IffContainer container = await IffContainer.OpenAsync(path);
+            IffContainerEntry entry = Assert.Single(container.Entries);
+            await using Stream stream = await entry.OpenAsync(default);
+            await using IffReader reader = IffReader.Open(stream, entry.Name);
+            IffRecord record = await SingleAsync(reader.ReadRecordsAsync());
+            await container.SaveEntryAsync(entry.Name, reader.Info.Header, [record], saveOptions: options);
+        }
+    }
+
+    [Fact]
+    public async Task LooseContainer_RejectsEncryptionOutput()
+    {
+        using var temp = new TemporaryDirectory();
+        string path = temp.Combine("Item.iff");
+        await File.WriteAllBytesAsync(path, BuildIff("Item.iff", 1, 196));
+        await using IffContainer container = await IffContainer.OpenAsync(path);
+        IffContainerEntry entry = Assert.Single(container.Entries);
+        await using Stream stream = await entry.OpenAsync(default);
+        await using IffReader reader = IffReader.Open(stream, entry.Name);
+        IffRecord record = await SingleAsync(reader.ReadRecordsAsync());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => container.SaveEntryAsync(
+            entry.Name, reader.Info.Header, [record], saveOptions:
+                new(IffContainerKind.EncryptedZipArchive, "Japan")));
     }
 
     [Theory]

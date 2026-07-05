@@ -792,4 +792,22 @@
   <data name="IFFManager_BitShift" xml:space="preserve"><value>Bit shift:</value></data>
   <data name="IFFManager_ShowRawRecord" xml:space="preserve"><value>Show raw record</value></data>
   <data name="IFFManager_UnrepresentedBytes" xml:space="preserve"><value>Unrepresented bytes: {0} / {1}</value></data>
+  <data name="IFFManager_FieldVisible" xml:space="preserve"><value>Display field</value></data>
+  <data name="IFFManager_CloneColumn" xml:space="preserve"><value>Clone column</value></data>
+  <data name="IFFManager_MoveUp" xml:space="preserve"><value>Up</value></data>
+  <data name="IFFManager_MoveDown" xml:space="preserve"><value>Down</value></data>
+  <data name="IFFManager_DefaultStringSize" xml:space="preserve"><value>Default string size:</value></data>
+  <data name="IFFManager_ContainerKey" xml:space="preserve"><value>IFF key:</value></data>
+  <data name="IFFManager_KeyNone" xml:space="preserve"><value>None</value></data>
+  <data name="IFFManager_KeyPlainZip" xml:space="preserve"><value>Plain ZIP</value></data>
+  <data name="IFFManager_SelectTemplate" xml:space="preserve"><value>Select field template</value></data>
+  <data name="IFFManager_TemplateSchema" xml:space="preserve"><value>Schema:</value></data>
+  <data name="IFFManager_Select" xml:space="preserve"><value>Select</value></data>
+  <data name="IFFManager_CurrentSchema" xml:space="preserve"><value>Current schema</value></data>
+  <data name="IFFManager_SortByOffset" xml:space="preserve"><value>Sort by offset</value></data>
+  <data name="IFFManager_AfterPreviousField" xml:space="preserve"><value>After previous</value></data>
+  <data name="IFFManager_DefineRawColumnTitle" xml:space="preserve"><value>Define column from raw bytes</value></data>
+  <data name="IFFManager_ByteValue" xml:space="preserve"><value>Byte value</value></data>
+  <data name="IFFManager_DefineColumn" xml:space="preserve"><value>Define column</value></data>
+  <data name="IFFManager_SelectContiguousBytes" xml:space="preserve"><value>Select one contiguous range of bytes.</value></data>
 </root>

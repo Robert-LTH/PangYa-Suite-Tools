@@ -30,18 +30,18 @@ public sealed class IffReader : IDisposable, IAsyncDisposable
             if (computed <= 0 || computed > options.MaximumRecordSize) throw new InvalidDataException("The IFF record size is invalid or exceeds the configured limit.");
             size = checked((int)computed);
         }
-        string detectedRegion = header.Region;
-        string schemaRegion = detectedRegion == "Unknown" && !string.IsNullOrWhiteSpace(options.SchemaRegion)
-            ? options.SchemaRegion
-            : detectedRegion;
+        string schemaRegion = options.SchemaRegion
+            ?? IffRegionDetector.FromFileName(fileName)
+            ?? header.Region;
         IffSchemaResolution resolution = size == 0
             ? new IffSchemaResolution(null)
             : (options.SchemaProvider ?? new EmbeddedIffSchemaProvider()).Resolve(fileName, schemaRegion, size);
         IffSchema? schema = resolution.Schema;
         if (size > 0 && schema is null)
         {
-            IffField rawRecord = new("Raw record", 0, size, IffFieldType.Raw, false);
-            schema = new IffSchema(Path.GetFileNameWithoutExtension(fileName), size, [rawRecord], false);
+            IffField rawRecord = new("Raw record", 0, size, IffFieldType.Raw, false, IsVisible: false);
+            schema = new IffSchema(Path.GetFileNameWithoutExtension(fileName), size, [rawRecord], false,
+                Math.Min(32, size));
         }
         Info = new IffDocumentInfo(fileName, schemaRegion, size, schema, header, resolution.Warning);
         _stream = stream;

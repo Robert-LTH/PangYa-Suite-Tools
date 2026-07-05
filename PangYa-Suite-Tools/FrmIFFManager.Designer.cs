@@ -11,6 +11,8 @@
         private System.Windows.Forms.ToolStripComboBox cboStringEncoding;
         private System.Windows.Forms.ToolStripStatusLabel lblRegion;
         private System.Windows.Forms.ToolStripComboBox cboRegion;
+        private System.Windows.Forms.ToolStripStatusLabel lblContainerKey;
+        private System.Windows.Forms.ToolStripComboBox cboContainerKey;
         private System.Windows.Forms.SplitContainer splitContainerMain;
         private System.Windows.Forms.GroupBox grpIffFiles;
         private System.Windows.Forms.ListBox lstIffFiles;
@@ -27,7 +29,6 @@
         private System.Windows.Forms.Button btnDeleteRows;
         private System.Windows.Forms.Button btnAddColumn;
         private System.Windows.Forms.Label lblSchemaCoverage;
-        private System.Windows.Forms.CheckBox chkShowRawRecord;
 
         protected override void Dispose(bool disposing)
         {
@@ -45,6 +46,8 @@
             this.cboStringEncoding = new System.Windows.Forms.ToolStripComboBox();
             this.lblRegion = new System.Windows.Forms.ToolStripStatusLabel();
             this.cboRegion = new System.Windows.Forms.ToolStripComboBox();
+            this.lblContainerKey = new System.Windows.Forms.ToolStripStatusLabel();
+            this.cboContainerKey = new System.Windows.Forms.ToolStripComboBox();
             this.splitContainerMain = new System.Windows.Forms.SplitContainer();
             this.grpIffFiles = new System.Windows.Forms.GroupBox();
             this.lstIffFiles = new System.Windows.Forms.ListBox();
@@ -59,7 +62,6 @@
             this.btnDeleteRows = new System.Windows.Forms.Button();
             this.btnAddColumn = new System.Windows.Forms.Button();
             this.lblSchemaCoverage = new System.Windows.Forms.Label();
-            this.chkShowRawRecord = new System.Windows.Forms.CheckBox();
             this.txtIffDirectory = new System.Windows.Forms.TextBox();
             this.lblIffDir = new System.Windows.Forms.Label();
             this.statusStrip.SuspendLayout();
@@ -75,7 +77,7 @@
             //
             // statusStrip
             //
-            this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.lblStatus, this.lblRegion, this.cboRegion, this.lblStringEncoding, this.cboStringEncoding, this.lblLanguage, this.cboLanguage });
+            this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.lblStatus, this.lblContainerKey, this.cboContainerKey, this.lblRegion, this.cboRegion, this.lblStringEncoding, this.cboStringEncoding, this.lblLanguage, this.cboLanguage });
             this.statusStrip.Location = new System.Drawing.Point(0, 539);
             this.statusStrip.Name = "statusStrip";
             this.statusStrip.Size = new System.Drawing.Size(984, 22);
@@ -123,6 +125,18 @@
             this.cboRegion.Name = "cboRegion";
             this.cboRegion.Size = new System.Drawing.Size(105, 23);
             this.cboRegion.SelectedIndexChanged += new System.EventHandler(this.cboRegion_SelectedIndexChanged);
+            //
+            // lblContainerKey
+            //
+            this.lblContainerKey.Margin = new System.Windows.Forms.Padding(20, 3, 0, 2);
+            this.lblContainerKey.Name = "lblContainerKey";
+            //
+            // cboContainerKey
+            //
+            this.cboContainerKey.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cboContainerKey.Name = "cboContainerKey";
+            this.cboContainerKey.Size = new System.Drawing.Size(130, 23);
+            this.cboContainerKey.SelectedIndexChanged += new System.EventHandler(this.cboContainerKey_SelectedIndexChanged);
             // 
             // splitContainerMain
             // 
@@ -211,7 +225,6 @@
             this.pnlTopBar.Controls.Add(this.btnDeleteRows);
             this.pnlTopBar.Controls.Add(this.btnAddColumn);
             this.pnlTopBar.Controls.Add(this.lblSchemaCoverage);
-            this.pnlTopBar.Controls.Add(this.chkShowRawRecord);
             this.pnlTopBar.Controls.Add(this.txtIffDirectory);
             this.pnlTopBar.Controls.Add(this.lblIffDir);
             this.pnlTopBar.Dock = System.Windows.Forms.DockStyle.Top;
@@ -281,13 +294,6 @@
             this.lblSchemaCoverage.Location = new System.Drawing.Point(12, 63);
             this.lblSchemaCoverage.Name = "lblSchemaCoverage";
             this.lblSchemaCoverage.Visible = false;
-            //
-            // chkShowRawRecord
-            //
-            this.chkShowRawRecord.AutoSize = true;
-            this.chkShowRawRecord.Location = new System.Drawing.Point(250, 61);
-            this.chkShowRawRecord.Name = "chkShowRawRecord";
-            this.chkShowRawRecord.CheckedChanged += new System.EventHandler(this.chkShowRawRecord_CheckedChanged);
             //
             // txtIffDirectory
             //

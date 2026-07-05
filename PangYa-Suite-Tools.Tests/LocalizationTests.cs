@@ -24,7 +24,6 @@ public sealed class LocalizationTests : IDisposable
         IffStringEncodingPreferences.PreferencePathOverride =
             Path.Combine(_tempDirectory, "iff-string-encoding.txt");
         IffSchemaPreferences.SchemaDirectoryOverride = Path.Combine(_tempDirectory, "schemas");
-        IffRawRecordPreferences.PreferencePathOverride = Path.Combine(_tempDirectory, "show-raw-record.txt");
     }
 
     [Fact]
@@ -97,16 +96,6 @@ public sealed class LocalizationTests : IDisposable
         File.WriteAllText(IffStringEncodingPreferences.PreferencePathOverride!, "invalid");
         Assert.Equal(IffStringEncodingPreferences.DefaultCodePage,
             IffStringEncodingPreferences.LoadCodePage());
-    }
-
-    [Fact]
-    public void RawRecordVisibilityPreference_DefaultsHiddenAndPersists()
-    {
-        Assert.False(IffRawRecordPreferences.LoadShowRawRecord());
-        IffRawRecordPreferences.SaveShowRawRecord(true);
-        Assert.True(IffRawRecordPreferences.LoadShowRawRecord());
-        IffRawRecordPreferences.SaveShowRawRecord(false);
-        Assert.False(IffRawRecordPreferences.LoadShowRawRecord());
     }
 
     [Fact]
@@ -188,8 +177,9 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Equal(Strings.IFFManager_AddRow, iff.Controls.Find("btnAddRow", true).Single().Text);
                 Assert.Equal(Strings.IFFManager_DeleteRows, iff.Controls.Find("btnDeleteRows", true).Single().Text);
                 Assert.Equal(Strings.IFFManager_ManageColumns, iff.Controls.Find("btnAddColumn", true).Single().Text);
-                Assert.Equal(Strings.IFFManager_ShowRawRecord, iff.Controls.Find("chkShowRawRecord", true).Single().Text);
-                Assert.False(((CheckBox)iff.Controls.Find("chkShowRawRecord", true).Single()).Checked);
+                Assert.Empty(iff.Controls.Find("chkShowRawRecord", true));
+                Assert.Equal(Strings.IFFManager_ContainerKey,
+                    PrivateField<ToolStripStatusLabel>(iff, "lblContainerKey").Text);
                 Assert.Equal(Strings.Common_OK, options.Controls.Find("btnOK", true).Single().Text);
                 Assert.Equal(Strings.PakMaker_Author, pak.Controls.Find("label1", true).Single().Text);
                 Assert.Equal(Strings.PakMaker_Author, pak.Controls.Find("label2", true).Single().Text);
@@ -259,7 +249,49 @@ public sealed class LocalizationTests : IDisposable
                     Assert.Equal(Enum.GetValues<IffFieldType>().Length, typeCombo.Items.Count);
                     Assert.Equal(type == IffFieldType.FixedString, encodingCombo.Enabled);
                     Assert.NotEmpty(encodingCombo.Items);
+                    Assert.Equal(field.IsVisible ?? true, PrivateField<CheckBox>(dialog, "_visible").Checked);
                 }
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void NewSchemaColumn_UsesRequestedInitialOffset()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var dialog = new CustomIffColumnDialog(32, initialOffset: 9);
+                Assert.Equal(9, PrivateField<NumericUpDown>(dialog, "_offset").Value);
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void SchemaColumn_PreviousFieldButtonUsesPreviousOffsetAndWidth()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var dialog = new CustomIffColumnDialog(32, initialOffset: 5, previousFieldEnd: 12);
+                typeof(CustomIffColumnDialog).GetMethod("UsePreviousFieldEnd",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(dialog, null);
+
+                Assert.Equal(12, PrivateField<NumericUpDown>(dialog, "_offset").Value);
             }
             catch (Exception ex) { failure = ex; }
         });
@@ -281,7 +313,7 @@ public sealed class LocalizationTests : IDisposable
                 var schema = new IffSchema("Test", 2,
                 [
                     new IffField("Known", 0, 1, IffFieldType.Byte),
-                    new IffField("Raw record", 0, 2, IffFieldType.Raw, false)
+                    new IffField("Raw record", 0, 2, IffFieldType.Raw, false, IsVisible: false)
                 ]);
                 var document = new IffDocumentInfo("Test.iff", "TH", 2, schema,
                     new IffHeader(0, 0, 11, [0, 0, 0]));
@@ -292,12 +324,8 @@ public sealed class LocalizationTests : IDisposable
 
                 var grid = PrivateField<DataGridView>(form, "gridRecords");
                 var coverage = PrivateField<Label>(form, "lblSchemaCoverage");
-                var showRaw = PrivateField<CheckBox>(form, "chkShowRawRecord");
                 Assert.Equal(2, grid.Columns.Count);
-                Assert.Contains("1 / 2", coverage.Text);
-
-                showRaw.Checked = true;
-                Assert.Equal(3, grid.Columns.Count);
+                Assert.Equal("Known @0 [1 B]", grid.Columns[1].HeaderText);
                 Assert.Contains("1 / 2", coverage.Text);
             }
             catch (Exception ex) { failure = ex; }
@@ -306,6 +334,221 @@ public sealed class LocalizationTests : IDisposable
         thread.Start();
         thread.Join();
         Assert.Null(failure);
+    }
+
+    [Fact]
+    public void IffEditor_UsesDatePickerColumnForDateTimeFields()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var form = new FrmIFFManager();
+                var schema = new IffSchema("Test", 16,
+                    [new IffField("Created", 0, 16, IffFieldType.DateTime)]);
+                var document = new IffDocumentInfo("Test.iff", "TH", 16, schema,
+                    new IffHeader(0, 0, 11, [0, 0, 0]));
+                typeof(FrmIFFManager).GetField("_document", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(form, document);
+                typeof(FrmIFFManager).GetMethod("BuildColumns", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(form, null);
+
+                var grid = PrivateField<DataGridView>(form, "gridRecords");
+                Assert.IsType<DataGridViewDateTimePickerColumn>(grid.Columns[1]);
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void DatePickerEditingControl_DisplaysAssignedDateTimeValue()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var picker = new DataGridViewDateTimePickerEditingControl();
+                var selected = new DateTime(2026, 7, 5, 14, 33, 0);
+
+                picker.InitializeValue(selected);
+
+                Assert.True(picker.Checked);
+                Assert.Equal(selected, picker.Value);
+                Assert.NotEqual("g", picker.CustomFormat);
+                Assert.False(picker.EditingControlValueChanged);
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void SchemaManager_ReordersFieldsAndKeepsStringDefault()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var dialog = new IffSchemaManagerDialog(32,
+                [
+                    new IffFieldDefinition("First", 0, 4, IffFieldType.UInt32),
+                    new IffFieldDefinition("Second", 4, 4, IffFieldType.UInt32)
+                ], defaultStringSize: 12);
+                ListBox list = PrivateField<ListBox>(dialog, "_list");
+                list.SelectedIndex = 1;
+                typeof(IffSchemaManagerDialog).GetMethod("MoveField", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(dialog, [-1]);
+
+                Assert.Equal(["Second", "First"], dialog.Fields.Select(field => field.Name));
+                Assert.Equal(12, dialog.DefaultStringSize);
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void SchemaManager_WidthChangeShiftsFollowingFieldsButKeepsOverlaysAndRawAnchored()
+    {
+        IffFieldDefinition[] fields =
+        [
+            new("Value", 4, 4, IffFieldType.UInt32),
+            new("Value bits", 4, 4, IffFieldType.BitField, BitMask: 0x0F),
+            new("Following", 8, 2, IffFieldType.UInt16),
+            new("Raw record", 0, 32, IffFieldType.Raw, false, IsVisible: false)
+        ];
+
+        IReadOnlyList<IffFieldDefinition> adjusted = IffSchemaManagerDialog.AdjustFollowingOffsets(
+            fields, 0, fields[0] with { Type = IffFieldType.Raw, Width = 6 }, 32, 12);
+
+        Assert.Equal(4, adjusted[1].Offset);
+        Assert.Equal(10, adjusted[2].Offset);
+        Assert.Equal(0, adjusted[3].Offset);
+    }
+
+    [Fact]
+    public void SchemaManager_WidthIncreaseReducesTrailingFieldToKeepRecordSize()
+    {
+        IffFieldDefinition[] fields =
+        [
+            new("Value", 0, 4, IffFieldType.Raw),
+            new("Following", 28, 4, IffFieldType.UInt32)
+        ];
+
+        IReadOnlyList<IffFieldDefinition> adjusted = IffSchemaManagerDialog.AdjustFollowingOffsets(
+            fields, 0, fields[0] with { Width = 5 }, 32, 12);
+
+        Assert.Equal(29, adjusted[1].Offset);
+        Assert.Equal(3, adjusted[1].Width);
+        Assert.Equal(IffFieldType.Raw, adjusted[1].Type);
+    }
+
+    [Fact]
+    public void SchemaManager_OffsetScrollMovesSelectedAndFollowingFieldsTogether()
+    {
+        IffFieldDefinition[] fields =
+        [
+            new("Before", 0, 2, IffFieldType.UInt16),
+            new("Selected", 4, 4, IffFieldType.UInt32),
+            new("Selected bits", 4, 4, IffFieldType.BitField, BitMask: 0x0F),
+            new("Following", 8, 2, IffFieldType.UInt16),
+            new("Raw record", 0, 32, IffFieldType.Raw, false, IsVisible: false)
+        ];
+
+        IReadOnlyList<IffFieldDefinition> adjusted = IffSchemaManagerDialog.MoveFieldAndFollowingOffsets(
+            fields, 1, 1, 32, 12);
+
+        Assert.Equal(0, adjusted[0].Offset);
+        Assert.Equal(5, adjusted[1].Offset);
+        Assert.Equal(5, adjusted[2].Offset);
+        Assert.Equal(9, adjusted[3].Offset);
+        Assert.Equal(0, adjusted[4].Offset);
+    }
+
+    [Fact]
+    public void SchemaManager_ShiftScrollChangesOnlySelectedField()
+    {
+        IffFieldDefinition[] fields =
+        [
+            new("Selected", 4, 4, IffFieldType.Raw),
+            new("Following", 8, 4, IffFieldType.UInt32)
+        ];
+
+        IReadOnlyList<IffFieldDefinition> adjusted = IffSchemaManagerDialog.ReplaceFieldWithoutAdjustingFollowing(
+            fields, 0, fields[0] with { Offset = 5, Width = 5 }, 32, 12);
+
+        Assert.Equal(5, adjusted[0].Offset);
+        Assert.Equal(5, adjusted[0].Width);
+        Assert.Equal(8, adjusted[1].Offset);
+        Assert.Equal(4, adjusted[1].Width);
+    }
+
+    [Fact]
+    public void SchemaManager_SortsByOffsetStablyAndKeepsRawRecordLast()
+    {
+        IffFieldDefinition[] sorted = IffSchemaManagerDialog.SortByOffset(
+        [
+            new("Later", 12, 2, IffFieldType.UInt16),
+            new("Raw record", 0, 32, IffFieldType.Raw, false),
+            new("First overlay", 4, 4, IffFieldType.UInt32),
+            new("Second overlay", 4, 4, IffFieldType.BitField, BitMask: 0x0F),
+            new("Earlier", 2, 2, IffFieldType.UInt16)
+        ]);
+
+        Assert.Equal(["Earlier", "First overlay", "Second overlay", "Later", "Raw record"],
+            sorted.Select(field => field.Name));
+    }
+
+    [Fact]
+    public void SchemaManager_DetectsOverlapsButIgnoresCatchAllRawRecord()
+    {
+        IffFieldDefinition[] fields =
+        [
+            new("Value", 4, 4, IffFieldType.UInt32),
+            new("Value bits", 4, 4, IffFieldType.BitField, BitMask: 0x0F),
+            new("Separate", 8, 2, IffFieldType.UInt16),
+            new("Raw record", 0, 32, IffFieldType.Raw, false)
+        ];
+
+        Assert.Equal([true, true, false, false],
+            IffSchemaManagerDialog.FindOverlappingFields(fields, 32));
+    }
+
+    [Fact]
+    public void RawRecordColumnSelection_RequiresContiguousBytesAndUsesAbsoluteOffset()
+    {
+        var raw = new IffField("Raw range", 10, 8, IffFieldType.Raw);
+
+        Assert.True(RawRecordColumnDialog.TryGetSelection([2, 3, 4], raw,
+            out int offset, out int width));
+        Assert.Equal(12, offset);
+        Assert.Equal(3, width);
+        Assert.False(RawRecordColumnDialog.TryGetSelection([1, 3], raw, out _, out _));
+        Assert.False(RawRecordColumnDialog.TryGetSelection([8], raw, out _, out _));
+    }
+
+    [Fact]
+    public void SchemaTemplateCatalog_IncludesEmbeddedDefaultsWithoutUserFiles()
+    {
+        IReadOnlyList<IffSchemaDefinition> schemas = IffSchemaPreferences.LoadTemplateSchemas();
+
+        IffSchemaDefinition character = schemas.Single(schema =>
+            schema.FileName == "Character.iff" && schema.Region == "TH");
+        Assert.Equal(40, character.DefaultStringSize);
+        Assert.NotEmpty(character.Fields);
     }
 
     private static HashSet<string> KeysFor(CultureInfo culture)
@@ -325,7 +568,6 @@ public sealed class LocalizationTests : IDisposable
         PakFilenameEncodingPreferences.PreferencePathOverride = null;
         IffStringEncodingPreferences.PreferencePathOverride = null;
         IffSchemaPreferences.SchemaDirectoryOverride = null;
-        IffRawRecordPreferences.PreferencePathOverride = null;
         Directory.Delete(_tempDirectory, recursive: true);
     }
 }

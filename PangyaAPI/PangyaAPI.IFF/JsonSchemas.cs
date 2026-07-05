@@ -21,7 +21,8 @@ public static class IffSchemaRegistry
         IffSchemaResolution resolution = ResolveDetailed(fileName, header, recordSize);
         if (resolution.Schema is not null) return resolution.Schema;
         return new IffSchema(Path.GetFileNameWithoutExtension(fileName), recordSize,
-            [new IffField("Raw record", 0, recordSize, IffFieldType.Raw, false)], false);
+            [new IffField("Raw record", 0, recordSize, IffFieldType.Raw, false, IsVisible: false)], false,
+            Math.Min(32, recordSize));
     }
 
     public static IffSchemaResolution ResolveDetailed(string fileName, IffHeader header, int recordSize,
@@ -35,7 +36,8 @@ public sealed record IffSchemaDefinition(
     string Region,
     int MinimumRecordSize,
     bool IsEditable,
-    IReadOnlyList<IffFieldDefinition> Fields);
+    IReadOnlyList<IffFieldDefinition> Fields,
+    int DefaultStringSize = 1);
 
 public sealed record IffFieldDefinition(
     string Name,
@@ -47,7 +49,8 @@ public sealed record IffFieldDefinition(
     long? Minimum = null,
     long? Maximum = null,
     uint? BitMask = null,
-    int BitShift = 0);
+    int BitShift = 0,
+    bool? IsVisible = null);
 
 public static class IffSchemaJson
 {
@@ -66,15 +69,26 @@ public static class IffSchemaJson
     public static string Serialize(IffSchemaDefinition definition) =>
         JsonSerializer.Serialize(definition, Options);
 
-    public static IffSchemaDefinition Deserialize(string json) =>
-        JsonSerializer.Deserialize<IffSchemaDefinition>(json, Options)
-        ?? throw new InvalidDataException("The IFF schema JSON is empty.");
+    public static IffSchemaDefinition Deserialize(string json)
+    {
+        IffSchemaDefinition definition = JsonSerializer.Deserialize<IffSchemaDefinition>(json, Options)
+            ?? throw new InvalidDataException("The IFF schema JSON is empty.");
+        using JsonDocument document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("defaultStringSize", out _))
+        {
+            int inferred = definition.Fields?.FirstOrDefault(field => field.Type == IffFieldType.FixedString)?.Width
+                ?? Math.Min(32, definition.MinimumRecordSize);
+            definition = definition with { DefaultStringSize = Math.Max(1, inferred) };
+        }
+        return definition;
+    }
 
     public static IffSchemaDefinition FromSchema(string fileName, string region, IffSchema schema) =>
         new(CurrentVersion, Path.GetFileName(fileName), region, schema.MinimumRecordSize, schema.IsEditable,
             schema.Fields.Select(field => new IffFieldDefinition(
                 field.Name, field.Offset, field.Width, field.Type, field.IsEditable,
-                field.Encoding?.CodePage, field.Minimum, field.Maximum, field.BitMask, field.BitShift)).ToArray());
+                field.Encoding?.CodePage, field.Minimum, field.Maximum, field.BitMask, field.BitShift,
+                field.IsVisible)).ToArray(), schema.DefaultStringSize);
 
     public static IffSchema ToSchema(IffSchemaDefinition definition, int recordSize)
     {
@@ -82,9 +96,10 @@ public static class IffSchemaJson
         IffField[] fields = definition.Fields.Select(field => new IffField(
             field.Name, field.Offset, field.Width, field.Type, field.IsEditable,
             field.EncodingCodePage is int codePage ? Encoding.GetEncoding(codePage) : null,
-            field.Minimum, field.Maximum, field.BitMask, field.BitShift)).ToArray();
+            field.Minimum, field.Maximum, field.BitMask, field.BitShift,
+            field.IsVisible ?? !IsCatchAllRaw(field, recordSize))).ToArray();
         return new IffSchema(Path.GetFileNameWithoutExtension(definition.FileName),
-            definition.MinimumRecordSize, fields, definition.IsEditable);
+            definition.MinimumRecordSize, fields, definition.IsEditable, definition.DefaultStringSize);
     }
 
     public static void ValidateDefinition(IffSchemaDefinition definition, int recordSize)
@@ -97,6 +112,8 @@ public static class IffSchemaJson
             throw new InvalidDataException("An IFF schema must contain a region or '*'.");
         if (definition.MinimumRecordSize <= 0 || recordSize < definition.MinimumRecordSize)
             throw new InvalidDataException($"The schema requires records of at least {definition.MinimumRecordSize} bytes.");
+        if (definition.DefaultStringSize <= 0 || definition.DefaultStringSize > recordSize)
+            throw new InvalidDataException("The default string size must fit within the record.");
         if (definition.Fields is null || definition.Fields.Count == 0)
             throw new InvalidDataException("An IFF schema must contain at least one field.");
 
@@ -112,6 +129,10 @@ public static class IffSchemaJson
                 _ = Encoding.GetEncoding(codePage);
         }
     }
+
+    private static bool IsCatchAllRaw(IffFieldDefinition field, int recordSize) =>
+        field.Type == IffFieldType.Raw && field.Offset == 0 && field.Width == recordSize &&
+        field.Name.Equals("Raw record", StringComparison.OrdinalIgnoreCase);
 
     private static void ValidateFieldShape(IffFieldDefinition field)
     {
@@ -142,7 +163,7 @@ public static class IffSchemaJson
     }
 }
 
-public sealed class DirectoryIffSchemaProvider(string directoryPath) : IIffSchemaProvider
+public sealed class DirectoryIffSchemaProvider(string directoryPath, IIffSchemaProvider? fallbackProvider = null) : IIffSchemaProvider
 {
     public string DirectoryPath { get; } = Path.GetFullPath(directoryPath);
 
@@ -166,7 +187,8 @@ public sealed class DirectoryIffSchemaProvider(string directoryPath) : IIffSchem
                 return new IffSchemaResolution(null, $"Could not load IFF schema '{candidate}': {ex.Message}");
             }
         }
-        return new IffSchemaResolution(null, $"No JSON schema is defined for {fileName} ({region}).");
+        return fallbackProvider?.Resolve(fileName, region, recordSize)
+            ?? new IffSchemaResolution(null, $"No JSON schema is defined for {fileName} ({region}).");
     }
 
     public string GetSchemaPath(string fileName, string region) =>
@@ -187,6 +209,19 @@ public sealed class DirectoryIffSchemaProvider(string directoryPath) : IIffSchem
         {
             if (File.Exists(temporary)) File.Delete(temporary);
         }
+    }
+
+    public IReadOnlyList<IffSchemaDefinition> LoadDefinitions()
+    {
+        if (!Directory.Exists(DirectoryPath)) return [];
+        var definitions = new List<IffSchemaDefinition>();
+        foreach (string path in Directory.EnumerateFiles(DirectoryPath, "*.json", SearchOption.TopDirectoryOnly)
+            .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+        {
+            try { definitions.Add(IffSchemaJson.Deserialize(File.ReadAllText(path))); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException) { }
+        }
+        return definitions;
     }
 
     private IEnumerable<string> CandidatePaths(string fileName, string region)
@@ -238,6 +273,20 @@ public sealed class EmbeddedIffSchemaProvider(Assembly? assembly = null, string 
             using FileStream target = new(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
             source.CopyTo(target);
         }
+    }
+
+    public IReadOnlyList<IffSchemaDefinition> LoadDefinitions()
+    {
+        var definitions = new List<IffSchemaDefinition>();
+        foreach (string resource in _assembly.GetManifestResourceNames()
+            .Where(name => name.StartsWith(resourcePrefix + ".", StringComparison.Ordinal))
+            .Order(StringComparer.OrdinalIgnoreCase))
+        {
+            using Stream stream = _assembly.GetManifestResourceStream(resource)!;
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            definitions.Add(IffSchemaJson.Deserialize(reader.ReadToEnd()));
+        }
+        return definitions;
     }
 
     private static IEnumerable<string> CandidateSuffixes(string fileName, string region)
