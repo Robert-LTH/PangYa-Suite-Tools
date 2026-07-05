@@ -137,9 +137,22 @@ public partial class FrmIFFManager : Form
         cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_PortugueseBrazil, LocalizationManager.PortugueseBrazil));
         cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_EnglishUS, LocalizationManager.English));
         cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_Swedish, LocalizationManager.Swedish));
-        cboLanguage.SelectedIndex = LocalizationManager.CurrentCultureIndex;
+        SelectCurrentLanguage();
         _initializingLanguages = false;
         ApplyLocalization();
+    }
+
+    private void SelectCurrentLanguage()
+    {
+        string cultureName = LocalizationManager.CurrentCulture.Name;
+        int index = cboLanguage.Items.Cast<object>()
+            .Select((item, index) => (item, index))
+            .FirstOrDefault(candidate => candidate.item is KeyValuePair<string, string> language &&
+                language.Value.Equals(cultureName, StringComparison.OrdinalIgnoreCase)).index;
+        bool found = index >= 0 && index < cboLanguage.Items.Count &&
+            cboLanguage.Items[index] is KeyValuePair<string, string> language &&
+            language.Value.Equals(cultureName, StringComparison.OrdinalIgnoreCase);
+        cboLanguage.SelectedIndex = found ? index : cboLanguage.Items.Count > 0 ? 0 : -1;
     }
 
     private void InitializeEncodingComboBox()
@@ -194,9 +207,12 @@ public partial class FrmIFFManager : Form
     private void LocalizationManager_CultureChanged(object? sender, EventArgs e)
     {
         _initializingLanguages = true;
-        cboLanguage.SelectedIndex = LocalizationManager.CurrentCultureIndex;
-        _initializingLanguages = false;
-        ApplyLocalization();
+        try
+        {
+            SelectCurrentLanguage();
+            ApplyLocalization();
+        }
+        finally { _initializingLanguages = false; }
     }
 
     private void ApplyLocalization()
