@@ -13,23 +13,59 @@ namespace PangYa_Suite_Tools
     {
         private readonly string _exePath;
         private const string ProgramId = "PangYaSuiteTools.PAK";
+        private bool _isInitializingLanguage = true;
 
         public FrmOptions()
         {
             _exePath = Process.GetCurrentProcess().MainModule?.FileName ?? Environment.ProcessPath ?? string.Empty;
 
             InitializeComponent();
+            InitializeLanguageComboBox();
             ApplyLocalization();
             CheckCurrentRegistryState();
             LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
             Disposed += (_, _) => LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
         }
 
-        private void LocalizationManager_CultureChanged(object? sender, EventArgs e) => ApplyLocalization();
+        private void InitializeLanguageComboBox()
+        {
+            cboLanguage.DisplayMember = "Key";
+            cboLanguage.ValueMember = "Value";
+            PopulateLanguageComboBox();
+            _isInitializingLanguage = false;
+        }
+
+        private void PopulateLanguageComboBox()
+        {
+            string selectedCulture = LocalizationManager.CurrentCulture.Name;
+
+            _isInitializingLanguage = true;
+            cboLanguage.Items.Clear();
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_PortugueseBrazil, LocalizationManager.PortugueseBrazil));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_EnglishUS, LocalizationManager.English));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_Swedish, LocalizationManager.Swedish));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_Japonese, LocalizationManager.Japonese));
+            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_French, LocalizationManager.French));
+
+            int selectedIndex = cboLanguage.Items.Cast<KeyValuePair<string, string>>()
+                .Select((item, index) => new { item, index })
+                .FirstOrDefault(pair => string.Equals(pair.item.Value, selectedCulture, StringComparison.OrdinalIgnoreCase))
+                ?.index ?? LocalizationManager.CurrentCultureIndex;
+            cboLanguage.SelectedIndex = selectedIndex;
+            _isInitializingLanguage = false;
+        }
+
+        private void LocalizationManager_CultureChanged(object? sender, EventArgs e)
+        {
+            PopulateLanguageComboBox();
+            ApplyLocalization();
+        }
 
         private void ApplyLocalization()
         {
             Text = Strings.Options_Title;
+            groupGlobalSettings.Text = Strings.Options_Options;
+            lblLanguage.Text = Strings.Common_Language;
             groupRegister.Text = Strings.Options_Group;
             btnCancel.Text = Strings.Options_Cancel;
             btnOK.Text = Strings.Common_OK;
@@ -51,6 +87,16 @@ namespace PangYa_Suite_Tools
                 lblAdminWarning.Visible = true;
                 chkRegisterFile.Enabled = false;
                 chkShellContext.Enabled = false;
+            }
+        }
+
+        private void cboLanguage_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (_isInitializingLanguage) return;
+
+            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
+            {
+                LocalizationManager.SetCulture(selectedItem.Value);
             }
         }
 
