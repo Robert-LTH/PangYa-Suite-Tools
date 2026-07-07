@@ -200,6 +200,37 @@ public sealed class LocalizationTests : IDisposable
     }
 
     [Fact]
+    public void UpdateListXmlParser_ReadsPatchInfoAndFiles()
+    {
+        const string xml = """
+            <?xml version="1.0" encoding="euc-kr" standalone="yes" ?>
+            <patchVer value="JP.R7.983.00" />
+            <patchNum value="1" />
+            <updatelistVer value="2026070401" />
+            <updatefiles count="480">
+                <fileinfo fname="bs_notice_popup00.jpg" fdir="\" fsize="58485" fcrc="-19843887" fdate="2025-05-12" ftime="00:21:51" pname="bs_notice_popup00.jpg.zip" psize="717469" />
+            </updatefiles>
+            """;
+
+        MethodInfo parser = typeof(FrmUpdateList).GetMethod(
+            "ParseUpdateListXml",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        object document = parser.Invoke(null, [xml])!;
+        Assert.Equal("JP.R7.983.00", document.GetType().GetProperty("PatchVersion")!.GetValue(document));
+        Assert.Equal("1", document.GetType().GetProperty("PatchNumber")!.GetValue(document));
+        Assert.Equal("2026070401", document.GetType().GetProperty("UpdateListVersion")!.GetValue(document));
+        Assert.Equal(480, document.GetType().GetProperty("DeclaredCount")!.GetValue(document));
+
+        var files = (IEnumerable)document.GetType().GetProperty("Files")!.GetValue(document)!;
+        object file = files.Cast<object>().Single();
+        Assert.Equal("bs_notice_popup00.jpg", file.GetType().GetProperty("FileName")!.GetValue(file));
+        Assert.Equal(@"\", file.GetType().GetProperty("Directory")!.GetValue(file));
+        Assert.Equal("58485", file.GetType().GetProperty("FileSize")!.GetValue(file));
+        Assert.Equal("bs_notice_popup00.jpg.zip", file.GetType().GetProperty("PackageName")!.GetValue(file));
+    }
+
+    [Fact]
     public void EveryForm_AcceptsLiveCultureChanges()
     {
         Exception? failure = null;

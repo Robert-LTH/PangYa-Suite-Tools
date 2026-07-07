@@ -390,6 +390,29 @@
   <data name="UpdateList_GenerateNow" xml:space="preserve">
     <value>Gerar agora</value>
   </data>
+  <data name="UpdateList_SelectUpdateListFile" xml:space="preserve">
+    <value>Selecionar arquivo updatelist</value>
+  </data>
+  <data name="UpdateList_ViewerPathHint" xml:space="preserve">
+    <value>Arraste um arquivo updatelist aqui ou clique em Procurar...</value>
+  </data>
+  <data name="UpdateList_RawXml" xml:space="preserve">
+    <value>XML bruto</value>
+  </data>
+  <data name="UpdateList_NoRawXmlLoaded" xml:space="preserve">
+    <value>Nenhum XML de updatelist foi carregado.</value>
+  </data>
+  <data name="UpdateList_StatusSummary" xml:space="preserve">
+    <value>Patch: {0} | Número do patch: {1} | UpdateList: {2} | Arquivos: {3}/{4}</value>
+  </data>
+  <data name="UpdateList_ColumnFileName" xml:space="preserve"><value>Arquivo</value></data>
+  <data name="UpdateList_ColumnDirectory" xml:space="preserve"><value>Pasta</value></data>
+  <data name="UpdateList_ColumnFileSize" xml:space="preserve"><value>Tamanho</value></data>
+  <data name="UpdateList_ColumnCrc" xml:space="preserve"><value>CRC</value></data>
+  <data name="UpdateList_ColumnDate" xml:space="preserve"><value>Data</value></data>
+  <data name="UpdateList_ColumnTime" xml:space="preserve"><value>Hora</value></data>
+  <data name="UpdateList_ColumnPackageName" xml:space="preserve"><value>Pacote</value></data>
+  <data name="UpdateList_ColumnPackageSize" xml:space="preserve"><value>Tamanho do pacote</value></data>
   <data name="UpdateList_INACTIVE" xml:space="preserve">
     <value>INATIVO</value>
   </data>

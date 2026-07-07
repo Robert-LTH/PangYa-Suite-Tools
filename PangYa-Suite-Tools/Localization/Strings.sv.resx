@@ -390,6 +390,29 @@
   <data name="UpdateList_GenerateNow" xml:space="preserve">
     <value>Generera nu</value>
   </data>
+  <data name="UpdateList_SelectUpdateListFile" xml:space="preserve">
+    <value>Välj updatelist-fil</value>
+  </data>
+  <data name="UpdateList_ViewerPathHint" xml:space="preserve">
+    <value>Dra en updatelist-fil hit eller klicka på Bläddra...</value>
+  </data>
+  <data name="UpdateList_RawXml" xml:space="preserve">
+    <value>Rå XML</value>
+  </data>
+  <data name="UpdateList_NoRawXmlLoaded" xml:space="preserve">
+    <value>Ingen updatelist-XML har lästs in.</value>
+  </data>
+  <data name="UpdateList_StatusSummary" xml:space="preserve">
+    <value>Patch: {0} | Patchnummer: {1} | UpdateList: {2} | Filer: {3}/{4}</value>
+  </data>
+  <data name="UpdateList_ColumnFileName" xml:space="preserve"><value>Fil</value></data>
+  <data name="UpdateList_ColumnDirectory" xml:space="preserve"><value>Mapp</value></data>
+  <data name="UpdateList_ColumnFileSize" xml:space="preserve"><value>Storlek</value></data>
+  <data name="UpdateList_ColumnCrc" xml:space="preserve"><value>CRC</value></data>
+  <data name="UpdateList_ColumnDate" xml:space="preserve"><value>Datum</value></data>
+  <data name="UpdateList_ColumnTime" xml:space="preserve"><value>Tid</value></data>
+  <data name="UpdateList_ColumnPackageName" xml:space="preserve"><value>Paket</value></data>
+  <data name="UpdateList_ColumnPackageSize" xml:space="preserve"><value>Paketstorlek</value></data>
   <data name="UpdateList_INACTIVE" xml:space="preserve">
     <value>INAKTIV</value>
   </data>
