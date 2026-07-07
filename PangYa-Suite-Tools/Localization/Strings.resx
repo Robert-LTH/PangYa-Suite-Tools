@@ -87,6 +87,15 @@
   <data name="PakMaker_InvalidRenameName" xml:space="preserve">
     <value>Enter a valid file name without path separators.</value>
   </data>
+  <data name="PakMaker_FileMenu" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="PakMaker_PakOperations" xml:space="preserve">
+    <value>PAK operations</value>
+  </data>
+  <data name="PakMaker_FileOperations" xml:space="preserve">
+    <value>File operations</value>
+  </data>
   <data name="PakMaker_RemoveSelectedItemSFromPAK" xml:space="preserve">
     <value>🗑️ Remove selected item(s) from PAK...</value>
   </data>
@@ -378,6 +387,9 @@
   <data name="UpdateList_StartMonitoring" xml:space="preserve">
     <value>▶️ Start Monitoring</value>
   </data>
+  <data name="UpdateList_GenerateNow" xml:space="preserve">
+    <value>Generate Now</value>
+  </data>
   <data name="UpdateList_INACTIVE" xml:space="preserve">
     <value>INACTIVE</value>
   </data>
@@ -562,19 +574,19 @@
     <value>📂 Path: (all files)</value>
   </data>
   <data name="Pak_ExtractSelected" xml:space="preserve">
-    <value>📤 EXTRACT SELECTED</value>
+    <value>Extract</value>
   </data>
   <data name="Pak_RemoveSelected" xml:space="preserve">
-    <value>🗑️ REMOVE SELECTED</value>
+    <value>Remove</value>
   </data>
   <data name="Pak_BatchExtract" xml:space="preserve">
-    <value>📂 EXTRACT FOLDER</value>
+    <value>Extract Folder</value>
   </data>
   <data name="Pak_Update" xml:space="preserve">
-    <value>🔄 INJECT / UPDATE</value>
+    <value>Add</value>
   </data>
   <data name="Pak_ExtractAll" xml:space="preserve">
-    <value>💥 EXTRACT ALL</value>
+    <value>Extract All</value>
   </data>
   <data name="Pak_ColumnName" xml:space="preserve">
     <value>File Name</value>
@@ -592,7 +604,13 @@
     <value>🔑 New Key (XTEA):</value>
   </data>
   <data name="Pak_ChangeKey" xml:space="preserve">
-    <value>🔐 CHANGE PAK KEY</value>
+    <value>Change Key</value>
+  </data>
+  <data name="Pak_RenameSelected" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Pak_ShowToolbarText" xml:space="preserve">
+    <value>Show text under toolbar icons</value>
   </data>
   <data name="Pak_TabCreate" xml:space="preserve">
     <value>Create New PAK</value>

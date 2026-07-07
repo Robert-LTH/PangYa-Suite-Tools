@@ -151,6 +151,55 @@ public sealed class LocalizationTests : IDisposable
     }
 
     [Fact]
+    public void PakMakerFilenameEncoding_UsesSavedSelection()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        PakFilenameEncodingPreferences.SaveCodePage(932);
+
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var form = new FrmPakMaker();
+                var combo = PrivateField<ToolStripComboBox>(form, "cboFilenameEncoding");
+                var statusLabel = PrivateField<ToolStripStatusLabel>(form, "_filenameEncodingStatusLabel");
+
+                Assert.Equal(932, PrivateValue<int>(form, "_selectedFilenameEncodingCodePage"));
+                Assert.IsType<PakEncodingOption>(combo.SelectedItem);
+                Assert.Equal(932, ((PakEncodingOption)combo.SelectedItem!).CodePage);
+                Assert.Contains("932", statusLabel.Text);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void PakMakerFilenameEncodingSelection_FallsBackWhenDefaultIsUnavailable()
+    {
+        IReadOnlyList<PakEncodingOption> encodings =
+        [
+            new PakEncodingOption(932, "shift_jis", "Japanese (Shift-JIS)"),
+            new PakEncodingOption(65001, "utf-8", "Unicode (UTF-8)")
+        ];
+
+        MethodInfo selector = typeof(FrmPakMaker).GetMethod(
+            "SelectFilenameEncodingOption",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var selected = (PakEncodingOption)selector.Invoke(null, [encodings, 1252])!;
+
+        Assert.Equal(932, selected.CodePage);
+    }
+
+    [Fact]
     public void EveryForm_AcceptsLiveCultureChanges()
     {
         Exception? failure = null;
@@ -587,6 +636,10 @@ public sealed class LocalizationTests : IDisposable
     }
 
     private static T PrivateField<T>(object instance, string name) where T : class =>
+        (T)(instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(instance)!);
+
+    private static T PrivateValue<T>(object instance, string name) where T : struct =>
         (T)(instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(instance)!);
 

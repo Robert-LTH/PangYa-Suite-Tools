@@ -33,6 +33,9 @@ internal static class Strings
     public static string PakMaker_RenameSelectedFile => ResourceManager.GetString(nameof(PakMaker_RenameSelectedFile), Culture) ?? "";
     public static string PakMaker_SelectSingleFileToRename => ResourceManager.GetString(nameof(PakMaker_SelectSingleFileToRename), Culture) ?? "";
     public static string PakMaker_InvalidRenameName => ResourceManager.GetString(nameof(PakMaker_InvalidRenameName), Culture) ?? "";
+    public static string PakMaker_FileMenu => ResourceManager.GetString(nameof(PakMaker_FileMenu), Culture) ?? "";
+    public static string PakMaker_PakOperations => ResourceManager.GetString(nameof(PakMaker_PakOperations), Culture) ?? "";
+    public static string PakMaker_FileOperations => ResourceManager.GetString(nameof(PakMaker_FileOperations), Culture) ?? "";
     public static string PakMaker_RemoveSelectedItemSFromPAK => ResourceManager.GetString(nameof(PakMaker_RemoveSelectedItemSFromPAK), Culture) ?? "";
     public static string PakMaker_ExtractThisFolder => ResourceManager.GetString(nameof(PakMaker_ExtractThisFolder), Culture) ?? "";
     public static string PakMaker_RemoveThisFolderFromPAK => ResourceManager.GetString(nameof(PakMaker_RemoveThisFolderFromPAK), Culture) ?? "";
@@ -133,6 +136,7 @@ internal static class Strings
     public static string PakMaker_ErrorChangingKey => ResourceManager.GetString(nameof(PakMaker_ErrorChangingKey), Culture) ?? "";
     public static string PakMaker_RebuildFailed => ResourceManager.GetString(nameof(PakMaker_RebuildFailed), Culture) ?? "";
     public static string UpdateList_StartMonitoring => ResourceManager.GetString(nameof(UpdateList_StartMonitoring), Culture) ?? "";
+    public static string UpdateList_GenerateNow => ResourceManager.GetString(nameof(UpdateList_GenerateNow), Culture) ?? "";
     public static string UpdateList_INACTIVE => ResourceManager.GetString(nameof(UpdateList_INACTIVE), Culture) ?? "";
     public static string UpdateList_StopMonitoring => ResourceManager.GetString(nameof(UpdateList_StopMonitoring), Culture) ?? "";
     public static string UpdateList_ACTIVELYMONITORING => ResourceManager.GetString(nameof(UpdateList_ACTIVELYMONITORING), Culture) ?? "";
@@ -205,6 +209,8 @@ internal static class Strings
     public static string Pak_ColumnCompressed => ResourceManager.GetString(nameof(Pak_ColumnCompressed), Culture) ?? "";
     public static string Pak_NewKey => ResourceManager.GetString(nameof(Pak_NewKey), Culture) ?? "";
     public static string Pak_ChangeKey => ResourceManager.GetString(nameof(Pak_ChangeKey), Culture) ?? "";
+    public static string Pak_RenameSelected => ResourceManager.GetString(nameof(Pak_RenameSelected), Culture) ?? "";
+    public static string Pak_ShowToolbarText => ResourceManager.GetString(nameof(Pak_ShowToolbarText), Culture) ?? "";
     public static string Pak_TabCreate => ResourceManager.GetString(nameof(Pak_TabCreate), Culture) ?? "";
     public static string Pak_SourceHint => ResourceManager.GetString(nameof(Pak_SourceHint), Culture) ?? "";
     public static string Pak_SelectFolder => ResourceManager.GetString(nameof(Pak_SelectFolder), Culture) ?? "";

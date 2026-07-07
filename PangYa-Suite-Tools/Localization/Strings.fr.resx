@@ -79,6 +79,24 @@ Sélectionnez le répertoire des fichiers IFF.</value>
   <data name="PakMaker_ExtractSelectedItemS" xml:space="preserve">
     <value>📁 Extraire l'élément / les éléments sélectionné(s)...</value>
   </data>
+  <data name="PakMaker_RenameSelectedFile" xml:space="preserve">
+    <value>✏️ Renommer le fichier sélectionné (F2)</value>
+  </data>
+  <data name="PakMaker_SelectSingleFileToRename" xml:space="preserve">
+    <value>Sélectionnez exactement un fichier à renommer.</value>
+  </data>
+  <data name="PakMaker_InvalidRenameName" xml:space="preserve">
+    <value>Saisissez un nom de fichier valide, sans séparateur de chemin.</value>
+  </data>
+  <data name="PakMaker_FileMenu" xml:space="preserve">
+    <value>Fichier</value>
+  </data>
+  <data name="PakMaker_PakOperations" xml:space="preserve">
+    <value>Opérations PAK</value>
+  </data>
+  <data name="PakMaker_FileOperations" xml:space="preserve">
+    <value>Opérations de fichiers</value>
+  </data>
   <data name="PakMaker_RemoveSelectedItemSFromPAK" xml:space="preserve">
     <value>🗑️ Supprimer l'élément / les éléments sélectionné(s) du PAK...</value>
   </data>
@@ -559,19 +577,19 @@ Déclencheur :</value>
     <value>📂 Chemin : (tous les fichiers)</value>
   </data>
   <data name="Pak_ExtractSelected" xml:space="preserve">
-    <value>📤 EXTRAIRE LA SÉLECTION</value>
+    <value>Extraire</value>
   </data>
   <data name="Pak_RemoveSelected" xml:space="preserve">
-    <value>🗑️ SUPPRIMER LA SÉLECTION</value>
+    <value>Supprimer</value>
   </data>
   <data name="Pak_BatchExtract" xml:space="preserve">
-    <value>📂 EXTRAIRE LE DOSSIER</value>
+    <value>Extraire le dossier</value>
   </data>
   <data name="Pak_Update" xml:space="preserve">
-    <value>🔄 INJECTER / METTRE À JOUR</value>
+    <value>Ajouter</value>
   </data>
   <data name="Pak_ExtractAll" xml:space="preserve">
-    <value>💥 TOUT EXTRAIRE</value>
+    <value>Tout extraire</value>
   </data>
   <data name="Pak_ColumnName" xml:space="preserve">
     <value>Nom du fichier</value>
@@ -589,7 +607,13 @@ Déclencheur :</value>
     <value>🔑 Nouvelle clé (XTEA) :</value>
   </data>
   <data name="Pak_ChangeKey" xml:space="preserve">
-    <value>🔐 CHANGER LA CLÉ DU PAK</value>
+    <value>Changer la clé</value>
+  </data>
+  <data name="Pak_RenameSelected" xml:space="preserve">
+    <value>Renommer</value>
+  </data>
+  <data name="Pak_ShowToolbarText" xml:space="preserve">
+    <value>Afficher le texte sous les icônes de la barre d'outils</value>
   </data>
   <data name="Pak_TabCreate" xml:space="preserve">
     <value>Créer un nouveau PAK</value>

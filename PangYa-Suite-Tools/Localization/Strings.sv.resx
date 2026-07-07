@@ -87,6 +87,15 @@
   <data name="PakMaker_InvalidRenameName" xml:space="preserve">
     <value>Ange ett giltigt filnamn utan sökvägsavgränsare.</value>
   </data>
+  <data name="PakMaker_FileMenu" xml:space="preserve">
+    <value>Arkiv</value>
+  </data>
+  <data name="PakMaker_PakOperations" xml:space="preserve">
+    <value>PAK-åtgärder</value>
+  </data>
+  <data name="PakMaker_FileOperations" xml:space="preserve">
+    <value>Filåtgärder</value>
+  </data>
   <data name="PakMaker_RemoveSelectedItemSFromPAK" xml:space="preserve">
     <value>🗑️ Ta bort markerat/markerade objekt från PAK...</value>
   </data>
@@ -378,6 +387,9 @@
   <data name="UpdateList_StartMonitoring" xml:space="preserve">
     <value>▶️ Starta övervakning</value>
   </data>
+  <data name="UpdateList_GenerateNow" xml:space="preserve">
+    <value>Generera nu</value>
+  </data>
   <data name="UpdateList_INACTIVE" xml:space="preserve">
     <value>INAKTIV</value>
   </data>
@@ -559,19 +571,19 @@
     <value>📂 Sökväg: (alla filer)</value>
   </data>
   <data name="Pak_ExtractSelected" xml:space="preserve">
-    <value>📤 EXTRAHERA MARKERADE</value>
+    <value>Extrahera</value>
   </data>
   <data name="Pak_RemoveSelected" xml:space="preserve">
-    <value>🗑️ TA BORT MARKERADE</value>
+    <value>Ta bort</value>
   </data>
   <data name="Pak_BatchExtract" xml:space="preserve">
-    <value>📂 EXTRAHERA MAPP</value>
+    <value>Extrahera mapp</value>
   </data>
   <data name="Pak_Update" xml:space="preserve">
-    <value>🔄 INJICERA / UPPDATERA</value>
+    <value>Lägg till</value>
   </data>
   <data name="Pak_ExtractAll" xml:space="preserve">
-    <value>💥 EXTRAHERA ALLA</value>
+    <value>Extrahera alla</value>
   </data>
   <data name="Pak_ColumnName" xml:space="preserve">
     <value>Filnamn</value>
@@ -589,7 +601,13 @@
     <value>🔑 Ny nyckel (XTEA):</value>
   </data>
   <data name="Pak_ChangeKey" xml:space="preserve">
-    <value>🔐 ÄNDRA PAK-NYCKEL</value>
+    <value>Ändra nyckel</value>
+  </data>
+  <data name="Pak_RenameSelected" xml:space="preserve">
+    <value>Byt namn</value>
+  </data>
+  <data name="Pak_ShowToolbarText" xml:space="preserve">
+    <value>Visa text under toolbarikoner</value>
   </data>
   <data name="Pak_TabCreate" xml:space="preserve">
     <value>Skapa ny PAK</value>

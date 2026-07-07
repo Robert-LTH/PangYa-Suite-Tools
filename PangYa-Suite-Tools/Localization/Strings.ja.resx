@@ -88,6 +88,15 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="PakMaker_InvalidRenameName" xml:space="preserve">
     <value>パス区切り文字を含まない有効なファイル名を入力してください。</value>
   </data>
+  <data name="PakMaker_FileMenu" xml:space="preserve">
+    <value>ファイル</value>
+  </data>
+  <data name="PakMaker_PakOperations" xml:space="preserve">
+    <value>PAK 操作</value>
+  </data>
+  <data name="PakMaker_FileOperations" xml:space="preserve">
+    <value>ファイル操作</value>
+  </data>
   <data name="PakMaker_RemoveSelectedItemSFromPAK" xml:space="preserve">
     <value>🗑️ PAK から選択した項目を削除...</value>
   </data>
@@ -569,19 +578,19 @@ IFFファイルのディレクトリを選択してください。</value>
     <value>📂 パス: (すべてのファイル)</value>
   </data>
   <data name="Pak_ExtractSelected" xml:space="preserve">
-    <value>📤 選択した項目を抽出</value>
+    <value>抽出</value>
   </data>
   <data name="Pak_RemoveSelected" xml:space="preserve">
-    <value>🗑️ 選択した項目を削除</value>
+    <value>削除</value>
   </data>
   <data name="Pak_BatchExtract" xml:space="preserve">
-    <value>📂 フォルダを抽出</value>
+    <value>フォルダを抽出</value>
   </data>
   <data name="Pak_Update" xml:space="preserve">
-    <value>🔄 インジェクション / 更新</value>
+    <value>追加</value>
   </data>
   <data name="Pak_ExtractAll" xml:space="preserve">
-    <value>💥 すべて抽出</value>
+    <value>すべて抽出</value>
   </data>
   <data name="Pak_ColumnName" xml:space="preserve">
     <value>ファイル名</value>
@@ -599,7 +608,13 @@ IFFファイルのディレクトリを選択してください。</value>
     <value>🔑 新しいキー (XTEA):</value>
   </data>
   <data name="Pak_ChangeKey" xml:space="preserve">
-    <value>🔐 PAK キーの変更</value>
+    <value>キーの変更</value>
+  </data>
+  <data name="Pak_RenameSelected" xml:space="preserve">
+    <value>名前を変更</value>
+  </data>
+  <data name="Pak_ShowToolbarText" xml:space="preserve">
+    <value>ツールバーアイコンの下にテキストを表示</value>
   </data>
   <data name="Pak_TabCreate" xml:space="preserve">
     <value>新しい PAK を作成</value>
@@ -783,7 +798,6 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="PakDiff_IdenticalFiles" xml:space="preserve"><value>一致するファイル (等価)</value></data>
   <data name="PakDiff_Compare" xml:space="preserve"><value>🔍 比較</value></data>
   <data name="PakDiff_ColumnFilePath" xml:space="preserve"><value>ファイルパス</value></data>
-  <data name="PakDiff_ColumnSourcePak" xml:space="preserve"><value>ソースPAK</value></data>
   <data name="PakDiff_ExtractSelected" xml:space="preserve"><value>📦 選択したアイテムを抽出</value></data>
   <data name="PakMaker_BatchFolderStructureTitle" xml:space="preserve"><value>一括展開のフォルダー構成</value></data>
   <data name="PakMaker_BatchFolderStructureChoice" xml:space="preserve"><value>PAK ごとに個別のフォルダーを作成しますか？
@@ -837,7 +851,6 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="Shop_FlagShowSpecial" xml:space="preserve"><value>Special を表示</value></data>
   <data name="Shop_FlagUnknown" xml:space="preserve"><value>不明 (0x{0:X2})</value></data>
   <data name="PakDiff_ColumnSourcePak" xml:space="preserve"><value>ソース PAK</value></data>
-  <data name="PakDiff_ExtractSelected" xml:space="preserve"><value>📦 選択した項目を抽出</value></data>
   <data name="IFFManager_OpenArchive" xml:space="preserve"><value>アーカイブを開く</value></data>
   <data name="IFFManager_Save" xml:space="preserve"><value>保存</value></data>
   <data name="IFFManager_Saved" xml:space="preserve"><value>IFF が正常に保存されました。バックアップが作成されました。</value></data>
