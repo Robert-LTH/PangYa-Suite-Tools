@@ -252,7 +252,7 @@ namespace PangYa_Suite_Tools
             _settingsToolbar = CreateToolbar(officeStyle: false);
 
             _pakOperationsLabel = AddSectionLabel(_pakOperationsToolbar);
-            _toolbarBatchExtract = AddOperationButton(_pakOperationsToolbar, btnBatchExtract_Click, ToolbarIconKind.Folder);
+            _toolbarBatchExtract = AddOperationButton(_pakOperationsToolbar, btnBatchExtract_Click, ToolbarIconKind.Folder, requiresLoadedPak: false);
             _toolbarExtractAll = AddOperationButton(_pakOperationsToolbar, btnExtractAll_Click, ToolbarIconKind.ExtractAll);
             _toolbarChangePakKey = AddOperationButton(_pakOperationsToolbar, btnChangeKey_Click, ToolbarIconKind.Key);
             _toolbarFilenameEncoding = AddOperationButton(_pakOperationsToolbar, (_, _) => ShowFilenameEncodingDialog(), ToolbarIconKind.Encoding, requiresLoadedPak: false);
@@ -615,7 +615,7 @@ namespace PangYa_Suite_Tools
                 if (!string.IsNullOrEmpty(fileDir) && !Directory.Exists(fileDir))
                     Directory.CreateDirectory(fileDir);
 
-                _currentReader.ExtractEntry(entry, outPath);
+                _currentReader.ExtractEntry(entry, outPath, writeManifest: false);
             }
 
             // Devolve apenas os itens que ficaram no nível raiz da pasta temp (arquivos e/ou subpastas)
@@ -667,7 +667,7 @@ namespace PangYa_Suite_Tools
                     string suggestedName = Path.GetFileName(entry.Name.Replace('/', '\\'));
                     string outPath = Path.Combine(tempSessionDir, suggestedName);
 
-                    _currentReader.ExtractEntry(entry, outPath);
+                    _currentReader.ExtractEntry(entry, outPath, writeManifest: false);
                     filesToDrop.Add(outPath);
                 }
             });
@@ -747,7 +747,7 @@ namespace PangYa_Suite_Tools
                         Directory.CreateDirectory(fileDir);
                     }
 
-                    _currentReader.ExtractEntry(entry, outPath);
+                    _currentReader.ExtractEntry(entry, outPath, writeManifest: false);
                 }
 
                 string firstLevelDir = Path.Combine(tempSessionDir, selectedFolderName);
@@ -1062,40 +1062,7 @@ namespace PangYa_Suite_Tools
                     }
                     else
                     {
-                        var itemsToInject = new List<PakInjectItem>();
-
-                        // Usa o Tag do nó selecionado (caminho real da pasta) em vez de
-                        // fazer parsing do FullPath exibido — evita falhas com subpastas/idiomas.
-                        string virtualTargetFolder = "";
-                        if (tvFolders.SelectedNode != null)
-                        {
-                            string folderTag = tvFolders.SelectedNode.Tag as string ?? "";
-                            virtualTargetFolder = folderTag.Replace('\\', '/').Trim('/');
-                            if (!string.IsNullOrEmpty(virtualTargetFolder))
-                                virtualTargetFolder += "/";
-                        }
-
-                        foreach (string path in files)
-                        {
-                            if (File.Exists(path))
-                            {
-                                itemsToInject.Add(new PakInjectItem(path, null));
-                            }
-                            else if (Directory.Exists(path))
-                            {
-                                string[] allFiles = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories);
-                                foreach (string file in allFiles)
-                                {
-                                    string fileRelativeName = Path.GetFileName(path) + "/" +
-                                                              Path.GetRelativePath(path, file).Replace('\\', '/');
-
-                                    fileRelativeName = fileRelativeName.Trim('/');
-                                    string finalVirtualPath = virtualTargetFolder + fileRelativeName;
-
-                                    itemsToInject.Add(new PakInjectItem(file, finalVirtualPath));
-                                }
-                            }
-                        }
+                        List<PakInjectItem> itemsToInject = BuildPakInjectItems(files, GetSelectedArchiveFolder());
 
                         if (itemsToInject.Count == 0)
                         {
@@ -1128,9 +1095,10 @@ namespace PangYa_Suite_Tools
         // ─── ABA 1: LEITURA E EXTRAÇÃO ─────────────────────────────────────────
         private void btnBrowsePak_Click(object? sender, EventArgs e)
         {
-            using var openFileDialog = new OpenFileDialog { Filter = Strings.Pak_OpenFileFilter };
+            using var openFileDialog = FileDialogFactory.CreatePakOpenDialog();
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
+                FileDialogFactory.RememberDirectory(FileDialogKind.Pak, openFileDialog.FileName);
                 txtPakPath.Text = openFileDialog.FileName;
                 LoadPak(openFileDialog.FileName);
             }
@@ -1698,6 +1666,8 @@ namespace PangYa_Suite_Tools
                 foreach (ToolStripItem item in _requiresLoadedPakToolbarItems)
                     item.Enabled = canUsePak;
 
+                if (_toolbarBatchExtract != null) _toolbarBatchExtract.Enabled = !_operationInProgress;
+                btnBatchExtract.Enabled = !_operationInProgress;
                 if (_toolbarExtractSelected != null) _toolbarExtractSelected.Enabled = canUsePak && hasSelection;
                 if (_toolbarRenameSelected != null) _toolbarRenameSelected.Enabled = canUsePak && hasSingleSelection;
                 if (_toolbarRemoveSelected != null) _toolbarRemoveSelected.Enabled = canUsePak && hasSelection;
@@ -1863,6 +1833,7 @@ namespace PangYa_Suite_Tools
                 {
                     int total = entries.Count;
                     int done = 0;
+                    var extractedFiles = new List<(PakFileEntry Entry, string OutputPath)>();
 
                     foreach (var entry in entries)
                     {
@@ -1888,11 +1859,14 @@ namespace PangYa_Suite_Tools
                         }
 
                         // Extrai o arquivo na sua nova posição simplificada
-                        _currentReader!.ExtractEntry(entry, outPath);
+                        _currentReader!.ExtractEntry(entry, outPath, writeManifest: false);
+                        extractedFiles.Add((entry, outPath));
 
                         done++;
                         ReportProgress(done, total, Strings.PakMaker_ExtractingSelectedItemS_2);
                     }
+
+                    PakExtractionSidecar.WriteManifest(extractedFiles);
                 });
 
                 lblStatus.Text = Strings.PakMaker_Ready;
@@ -1969,16 +1943,20 @@ namespace PangYa_Suite_Tools
                 {
                     int total = entries.Count;
                     int done = 0;
+                    var extractedFiles = new List<(PakFileEntry Entry, string OutputPath)>();
 
                     foreach (var entry in entries)
                     {
                         operation.Token.ThrowIfCancellationRequested();
                         string outPath = exactPathForSingle ?? Path.Combine(destinationDir, entry.Name.Replace('/', '\\'));
-                        _currentReader!.ExtractEntry(entry, outPath);
+                        _currentReader!.ExtractEntry(entry, outPath, writeManifest: false);
+                        extractedFiles.Add((entry, outPath));
 
                         done++;
                         ReportProgress(done, total, Strings.PakMaker_ExtractingSelectedItemS_2);
                     }
+
+                    PakExtractionSidecar.WriteManifest(extractedFiles);
                 });
 
                 lblStatus.Text = Strings.PakMaker_Ready;
@@ -2036,6 +2014,7 @@ namespace PangYa_Suite_Tools
             progressBar1.Value = 0;
 
             int paksProcessados = 0;
+            List<(PakFileEntry Entry, string OutputPath)> extractedFiles = [];
 
             foreach (var pakPath in pakFiles)
             {
@@ -2056,7 +2035,13 @@ namespace PangYa_Suite_Tools
 
                         using var batchReader = new PakReader(pakPath, filenameEncoding, AppLogger.Instance);
                         batchReader.Parse(sharedKeys);
-                        batchReader.Extract("*", specificDestFolder, cancellationToken: operation.Token);
+                        batchReader.Extract("*", specificDestFolder, cancellationToken: operation.Token, writeManifest: false);
+                        lock (extractedFiles)
+                        {
+                            extractedFiles.AddRange(batchReader.Entries
+                                .Where(entry => entry.Type != PakFileEntryType.Directory)
+                                .Select(entry => (entry, Path.Combine(specificDestFolder, entry.Name.Replace('/', '\\')))));
+                        }
                     });
                 }
                 catch (OperationCanceledException)
@@ -2078,6 +2063,9 @@ namespace PangYa_Suite_Tools
             btnBatchExtract.Enabled = true;
             bool wasCancelled = operation.IsCancellationRequested;
             EndOperation(operation);
+
+            if (!wasCancelled)
+                PakExtractionSidecar.WriteManifest(extractedFiles);
 
             if (!wasCancelled)
                 MessageBox.Show($"{paksProcessados} {Strings.PakMaker_PAKPackagesExtractedSuccessfullyTo}\n{targetBaseDir}", Strings.PakMaker_ProcessingComplete, MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -2170,15 +2158,12 @@ namespace PangYa_Suite_Tools
                 return;
             }
 
-            using var openFileDialog = new OpenFileDialog
-            {
-                Title = Strings.PakMaker_SelectTheFilesToUpdateInject,
-                Multiselect = true
-            };
+            using var openFileDialog = FileDialogFactory.CreatePakInjectFilesDialog();
 
             if (openFileDialog.ShowDialog() != DialogResult.OK) return;
+            FileDialogFactory.RememberDirectory(FileDialogKind.PakInject, openFileDialog.FileNames.FirstOrDefault());
 
-            var items = openFileDialog.FileNames.Select(f => new PakInjectItem(f, null)).ToList();
+            List<PakInjectItem> items = BuildPakInjectItems(openFileDialog.FileNames, GetSelectedArchiveFolder());
             await InjectFilesIntoCurrentPakAsync(items);
 
         }
@@ -2259,33 +2244,16 @@ namespace PangYa_Suite_Tools
 
             string[] dropped = (string[])e.Data.GetData(DataFormats.FileDrop)!;
 
-            var items = new List<PakInjectItem>();
-            foreach (var path in dropped)
+            List<PakInjectItem> items;
+            try
             {
-                if (File.Exists(path))
-                {
-                    // Arquivo solto: sem pasta explícita, cai no fallback de busca por nome existente
-                    items.Add(new PakInjectItem(path, null));
-                }
-                else if (Directory.Exists(path))
-                {
-                    try
-                    {
-                        string baseFolder = path; // a própria pasta arrastada é a "raiz" da estrutura relativa
-                        foreach (var filePath in Directory.GetFiles(baseFolder, "*", SearchOption.AllDirectories))
-                        {
-                            string relativeToBase = Path.GetRelativePath(baseFolder, filePath);
-                            string relFolder = Path.GetDirectoryName(relativeToBase) ?? "";
-
-                            items.Add(new PakInjectItem(filePath, relFolder));
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"{Strings.PakMaker_ErrorReadingFolder} '{path}':\n{ex.Message}",
-                            Strings.PakMaker_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                }
+                items = BuildPakInjectItems(dropped, GetSelectedArchiveFolder());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"{Strings.PakMaker_ErrorReadingFolder}\n{ex.Message}",
+                    Strings.PakMaker_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
 
             if (items.Count == 0)
@@ -2297,6 +2265,55 @@ namespace PangYa_Suite_Tools
 
             await InjectFilesIntoCurrentPakAsync(items);
         }
+
+        private string GetSelectedArchiveFolder()
+        {
+            string folderTag = tvFolders.SelectedNode?.Tag as string ?? string.Empty;
+            return NormalizeArchiveFolder(folderTag);
+        }
+
+        private static List<PakInjectItem> BuildPakInjectItems(IEnumerable<string> paths, string selectedFolder)
+        {
+            string targetFolder = NormalizeArchiveFolder(selectedFolder);
+            var items = new List<PakInjectItem>();
+
+            foreach (string path in paths)
+            {
+                if (File.Exists(path))
+                {
+                    items.Add(new PakInjectItem(path, targetFolder));
+                    continue;
+                }
+
+                if (!Directory.Exists(path)) continue;
+
+                string trimmedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string rootFolderName = Path.GetFileName(trimmedPath);
+                string injectedRoot = CombineArchiveFolders(targetFolder, rootFolderName);
+
+                foreach (string filePath in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
+                {
+                    string relativePath = Path.GetRelativePath(path, filePath);
+                    string relativeFolder = Path.GetDirectoryName(relativePath) ?? string.Empty;
+                    items.Add(new PakInjectItem(filePath,
+                        CombineArchiveFolders(injectedRoot, relativeFolder)));
+                }
+            }
+
+            return items;
+        }
+
+        private static string CombineArchiveFolders(string left, string right)
+        {
+            string normalizedLeft = NormalizeArchiveFolder(left);
+            string normalizedRight = NormalizeArchiveFolder(right);
+            if (string.IsNullOrEmpty(normalizedLeft)) return normalizedRight;
+            if (string.IsNullOrEmpty(normalizedRight)) return normalizedLeft;
+            return $"{normalizedLeft}/{normalizedRight}";
+        }
+
+        private static string NormalizeArchiveFolder(string folder) =>
+            (folder ?? string.Empty).Replace('\\', '/').Trim('/');
 
         // ─── REMOVER ─────────────────────────────────────────────────────────────
 

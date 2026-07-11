@@ -37,11 +37,11 @@ namespace PangYa_Suite_Tools
             // InitializeLanguageComboBox();
             SetupComponents();
             ConfigureToolbars();
-            // LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
+            LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
             ApplyLocalization();
             Disposed += (_, _) =>
             {
-                // LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
+                LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
                 btnGenerateNow.Image?.Dispose();
                 btnToggleWatch.Image?.Dispose();
                 btnShowRawXml.Image?.Dispose();
@@ -79,13 +79,7 @@ namespace PangYa_Suite_Tools
         //     }
         // }
 
-        // private void LocalizationManager_CultureChanged(object? sender, EventArgs e)
-        // {
-        //     _isInitializingLanguages = true;
-        //     // cboLanguage.SelectedIndex = LocalizationManager.CurrentCultureIndex;
-        //     _isInitializingLanguages = false;
-        //     ApplyLocalization();
-        // }
+        private void LocalizationManager_CultureChanged(object? sender, EventArgs e) => ApplyLocalization();
 
         private void ApplyLocalization()
         {
@@ -136,14 +130,6 @@ namespace PangYa_Suite_Tools
                 lblDropHint.Text = Strings.UpdateList_DragAndDropAnEncryptedUpdatelist;
             }
         }
-
-        private static string GetText(string english, string portugueseBrazil) =>
-            LocalizationManager.CurrentCulture.Name switch
-            {
-                LocalizationManager.PortugueseBrazil => portugueseBrazil,
-                LocalizationManager.Swedish => SwedishInlineTranslations.Get(english),
-                _ => english
-            };
 
 private void SetupComponents()
         {
@@ -250,14 +236,13 @@ private void SetupComponents()
 
         private async void btnBrowseViewer_Click(object? sender, EventArgs e)
         {
-            using var ofd = new OpenFileDialog
-            {
-                Title = Strings.UpdateList_SelectUpdateListFile,
-                Filter = GetText("UpdateList files|updatelist*.*|All files|*.*", "Arquivos UpdateList|updatelist*.*|Todos os arquivos|*.*")
-            };
+            using var ofd = FileDialogFactory.CreateUpdateListOpenDialog();
 
             if (ofd.ShowDialog(this) == DialogResult.OK)
+            {
+                FileDialogFactory.RememberDirectory(FileDialogKind.UpdateList, ofd.FileName);
                 await ProcessViewerFileAsync(ofd.FileName);
+            }
         }
 
         private async Task ProcessViewerFileAsync(string targetFile)
@@ -371,8 +356,9 @@ private void SetupComponents()
             this.Invoke(() =>
             {
                 DisplayUpdateListXml(xmlText, FormatXml(xmlText));
-                lblDropHint.Text = GetText("🪂 Drag and drop an encrypted 'updatelist' file here.", "🪂 Arraste e solte um arquivo 'updatelist' criptografado aqui.");
-                Log($"✅ [{GetText("SUCCESS", "SUCESSO")}] {GetText("Decrypted with key", "Descriptografado com a chave")} [{keyLabel}]!");
+                lblDropHint.Text = Strings.UpdateList_DragAndDropAnEncryptedUpdatelist;
+                Log(string.Format(LocalizationManager.CurrentCulture,
+                    Strings.UpdateList_DecryptionSuccessFormat, keyLabel));
             });
         }
 
@@ -535,12 +521,12 @@ private void SetupComponents()
 
         private void btnBrowseExisting_Click(object sender, EventArgs e)
         {
-            using var ofd = new OpenFileDialog
+            using var ofd = FileDialogFactory.CreateExistingUpdateListOpenDialog();
+            if (ofd.ShowDialog() == DialogResult.OK)
             {
-                Title = GetText("Select existing encrypted updatelist (optional)", "Selecione o updatelist criptografado existente (opcional)"),
-                Filter = GetText("UpdateList files|updatelist*.*|All files|*.*", "Arquivos UpdateList|updatelist*.*|Todos os arquivos|*.*")
-            };
-            if (ofd.ShowDialog() == DialogResult.OK) txtExistingList.Text = ofd.FileName;
+                FileDialogFactory.RememberDirectory(FileDialogKind.ExistingUpdateList, ofd.FileName);
+                txtExistingList.Text = ofd.FileName;
+            }
         }
 
         // ── GERAR AGORA (equivalente ao BtnStart_Click do sistema antigo) ───
@@ -552,17 +538,18 @@ private void SetupComponents()
             btnToggleWatch.Enabled = false;
             progressBar.Value = 0;
             progressBar.Visible = true;
-            lblStatus.Text = GetText("Scanning...", "Varrendo...");
+            lblStatus.Text = Strings.UpdateList_Scanning;
 
             try
             {
                 await RunGenerationAsync(isMonitoringTrigger: false);
-                lblStatus.Text = GetText("Done!", "Pronto!");
+                lblStatus.Text = Strings.UpdateList_Done;
             }
             catch (Exception ex)
             {
-                Log($"❌ [{GetText("ERROR", "ERRO")}] {ex.Message}");
-                lblStatus.Text = GetText("Error.", "Erro.");
+                Log(string.Format(LocalizationManager.CurrentCulture,
+                    Strings.UpdateList_ErrorLogFormat, ex.Message));
+                lblStatus.Text = Strings.UpdateList_ErrorStatus;
             }
             finally
             {
@@ -754,11 +741,11 @@ private void SetupComponents()
                 progressBar.Maximum = Math.Max(totalFiles, 1);
                 progressBar.Value = 0;
                 Log("─────────────────────────────────────────────────────");
-                Log($"📂 {GetText("Source:", "Origem:")} {_pangyaPath}");
-                Log($"🌐 {GetText("Destination:", "Destino:")} {outputPath}");
-                Log($"🔑 {GetText("Key:", "Chave:")} {_keyLabel}");
-                Log($"🏷  {GetText("Version:", "Versão:")} {_patchVersion} | Patch #{_patchNum}");
-                Log(GetText("Scanning files...", "Varrendo arquivos..."));
+                Log(string.Format(LocalizationManager.CurrentCulture, Strings.UpdateList_SourceLogFormat, _pangyaPath));
+                Log(string.Format(LocalizationManager.CurrentCulture, Strings.UpdateList_DestinationLogFormat, outputPath));
+                Log(string.Format(LocalizationManager.CurrentCulture, Strings.UpdateList_KeyLogFormat, _keyLabel));
+                Log(string.Format(LocalizationManager.CurrentCulture, Strings.UpdateList_VersionLogFormat, _patchVersion, _patchNum));
+                Log(Strings.UpdateList_ScanningFiles);
             });
 
             // ── Carrega updatelist existente para delta comparison ────────────
@@ -775,11 +762,13 @@ private void SetupComponents()
                     var reader = new UpdateReader(detectedKey);
                     var (_, loaded) = reader.ReadUpdateList(_existingPath);
                     existingEntries = loaded;
-                    this.Invoke(() => Log($"📋 {GetText("Existing updatelist loaded:", "Updatelist existente carregado:")} {loaded.Count} {GetText("files", "arquivos")}"));
+                    this.Invoke(() => Log(string.Format(LocalizationManager.CurrentCulture,
+                        Strings.UpdateList_ExistingLoadedFormat, loaded.Count)));
                 }
                 catch (Exception ex)
                 {
-                    this.Invoke(() => Log($"⚠️ {GetText("Could not load existing updatelist:", "Não foi possível carregar o updatelist existente:")} {ex.Message}"));
+                    this.Invoke(() => Log(string.Format(LocalizationManager.CurrentCulture,
+                        Strings.UpdateList_ExistingLoadFailedFormat, ex.Message)));
                 }
             }
 
@@ -802,7 +791,8 @@ private void SetupComponents()
                         {
                             progressBar.Maximum = Math.Max(total, 1);
                             progressBar.Value = Math.Min(done, total);
-                            lblStatus.Text = $"{GetText("Scanning", "Varrendo")} ({done}/{total})";
+                            lblStatus.Text = string.Format(LocalizationManager.CurrentCulture,
+                                Strings.UpdateList_ScanningProgressFormat, done, total);
                         });
                     }
                 );
@@ -829,12 +819,14 @@ private void SetupComponents()
                     if (!existingByCrc.TryGetValue(key, out int existingCrc))
                     {
                         newFiles++;
-                        this.Invoke(() => Log($"  ➕ [{GetText("NEW", "NOVO")}] {entry.fname}"));
+                        this.Invoke(() => Log(string.Format(LocalizationManager.CurrentCulture,
+                            Strings.UpdateList_NewFileFormat, entry.fname)));
                     }
                     else if (existingCrc != entry.fcrc)
                     {
                         changedFiles++;
-                        this.Invoke(() => Log($"  🔄 [{GetText("CHANGED", "ALTERADO")}] {entry.fname} (CRC: {existingCrc:X8} → {entry.fcrc:X8})"));
+                        this.Invoke(() => Log(string.Format(LocalizationManager.CurrentCulture,
+                            Strings.UpdateList_ChangedFileFormat, entry.fname, existingCrc, entry.fcrc)));
                     }
                     else
                     {
@@ -845,16 +837,15 @@ private void SetupComponents()
                 this.Invoke(() =>
                 {
                     Log("─────────────────────────────────────────────────────");
-                    Log($"📊 {GetText("Delta Summary", "Resumo Delta")}: "
-                      + $"➕ {newFiles} {GetText("new", "novos")} | "
-                      + $"🔄 {changedFiles} {GetText("changed", "alterados")} | "
-                      + $"✅ {unchangedFiles} {GetText("unchanged", "sem alteração")}");
+                    Log(string.Format(LocalizationManager.CurrentCulture,
+                        Strings.UpdateList_DeltaSummaryFormat, newFiles, changedFiles, unchangedFiles));
                 });
             }
 
             this.Invoke(() =>
             {
-                Log($"✅ [{GetText("DONE", "PRONTO")}] {GetText("updatelist generated at:", "updatelist gerado em:")} {outputPath}");
+                Log(string.Format(LocalizationManager.CurrentCulture,
+                    Strings.UpdateList_GeneratedAtFormat, outputPath));
                 Log("─────────────────────────────────────────────────────");
             });
         }
@@ -865,22 +856,22 @@ private void SetupComponents()
             if (!Directory.Exists(txtPangyaPath.Text))
             {
                 MessageBox.Show(
-                    GetText("The Pangya source folder is invalid.", "A pasta de origem do Pangya é inválida."),
-                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Strings.UpdateList_InvalidSourceFolder,
+                    Strings.UpdateList_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
             if (!Directory.Exists(txtUpdatePath.Text))
             {
                 MessageBox.Show(
-                    GetText("The WebServer destination folder is invalid.", "A pasta do WebServer de destino é inválida."),
-                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Strings.UpdateList_InvalidDestinationFolder,
+                    Strings.UpdateList_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
             if (string.IsNullOrWhiteSpace(txtPatchVersion.Text))
             {
                 MessageBox.Show(
-                    GetText("Please fill in the Patch Version.", "Por favor, preencha a Versão do Patch."),
-                    GetText("Warning", "Aviso"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Strings.UpdateList_PatchVersionRequired,
+                    Strings.UpdateList_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
             return true;
