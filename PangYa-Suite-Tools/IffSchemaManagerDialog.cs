@@ -5,26 +5,43 @@ namespace PangYa_Suite_Tools;
 
 internal sealed class IffSchemaManagerDialog : Form
 {
+    private sealed record BaseOption(string Label, IffSchemaBaseReference? Reference,
+        IReadOnlyList<IffFieldDefinition> Fields, IffSchemaDefinition? Definition = null)
+    {
+        public override string ToString() => Label;
+    }
+
     private readonly int _recordSize;
     private readonly List<IffFieldDefinition> _fields;
+    private readonly List<IffFieldDefinition> _inheritedFields = [];
     private readonly IReadOnlyList<IffSchemaDefinition> _templateSchemas;
     private readonly IReadOnlyList<string> _availableIffFiles;
     private readonly ListBox _list = new() { Dock = DockStyle.Fill, DrawMode = DrawMode.OwnerDrawFixed };
     private readonly NumericUpDown _defaultStringSize = new() { Minimum = 1, Dock = DockStyle.Fill };
     private readonly NumericUpDown _defaultLongStringSize = new() { Minimum = 1, Maximum = 65535, Dock = DockStyle.Fill };
+    private readonly ComboBox _baseSchema = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+    private readonly Button _editBase = new() { AutoSize = true };
+    private readonly Action<IffSchemaDefinition>? _saveBase;
 
     public IReadOnlyList<IffFieldDefinition> Fields => _fields;
     public int DefaultStringSize => decimal.ToInt32(_defaultStringSize.Value);
     public int DefaultLongStringSize => decimal.ToInt32(_defaultLongStringSize.Value);
+    public IffSchemaBaseReference? BaseReference => (_baseSchema.SelectedItem as BaseOption)?.Reference;
 
     public IffSchemaManagerDialog(int recordSize, IEnumerable<IffFieldDefinition> fields, int defaultStringSize = 32,
         IReadOnlyList<IffSchemaDefinition>? templateSchemas = null,
-        IReadOnlyList<string>? availableIffFiles = null, int defaultLongStringSize = 512)
+        IReadOnlyList<string>? availableIffFiles = null, int defaultLongStringSize = 512,
+        IffSchemaBaseReference? baseReference = null,
+        IEnumerable<IffFieldDefinition>? inheritedFields = null,
+        string? resolvedRegion = null,
+        Action<IffSchemaDefinition>? saveBase = null)
     {
         _recordSize = recordSize;
         _fields = [.. fields.Where(field => !IsCatchAllRaw(field, recordSize))];
         _templateSchemas = templateSchemas ?? [];
         _availableIffFiles = availableIffFiles ?? [];
+        _saveBase = saveBase;
+        _inheritedFields.AddRange((inheritedFields ?? []).Where(field => !IsCatchAllRaw(field, recordSize)));
         _defaultStringSize.Maximum = recordSize;
         _defaultStringSize.Value = Math.Clamp(defaultStringSize, 1, recordSize);
         _defaultLongStringSize.Value = Math.Clamp(defaultLongStringSize, 1, 65535);
@@ -53,7 +70,10 @@ internal sealed class IffSchemaManagerDialog : Form
         sort.Click += (_, _) => SortFieldsByOffset();
         save.Click += (_, _) => SaveIfValid(showMessage: true);
         buttons.Controls.AddRange([add, clone, edit, remove, up, down, sort, save, cancel]);
-        var settings = new TableLayoutPanel { Dock = DockStyle.Top, Height = 38, ColumnCount = 4, Padding = new Padding(6) };
+        _editBase.Text = Strings.IFFManager_EditBase;
+        _editBase.Click += (_, _) => EditBaseSchema();
+        InitializeBaseOptions(baseReference, resolvedRegion);
+        var settings = new TableLayoutPanel { Dock = DockStyle.Top, Height = 70, ColumnCount = 4, RowCount = 2, Padding = new Padding(6) };
         settings.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         settings.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
         settings.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -62,6 +82,9 @@ internal sealed class IffSchemaManagerDialog : Form
         settings.Controls.Add(_defaultStringSize, 1, 0);
         settings.Controls.Add(new Label { Text = Strings.IFFManager_DefaultLongStringSize, AutoSize = true, Anchor = AnchorStyles.Left }, 2, 0);
         settings.Controls.Add(_defaultLongStringSize, 3, 0);
+        settings.Controls.Add(new Label { Text = Strings.IFFManager_BaseSchema, AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+        settings.Controls.Add(_baseSchema, 1, 1);
+        settings.Controls.Add(_editBase, 2, 1);
         Controls.Add(_list);
         Controls.Add(settings);
         Controls.Add(buttons);
@@ -70,9 +93,63 @@ internal sealed class IffSchemaManagerDialog : Form
         RefreshList();
     }
 
+    private void InitializeBaseOptions(IffSchemaBaseReference? selected, string? resolvedRegion)
+    {
+        _baseSchema.Items.Add(new BaseOption(Strings.IFFManager_BaseNone, null, []));
+        IffSchemaDefinition? autoDefinition = _templateSchemas.FirstOrDefault(definition =>
+            definition.FileName.Equals("Common.iff", StringComparison.OrdinalIgnoreCase) &&
+            definition.Region.Equals(resolvedRegion, StringComparison.OrdinalIgnoreCase));
+        _baseSchema.Items.Add(new BaseOption(
+            string.Format(Strings.IFFManager_BaseAuto, resolvedRegion ?? Strings.IFFManager_RegionUnknown),
+            new IffSchemaBaseReference("Common"), _inheritedFields.ToArray(), autoDefinition));
+        foreach (IffSchemaDefinition definition in _templateSchemas.Where(definition =>
+                     definition.FileName.Equals("Common.iff", StringComparison.OrdinalIgnoreCase))
+                 .OrderBy(definition => definition.Region, StringComparer.OrdinalIgnoreCase))
+            _baseSchema.Items.Add(new BaseOption($"Common.{definition.Region}",
+                new IffSchemaBaseReference("Common", definition.Region),
+                definition.Fields.Where(field => !IsCatchAllRaw(field, definition.MinimumRecordSize)).ToArray(), definition));
+        _baseSchema.SelectedIndex = selected is null ? 0 : selected.Region is null ? 1 :
+            Enumerable.Range(0, _baseSchema.Items.Count).FirstOrDefault(index =>
+                (_baseSchema.Items[index] as BaseOption)?.Reference?.Region?.Equals(selected.Region,
+                    StringComparison.OrdinalIgnoreCase) == true, 1);
+        _baseSchema.SelectedIndexChanged += (_, _) => ApplySelectedBase();
+        ApplySelectedBase();
+    }
+
+    private void ApplySelectedBase()
+    {
+        if (_baseSchema.SelectedItem is not BaseOption option) return;
+        _inheritedFields.Clear();
+        _inheritedFields.AddRange(option.Fields.Where(field => !IsCatchAllRaw(field, _recordSize)));
+        _editBase.Enabled = option.Definition is not null && _saveBase is not null;
+        RefreshList();
+    }
+
+    private void EditBaseSchema()
+    {
+        if (_baseSchema.SelectedItem is not BaseOption { Definition: { } definition } || _saveBase is null) return;
+        using var dialog = new IffSchemaManagerDialog(definition.MinimumRecordSize, definition.Fields,
+            definition.DefaultStringSize, _templateSchemas, _availableIffFiles, definition.DefaultLongStringSize);
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        IffSchemaDefinition updated = definition with
+        {
+            SchemaVersion = IffSchemaJson.CurrentVersion,
+            Fields = dialog.Fields,
+            DefaultStringSize = dialog.DefaultStringSize,
+            DefaultLongStringSize = dialog.DefaultLongStringSize,
+            Base = null
+        };
+        _saveBase(updated);
+        _inheritedFields.Clear();
+        _inheritedFields.AddRange(updated.Fields.Where(field => !IsCatchAllRaw(field, updated.MinimumRecordSize)));
+        RefreshList();
+    }
+
+    private int SelectedLocalIndex => _list.SelectedIndex - _inheritedFields.Count;
+
     private void AddField()
     {
-        int selectedIndex = _list.SelectedIndex;
+        int selectedIndex = SelectedLocalIndex;
         int previousIndex = selectedIndex >= 0 ? selectedIndex : _fields.Count - 1;
         int initialOffset = previousIndex >= 0
             ? Math.Min(_recordSize - 1, checked(_fields[previousIndex].Offset + 1))
@@ -88,7 +165,7 @@ internal sealed class IffSchemaManagerDialog : Form
         int destination = previousIndex + 1;
         _fields.Insert(destination, dialog.FieldDefinition);
         RefreshList();
-        _list.SelectedIndex = destination;
+        _list.SelectedIndex = _inheritedFields.Count + destination;
     }
 
     private void CloneField()
@@ -99,7 +176,7 @@ internal sealed class IffSchemaManagerDialog : Form
         using var picker = new IffFieldTemplateDialog(_recordSize, [currentSchema, .. _templateSchemas]);
         if (picker.ShowDialog(this) != DialogResult.OK) return;
         IffFieldDefinition source = picker.SelectedField;
-        int index = _list.SelectedIndex;
+        int index = SelectedLocalIndex;
         using var dialog = new CustomIffColumnDialog(_recordSize,
             source with { Name = source.Name + " Copy" }, DefaultStringSize,
             previousFieldEnd: index >= 0
@@ -110,28 +187,29 @@ internal sealed class IffSchemaManagerDialog : Form
         int destination = index < 0 ? _fields.Count : index + 1;
         _fields.Insert(destination, dialog.FieldDefinition);
         RefreshList();
-        _list.SelectedIndex = destination;
+        _list.SelectedIndex = _inheritedFields.Count + destination;
     }
 
     private void MoveField(int direction)
     {
-        int index = _list.SelectedIndex;
+        int index = SelectedLocalIndex;
         int destination = index + direction;
         if (index < 0 || destination < 0 || destination >= _fields.Count) return;
         (_fields[index], _fields[destination]) = (_fields[destination], _fields[index]);
         RefreshList();
-        _list.SelectedIndex = destination;
+        _list.SelectedIndex = _inheritedFields.Count + destination;
     }
 
     private void SortFieldsByOffset()
     {
-        string? selectedName = _list.SelectedIndex >= 0 ? _fields[_list.SelectedIndex].Name : null;
+        int selectedIndex = SelectedLocalIndex;
+        string? selectedName = selectedIndex >= 0 && selectedIndex < _fields.Count ? _fields[selectedIndex].Name : null;
         IffFieldDefinition[] sorted = SortByOffset(_fields);
         _fields.Clear();
         _fields.AddRange(sorted);
         RefreshList();
         if (selectedName is not null)
-            _list.SelectedIndex = _fields.FindIndex(field =>
+            _list.SelectedIndex = _inheritedFields.Count + _fields.FindIndex(field =>
                 field.Name.Equals(selectedName, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -144,7 +222,7 @@ internal sealed class IffSchemaManagerDialog : Form
 
     private void EditField()
     {
-        int index = _list.SelectedIndex;
+        int index = SelectedLocalIndex;
         if (index < 0) return;
         IffFieldDefinition selected = _fields[index];
         int? previousFieldEnd = index > 0
@@ -168,7 +246,7 @@ internal sealed class IffSchemaManagerDialog : Form
             return;
         }
         RefreshList();
-        _list.SelectedIndex = index;
+        _list.SelectedIndex = _inheritedFields.Count + index;
     }
 
     internal static IReadOnlyList<IffFieldDefinition> AdjustFollowingOffsets(
@@ -270,6 +348,7 @@ internal sealed class IffSchemaManagerDialog : Form
             IffFieldType.UInt32 or IffFieldType.ItemIdReference or IffFieldType.UInt16 when width == 1 => IffFieldType.Byte,
             IffFieldType.ItemIdReference when width == 4 => IffFieldType.ItemIdReference,
             IffFieldType.Int32 when width == 2 => IffFieldType.Int16,
+            IffFieldType.Int64 when width == 4 => IffFieldType.Int32,
             IffFieldType.FixedString or IffFieldType.LongString or IffFieldType.Icon or IffFieldType.Sound or IffFieldType.Raw or IffFieldType.ByteRangeBoolean => field.Type,
             IffFieldType.ZeroBoolean when width is 1 or 2 or 4 => field.Type,
             IffFieldType.BitField when width is >= 1 and <= 4 &&
@@ -300,7 +379,7 @@ internal sealed class IffSchemaManagerDialog : Form
 
     private void RemoveField()
     {
-        int index = _list.SelectedIndex;
+        int index = SelectedLocalIndex;
         if (index < 0) return;
         _fields.RemoveAt(index);
         RefreshList();
@@ -311,7 +390,7 @@ internal sealed class IffSchemaManagerDialog : Form
         try
         {
             var definition = new IffSchemaDefinition(IffSchemaJson.CurrentVersion, "Validation.iff", "*",
-                _recordSize, true, _fields, DefaultStringSize);
+                _recordSize, true, _fields, DefaultStringSize, Base: BaseReference);
             IffSchemaJson.ValidateDefinition(definition, _recordSize);
             DialogResult = DialogResult.OK;
             return true;
@@ -327,7 +406,8 @@ internal sealed class IffSchemaManagerDialog : Form
 
     private bool ValidateName(string name, int excludedIndex)
     {
-        bool duplicate = _fields.Where((_, index) => index != excludedIndex)
+        bool duplicate = _inheritedFields.Any(field => field.Name.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase)) ||
+            _fields.Where((_, index) => index != excludedIndex)
             .Any(field => field.Name.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
         if (!duplicate) return true;
         MessageBox.Show(Strings.IFFManager_DuplicateColumnName, Strings.IFFManager_Error,
@@ -339,6 +419,8 @@ internal sealed class IffSchemaManagerDialog : Form
     {
         _list.BeginUpdate();
         _list.Items.Clear();
+        foreach (IffFieldDefinition field in _inheritedFields)
+            _list.Items.Add($"[{Strings.IFFManager_BaseField}] {field.Name} — {field.Type}, {field.Offset}, {field.Width} byte(s)");
         foreach (IffFieldDefinition field in _fields)
             _list.Items.Add($"{field.Name} — {field.Type}, {field.Offset}, {field.Width} byte(s)");
         _list.EndUpdate();
@@ -348,9 +430,11 @@ internal sealed class IffSchemaManagerDialog : Form
     {
         if (e.Index < 0 || e.Index >= _list.Items.Count) return;
         bool selected = e.State.HasFlag(DrawItemState.Selected);
-        bool overlaps = FindOverlappingFields(_fields, _recordSize)[e.Index];
+        bool inherited = e.Index < _inheritedFields.Count;
+        bool overlaps = !inherited && FindOverlappingFields(_fields, _recordSize)[e.Index - _inheritedFields.Count];
         Color background = overlaps
             ? selected ? Color.Goldenrod : Color.LightYellow
+            : inherited ? selected ? SystemColors.Highlight : SystemColors.ControlLight
             : selected ? SystemColors.Highlight : _list.BackColor;
         Color foreground = selected && !overlaps ? SystemColors.HighlightText : _list.ForeColor;
         using var brush = new SolidBrush(background);

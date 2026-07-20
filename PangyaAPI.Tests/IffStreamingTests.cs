@@ -141,6 +141,20 @@ public sealed class IffStreamingTests
     }
 
     [Fact]
+    public void Int64_RoundTripsLittleEndian()
+    {
+        var field = new IffField("Pang", 1, 8, IffFieldType.Int64);
+        byte[] record = new byte[10];
+
+        field.SetValue(record, -1234567890123456789L);
+
+        Assert.Equal(-1234567890123456789L, field.GetValue(record));
+        Assert.Equal(BitConverter.GetBytes(-1234567890123456789L), record[1..9]);
+        Assert.Equal(0, record[0]);
+        Assert.Equal(0, record[9]);
+    }
+
+    [Fact]
     public void FixedString_UsesSelectedEncodingForReadingAndWriting()
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -246,6 +260,81 @@ public sealed class IffStreamingTests
         { "TikiSpecialTable.iff", 60 }
     };
 
+    public static TheoryData<string, int> GlobalSchemas => new()
+    {
+        { "Ability.iff", 80 }, { "Achievement.iff", 1512 }, { "AuxPart.iff", 204 },
+        { "Ball.iff", 792 }, { "Caddie.iff", 224 }, { "CaddieItem.iff", 260 },
+        { "CadieMagicBox.iff", 140 }, { "CadieMagicBoxRandom.iff", 16 }, { "Card.iff", 360 },
+        { "Character.iff", 396 }, { "Club.iff", 220 }, { "ClubSet.iff", 236 },
+        { "Course.iff", 440 }, { "CutinInfomation.iff", 208 }, { "Desc.iff", 516 },
+        { "Enchant.iff", 16 }, { "Furniture.iff", 488 }, { "FurnitureAbility.iff", 60 },
+        { "GrandPrixData.iff", 816 }, { "GrandPrixRankReward.iff", 76 },
+        { "GrandPrixSpecialHole.iff", 20 }, { "HairStyle.iff", 172 }, { "Item.iff", 224 },
+        { "LevelUpPrizeItem.iff", 192 }, { "Mascot.iff", 284 }, { "Match.iff", 332 },
+        { "MemorialShopCoinItem.iff", 64 }, { "MemorialShopRareItem.iff", 68 },
+        { "Part.iff", 544 }, { "QuestItem.iff", 248 }, { "QuestStuff.iff", 244 },
+        { "SetEffectTable.iff", 56 }, { "SetItem.iff", 244 }, { "Skin.iff", 220 },
+        { "TikiPointTable.iff", 48 }, { "TikiRecipe.iff", 52 }, { "TikiSpecialTable.iff", 60 }
+    };
+
+    public static TheoryData<string, int> JapaneseCommonDerivedSchemas => new()
+    {
+        { "AuxPart.iff", 224 }, { "Ball.iff", 812 }, { "Caddie.iff", 248 },
+        { "CaddieItem.iff", 284 }, { "Card.iff", 376 }, { "Character.iff", 420 },
+        { "Club.iff", 244 }, { "ClubSet.iff", 227 }, { "Course.iff", 360 },
+        { "Furniture.iff", 512 }, { "HairStyle.iff", 196 }, { "Item.iff", 244 },
+        { "Mascot.iff", 304 }, { "OfflineShop.iff", 248 }, { "Part.iff", 560 },
+        { "QuestDrop.iff", 292 }, { "SetItem.iff", 268 }, { "Skin.iff", 256 }
+    };
+
+    [Theory]
+    [MemberData(nameof(GlobalSchemas))]
+    public void EveryGlobalSchema_ResolvesFromHeaderAndFitsTheAuditedRecord(string fileName, int recordSize)
+    {
+        var header = new IffHeader(1, 30447, 11, [0, 0, 0]);
+
+        IffSchemaResolution resolution = IffSchemaRegistry.ResolveDetailed(fileName, header, recordSize);
+
+        Assert.True(resolution.Schema is not null, resolution.Warning);
+        IffSchema schema = resolution.Schema!;
+        Assert.Equal(recordSize, schema.MinimumRecordSize);
+        Assert.All(schema.Fields, field => Assert.True(field.Offset + field.Width <= recordSize,
+            $"{fileName}: {field.Name} exceeds {recordSize} bytes."));
+        Assert.Equal(schema.Fields.Count,
+            schema.Fields.Select(field => field.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(0, IffSchemaCoverage.Calculate(schema, recordSize).UnrepresentedBytes);
+    }
+
+    [Fact]
+    public void GlobalCommonBase_UsesAuditedOffsets()
+    {
+        IffSchema schema = new EmbeddedIffSchemaProvider().Resolve("Character.iff", "Global", 396).Schema!;
+
+        Assert.Equal(168, schema.Fields.Single(field => field.Name == "MPet").Offset);
+        Assert.Equal(8, schema.Fields.Single(field => field.Name == "Name").Offset);
+        Assert.Equal(40, schema.Fields.Single(field => field.Name == "Name").Width);
+        Assert.Equal(136, schema.Fields.Single(field => field.Name == "StartDate").Offset);
+        Assert.True(schema.Fields.Single(field => field.Name == "StartDate").IsInherited);
+    }
+
+    [Theory]
+    [InlineData(30447, 11)]
+    [InlineData(30087, 12)]
+    [InlineData(30425, 12)]
+    [InlineData(57, 13)]
+    public void EveryKnownGlobalHeaderVariant_UsesGlobalSchemaAndBase(ushort revision, byte magic)
+    {
+        byte[] bytes = BuildIff("Character.iff", 1, 396);
+        BitConverter.GetBytes(revision).CopyTo(bytes, 2);
+        bytes[4] = magic;
+        using var stream = new MemoryStream(bytes, writable: false);
+        using IffReader reader = IffReader.Open(stream, "Character.iff");
+
+        Assert.StartsWith("Global_", reader.Info.Region, StringComparison.Ordinal);
+        Assert.Equal(new IffSchemaBaseReference("Common"), reader.Info.Schema!.BaseReference);
+        Assert.Contains(reader.Info.Schema.Fields, field => field.Name == "MPet" && field.Offset == 168);
+    }
+
     [Theory]
     [MemberData(nameof(ThailandSchemas))]
     public void EveryJavaSchema_HasFieldsWithinItsRecord(string fileName, int recordSize)
@@ -278,6 +367,91 @@ public sealed class IffStreamingTests
 
         Assert.Equal(recordSize, schema.MinimumRecordSize);
         Assert.All(schema.Fields, field => Assert.True(field.Offset + field.Width <= recordSize, field.Name));
+    }
+
+    [Theory]
+    [MemberData(nameof(JapaneseCommonDerivedSchemas))]
+    public void JapaneseCommonDerivedSchemas_ShiftThailandPostBaseFieldsBy48Bytes(
+        string fileName, int recordSize)
+    {
+        var provider = new EmbeddedIffSchemaProvider();
+        IffSavedSchemaSource thailandSource = Assert.IsType<IffSavedSchemaSource>(
+            provider.ReadSavedSource(fileName, ["TH"]));
+        IffSavedSchemaSource japanSource = Assert.IsType<IffSavedSchemaSource>(
+            provider.ReadSavedSource(fileName, ["JP"]));
+        IffSchemaDefinition thailand = Assert.IsType<IffSchemaDefinition>(thailandSource.Definition);
+        IffSchemaDefinition japan = Assert.IsType<IffSchemaDefinition>(japanSource.Definition);
+        IffFieldDefinition[] expected = thailand.Fields
+            .Where(field => field.Offset >= 144 && !IsFullRecordRaw(field, thailand.MinimumRecordSize))
+            .Select(field => field with { Offset = field.Offset + 48 })
+            .ToArray();
+        IffFieldDefinition[] actual = japan.Fields
+            .Where(field => !IsFullRecordRaw(field, japan.MinimumRecordSize))
+            .ToArray();
+
+        Assert.Equal(2, japan.SchemaVersion);
+        Assert.Equal(new IffSchemaBaseReference("Common"), japan.Base);
+        Assert.Equal(recordSize, japan.MinimumRecordSize);
+        Assert.Equal(thailand.MinimumRecordSize + 48, japan.MinimumRecordSize);
+        Assert.Equal(64, japan.DefaultStringSize);
+        Assert.NotEmpty(actual);
+        Assert.Equal(expected, actual);
+        Assert.Contains(japan.Fields, field => IsFullRecordRaw(field, recordSize));
+
+        IffSchemaResolution resolution = provider.Resolve(fileName, "JP", recordSize);
+        IffSchema schema = Assert.IsType<IffSchema>(resolution.Schema);
+        Assert.Contains(schema.Fields, field => field.IsInherited && field.Name == "Name" && field.Width == 64);
+        Assert.All(actual, definition => Assert.Contains(schema.LocalFields!, field =>
+            field.Name == definition.Name && field.Offset == definition.Offset && field.Width == definition.Width));
+        Assert.All(schema.Fields, field => Assert.True(field.Offset + field.Width <= recordSize, field.Name));
+    }
+
+    [Theory]
+    [InlineData(0, 12, "JP")]
+    [InlineData(548, 11, "Japan")]
+    [InlineData(52428, 11, "Japan_52428")]
+    [InlineData(8960, 11, "Japan_8960")]
+    [InlineData(30312, 13, "Japan_30312")]
+    public void KnownJapaneseHeaders_ResolveStructuredJpFields(ushort revision, byte magic, string region)
+    {
+        byte[] bytes = BuildIff("Character.iff", 1, 420);
+        BitConverter.GetBytes(revision).CopyTo(bytes, 2);
+        bytes[4] = magic;
+        using var stream = new MemoryStream(bytes, writable: false);
+        using IffReader reader = IffReader.Open(stream, "Character.iff");
+
+        Assert.Equal(region, reader.Info.Region);
+        Assert.Equal(new IffSchemaBaseReference("Common"), reader.Info.Schema!.BaseReference);
+        Assert.Contains(reader.Info.Schema.LocalFields!, field =>
+            field.Name == "Model" && field.Offset == 192 && field.Width == 40);
+    }
+
+    [Theory]
+    [MemberData(nameof(JapaneseCommonDerivedSchemas))]
+    public void JapanesePostBaseEditableFields_OnlyWriteInsideTheirRanges(string fileName, int recordSize)
+    {
+        IffSchema schema = Assert.IsType<IffSchema>(
+            new EmbeddedIffSchemaProvider().Resolve(fileName, "JP", recordSize).Schema);
+
+        foreach (IffField field in schema.LocalFields!.Where(field => field.IsEditable))
+        {
+            byte[] record = new byte[recordSize];
+            object value = field.Type switch
+            {
+                IffFieldType.Boolean => true,
+                IffFieldType.FixedString or IffFieldType.Icon or IffFieldType.Sound => "A",
+                IffFieldType.DateTime => new DateTime(2026, 7, 19, 12, 34, 56, DateTimeKind.Unspecified),
+                IffFieldType.Raw => string.Concat(Enumerable.Repeat("A5", field.Width)),
+                IffFieldType.Single => 1.5f,
+                _ => 1
+            };
+
+            field.SetValue(record, value);
+
+            Assert.All(record.Take(field.Offset), item => Assert.Equal(0, item));
+            Assert.All(record.Skip(field.Offset + field.Width), item => Assert.Equal(0, item));
+            Assert.NotNull(field.GetValue(record));
+        }
     }
 
     [Theory]
@@ -694,6 +868,10 @@ public sealed class IffStreamingTests
         for (int i = 8; i < data.Length; i++) data[i] = (byte)(i * 37);
         return data;
     }
+
+    private static bool IsFullRecordRaw(IffFieldDefinition field, int recordSize) =>
+        field.Type == IffFieldType.Raw && field.Offset == 0 && field.Width == recordSize &&
+        field.Name.Equals("Raw record", StringComparison.OrdinalIgnoreCase);
 
     private static async IAsyncEnumerable<IffRecord> AsAsync(IEnumerable<IffRecord> records)
     {

@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 2,
+  "defaultRevision": 1,
+  "fileName": "Caddie.iff",
+  "region": "Global",
+  "minimumRecordSize": 224,
+  "isEditable": true,
+  "fields": [
+    {
+      "name": "Salary",
+      "offset": 168,
+      "width": 4,
+      "type": "UInt32",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "MPet",
+      "offset": 172,
+      "width": 40,
+      "type": "FixedString",
+      "isEditable": true,
+      "encodingCodePage": 28591,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Power",
+      "offset": 212,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Control",
+      "offset": 214,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Impact",
+      "offset": 216,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Spin",
+      "offset": 218,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Curve",
+      "offset": 220,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Un4",
+      "offset": 222,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Raw record",
+      "offset": 0,
+      "width": 224,
+      "type": "Raw",
+      "isEditable": false,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    }
+  ],
+  "defaultStringSize": 40,
+  "defaultLongStringSize": 512,
+  "base": {
+    "name": "Common",
+    "region": null
+  }
+}

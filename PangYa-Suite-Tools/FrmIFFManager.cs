@@ -28,7 +28,9 @@ public partial class FrmIFFManager : Form
     private bool _structureDirty;
     private readonly List<IffField> _visibleFields = [];
     private readonly DirectoryIffSchemaProvider _schemaProvider;
+    private readonly IffSchemaDefaultManager _schemaDefaultManager;
     private bool _schemasSeeded;
+    private bool _schemaUpdatesChecked;
     private bool _initializingContainerKeys = true;
     private bool _containerEncodingDirty;
     private IffContainerSaveOptions? _selectedSaveOptions;
@@ -41,6 +43,7 @@ public partial class FrmIFFManager : Form
     private ToolStripButton? _toolbarAddRow;
     private ToolStripButton? _toolbarDeleteRows;
     private ToolStripButton? _toolbarManageSchema;
+    private ToolStripButton? _toolbarSchemaUpdates;
     private ToolStripButton? _toolbarRawRecord;
     private ToolStripButton? _toolbarFormView;
     private ToolStripButton? _toolbarGridView;
@@ -63,6 +66,7 @@ public partial class FrmIFFManager : Form
     {
         InitializeComponent();
         _schemaProvider = IffSchemaPreferences.CreateProvider();
+        _schemaDefaultManager = new IffSchemaDefaultManager(_schemaProvider);
         ConfigureGrid();
         ConfigureEditorToolbar();
         RefreshContainerKeyComboBox();
@@ -300,6 +304,8 @@ public partial class FrmIFFManager : Form
             });
         _toolbarManageSchema = CreateToolbarButton(Strings.IFFManager_ManageColumns, SystemIcons.WinLogo.ToBitmap(),
             (_, _) => btnAddColumn_Click(btnAddColumn, EventArgs.Empty));
+        _toolbarSchemaUpdates = CreateToolbarButton(Strings.IFFManager_SchemaUpdates, SystemIcons.Warning.ToBitmap(),
+            async (_, _) => await CheckForSchemaUpdatesAsync(showWhenNone: true, CancellationToken.None));
         _toolbarRawRecord = CreateToolbarButton(Strings.IFFManager_RawRecord, SystemIcons.Application.ToBitmap(),
             async (_, _) => await OpenRawRecordWindowAsync());
         _toolbarFormView = CreateToolbarButton(Strings.IFFManager_FormView, SystemIcons.Question.ToBitmap(),
@@ -316,6 +322,7 @@ public partial class FrmIFFManager : Form
             _toolbarAddRow,
             _toolbarDeleteRows,
             _toolbarManageSchema,
+            _toolbarSchemaUpdates,
             _toolbarRawRecord,
             new ToolStripSeparator(),
             _toolbarFormView,
@@ -351,6 +358,7 @@ public partial class FrmIFFManager : Form
         _toolbarAddRow!.Text = Strings.IFFManager_AddRow;
         _toolbarDeleteRows!.Text = Strings.IFFManager_DeleteRows;
         _toolbarManageSchema!.Text = Strings.IFFManager_ManageColumns;
+        _toolbarSchemaUpdates!.Text = Strings.IFFManager_SchemaUpdates;
         _toolbarRawRecord!.Text = Strings.IFFManager_RawRecord;
         _toolbarFormView!.Text = Strings.IFFManager_FormView;
         _toolbarGridView!.Text = Strings.IFFManager_GridView;
@@ -476,24 +484,81 @@ public partial class FrmIFFManager : Form
         finally { UseWaitCursor = false; }
     }
 
+    private async Task EnsureSchemasSeededAsync(CancellationToken token)
+    {
+        if (_schemasSeeded) return;
+        try
+        {
+            await Task.Run(IffSchemaPreferences.SeedDefaults, token);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Instance.Log(LogSource,
+                $"Could not seed default JSON schemas: {ex.Message}", AppLogLevel.Warning);
+        }
+        _schemasSeeded = true;
+    }
+
+    private async Task CheckForSchemaUpdatesAsync(bool showWhenNone, CancellationToken token)
+    {
+        if (!BeginSchemaUpdateCheck(showWhenNone)) return;
+        await EnsureSchemasSeededAsync(token);
+        try
+        {
+            IReadOnlyList<IffSchemaUpdateCandidate> candidates = await Task.Run(
+                _schemaDefaultManager.FindUpdates, token);
+            if (candidates.Count == 0)
+            {
+                if (showWhenNone)
+                    MessageBox.Show(Strings.IFFManager_SchemaUpdateNoneAvailable,
+                        Strings.IFFManager_SchemaUpdates, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new IffSchemaUpdateDialog(candidates);
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            IffSchemaUpdateSelection[] selections = dialog.Selections.ToArray();
+            IffSchemaUpdateResult result = await Task.Run(
+                () => _schemaDefaultManager.ApplyUpdates(selections), token);
+            foreach (IffSchemaUpdateSelection selection in selections)
+                AppLogger.Instance.Log(LogSource,
+                    $"Schema update '{selection.Candidate.FileName}' ({selection.Candidate.Region}): {selection.Action}.");
+            if (result.BackupDirectory is not null)
+                AppLogger.Instance.Log(LogSource, $"Schema update backups saved to '{result.BackupDirectory}'.");
+
+            if (_document is not null && result.ReplacedCount + result.PreferredLocalCount > 0)
+                await ReloadResolvedSchemaAsync(CurrentSchemaRegions());
+            string summary = string.Format(LocalizationManager.CurrentCulture,
+                Strings.IFFManager_SchemaUpdateAppliedFormat, result.ReplacedCount,
+                result.PreferredLocalCount, result.BackupDirectory ?? "-");
+            AppLogger.Instance.Log(LogSource, summary);
+            if (_document?.SchemaWarning is null) lblStatus.Text = summary;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException
+                                   or ArgumentException or AggregateException)
+        {
+            AppLogger.Instance.Log(LogSource, $"Schema update failed: {ex.Message}", AppLogLevel.Error);
+            ShowError(ex);
+        }
+    }
+
+    internal bool BeginSchemaUpdateCheck(bool manualRequest)
+    {
+        if (manualRequest) return true;
+        if (_schemaUpdatesChecked) return false;
+        _schemaUpdatesChecked = true;
+        return true;
+    }
+
     private async Task LoadEntryAsync(IffContainerEntry entry, CancellationToken token)
     {
         string? selectedRegion = SelectedSchemaRegion;
         ClearDocument();
         _entry = entry;
         _documentStringEncoding = SelectedStringEncoding;
-        if (!_schemasSeeded)
-        {
-            try
-            {
-                await Task.Run(IffSchemaPreferences.SeedDefaults, token);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                AppLogger.Instance.Log(LogSource, $"Could not seed default JSON schemas: {ex.Message}", AppLogLevel.Warning);
-            }
-            _schemasSeeded = true;
-        }
+        await EnsureSchemasSeededAsync(token);
+        await CheckForSchemaUpdatesAsync(showWhenNone: false, token);
         await using Stream stream = await entry.OpenAsync(token);
         await using IffReader reader = IffReader.Open(stream, Path.GetFileName(entry.Name),
             new(SchemaProvider: _schemaProvider, SchemaRegion: selectedRegion,
@@ -718,11 +783,13 @@ public partial class FrmIFFManager : Form
             fields = AddFieldFromRawRecordWindow(fields, _document.RecordSize, selectedField).ToList();
             IffSchemaDefinition updated = current with { Fields = fields };
             IffSchemaJson.ValidateDefinition(updated, _document.RecordSize);
-            _schemaProvider.Save(updated);
+            _schemaProvider.SaveValidated(updated, CurrentSchemaRegions(), _document.RecordSize);
+            IffSchemaResolution resolution = _schemaProvider.Resolve(_document.FileName, _document.Region,
+                _document.RecordSize);
             _document = _document with
             {
-                Schema = IffSchemaJson.ToSchema(updated, _document.RecordSize),
-                SchemaWarning = null
+                Schema = resolution.Schema,
+                SchemaWarning = resolution.Warning
             };
             await RefreshSchemaViewAsync(CancellationToken.None);
             SelectRecordIndex(selectedRecordIndex);
@@ -857,11 +924,13 @@ public partial class FrmIFFManager : Form
             }
             IffSchemaDefinition updated = current with { Fields = fields };
             IffSchemaJson.ValidateDefinition(updated, _document.RecordSize);
-            _schemaProvider.Save(updated);
+            _schemaProvider.SaveValidated(updated, CurrentSchemaRegions(), _document.RecordSize);
+            IffSchemaResolution resolution = _schemaProvider.Resolve(_document.FileName, _document.Region,
+                _document.RecordSize);
             _document = _document with
             {
-                Schema = IffSchemaJson.ToSchema(updated, _document.RecordSize),
-                SchemaWarning = null
+                Schema = resolution.Schema,
+                SchemaWarning = resolution.Warning
             };
             await RefreshSchemaViewAsync(CancellationToken.None);
             gridRecords.Columns[Math.Min(hit.ColumnIndex, gridRecords.Columns.Count - 1)].Selected = true;
@@ -1034,6 +1103,7 @@ public partial class FrmIFFManager : Form
             ? _formEditor?.SelectedRecordIndex >= 0
             : gridRecords.SelectedRows.Count > 0);
         _toolbarManageSchema!.Enabled = hasDocument;
+        _toolbarSchemaUpdates!.Enabled = true;
         _toolbarRawRecord!.Enabled = hasDocument && SelectedRecordIndex() >= 0;
         _toolbarFormView!.Enabled = hasDocument;
         _toolbarGridView!.Enabled = hasDocument;
@@ -1141,12 +1211,43 @@ public partial class FrmIFFManager : Form
     private async void btnAddColumn_Click(object sender, EventArgs e)
     {
         if (_document?.Schema is not { } schema) return;
-        IffSchemaDefinition current = IffSchemaJson.FromSchema(_document.FileName, _document.Region, schema);
+        IReadOnlyList<string> schemaRegions = CurrentSchemaRegions();
+        IffSavedSchemaSource? savedSource = !string.IsNullOrEmpty(_document.SchemaWarning)
+            ? _schemaProvider.ReadSavedSource(_document.FileName, schemaRegions, _document.RecordSize)
+            : null;
+        if (savedSource is not null &&
+            (savedSource.Definition is null || !CanDisplayStructuredSchema(savedSource.Definition, _document.RecordSize) ||
+             !SavedSourceIdentityMatches(savedSource, savedSource.Definition)))
+        {
+            using var recovery = new IffSchemaRecoveryDialog(savedSource with
+            {
+                Error = savedSource.Error ?? _document.SchemaWarning
+            }, json => _schemaProvider.SaveJson(savedSource, json, schemaRegions, _document.RecordSize));
+            if (recovery.ShowDialog(this) != DialogResult.OK) return;
+            await ReloadResolvedSchemaAsync(schemaRegions);
+            return;
+        }
+
+        IffSchemaDefinition current = savedSource?.Definition ??
+            IffSchemaJson.FromSchema(_document.FileName, _document.Region, schema);
+        IffFieldDefinition[] inheritedFields = [];
+        if (current.Base is { } baseReference)
+        {
+            IffSchemaResolution baseResolution = ((IIffSchemaProvider)_schemaProvider).ResolveBase(baseReference, schemaRegions,
+                _document.RecordSize);
+            inheritedFields = baseResolution.Schema?.Fields
+                .Where(field => !IffSchemaCoverage.IsCatchAllRawRecord(field, _document.RecordSize))
+                .Select(IffSchemaJson.FromField).ToArray() ?? [];
+        }
         using var dialog = new IffSchemaManagerDialog(_document.RecordSize, current.Fields,
             current.DefaultStringSize, IffSchemaPreferences.LoadTemplateSchemas(), CurrentIffFileNames(),
-            current.DefaultLongStringSize);
+            current.DefaultLongStringSize, current.Base,
+            savedSource is null
+                ? schema.Fields.Where(field => field.IsInherited).Select(IffSchemaJson.FromField)
+                : inheritedFields,
+            _document.Region, _schemaProvider.Save);
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        if (dialog.Fields.Count == 0)
+        if (dialog.Fields.Count == 0 && dialog.BaseReference is null)
         {
             MessageBox.Show(Strings.IFFManager_SchemaRequiresColumn, Strings.IFFManager_Error,
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1157,17 +1258,15 @@ public partial class FrmIFFManager : Form
         {
             var updated = current with
             {
+                SchemaVersion = IffSchemaJson.CurrentVersion,
                 IsEditable = true,
                 Fields = RemoveCatchAllRawFields(dialog.Fields, _document.RecordSize).ToArray(),
                 DefaultStringSize = dialog.DefaultStringSize,
-                DefaultLongStringSize = dialog.DefaultLongStringSize
+                DefaultLongStringSize = dialog.DefaultLongStringSize,
+                Base = dialog.BaseReference
             };
-            _schemaProvider.Save(updated);
-            _document = _document with { Schema = IffSchemaJson.ToSchema(updated, _document.RecordSize), SchemaWarning = null };
-            await RefreshSchemaViewAsync(CancellationToken.None);
-            btnSave.Enabled = true;
-            btnAddRow.Enabled = true;
-            UpdateToolbarState();
+            _schemaProvider.SaveValidated(updated, schemaRegions, _document.RecordSize);
+            await ReloadResolvedSchemaAsync(schemaRegions);
             AppLogger.Instance.Log(LogSource, $"Saved JSON schema for '{_document.FileName}' ({_document.Region}).");
         }
         catch (Exception ex)
@@ -1175,6 +1274,45 @@ public partial class FrmIFFManager : Form
             ShowError(ex);
         }
     }
+
+    private IReadOnlyList<string> CurrentSchemaRegions()
+    {
+        if (SelectedSchemaRegion is { } selected) return [selected];
+        return _document?.Header.FormatProfile?.SchemaRegions ??
+               (_document is null ? [] : [_document.Region]);
+    }
+
+    private async Task ReloadResolvedSchemaAsync(IReadOnlyList<string> schemaRegions)
+    {
+        if (_document is null) return;
+        IffSchemaResolution resolution = _schemaProvider.Resolve(_document.FileName, schemaRegions,
+            _document.RecordSize);
+        _document = _document with { Schema = resolution.Schema, SchemaWarning = resolution.Warning };
+        foreach (IffRecord record in _records) record.UpdateSchema(resolution.Schema);
+        await RefreshSchemaViewAsync(CancellationToken.None);
+        btnSave.Enabled = resolution.Schema?.IsEditable == true;
+        btnAddRow.Enabled = resolution.Schema?.IsEditable == true;
+        UpdateToolbarState();
+        lblStatus.Text = resolution.Schema is not null && resolution.Warning is null
+            ? Strings.IFFManager_Saved
+            : resolution.Warning ?? Strings.IFFManager_SchemaWarning;
+    }
+
+    internal static bool CanDisplayStructuredSchema(IffSchemaDefinition definition, int recordSize)
+    {
+        if (recordSize <= 0 || definition.MinimumRecordSize is <= 0 || definition.MinimumRecordSize > recordSize ||
+            definition.DefaultStringSize is <= 0 || definition.DefaultStringSize > recordSize ||
+            definition.DefaultLongStringSize <= 0)
+            return false;
+        return definition.Fields is not null && definition.Fields.All(field =>
+            field.Offset >= 0 && field.Width > 0 && field.Offset <= recordSize - field.Width &&
+            field.BitShift is >= 0 and <= 31);
+    }
+
+    private static bool SavedSourceIdentityMatches(IffSavedSchemaSource source, IffSchemaDefinition definition) =>
+        definition.FileName.Equals(source.FileName, StringComparison.OrdinalIgnoreCase) &&
+        (definition.Region.Equals(source.CandidateRegion, StringComparison.OrdinalIgnoreCase) ||
+         definition.Region == "*");
 
     private IReadOnlyList<string> CurrentIffFileNames() =>
         lstIffFiles.Items.Cast<object>()

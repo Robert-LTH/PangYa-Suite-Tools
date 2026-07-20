@@ -867,6 +867,24 @@
   <data name="IFFManager_OnlyCustomColumnsEditable" xml:space="preserve"><value>Endast hexadecimala kolumner och kryssrutor kan redigeras i den här dialogrutan.</value></data>
   <data name="IFFManager_SchemaRequiresColumn" xml:space="preserve"><value>Ett IFF-schema måste innehålla minst en kolumn.</value></data>
   <data name="IFFManager_SchemaWarning" xml:space="preserve"><value>IFF-filen öppnades som skrivskyddade rådata eftersom dess JSON-schema inte kunde läsas.</value></data>
+  <data name="IFFManager_SchemaRecoveryTitle" xml:space="preserve"><value>Reparera JSON-schema</value></data>
+  <data name="IFFManager_SchemaRecoveryDescription" xml:space="preserve"><value>Det sparade schemat kunde inte läsas. Korrigera JSON-texten nedan; IFF-filen förblir skrivskyddad tills schemat är giltigt.</value></data>
+  <data name="IFFManager_SchemaRecoverySourceFormat" xml:space="preserve"><value>Källa: {0}</value></data>
+  <data name="IFFManager_SchemaUpdates" xml:space="preserve"><value>Schemauppdateringar...</value></data>
+  <data name="IFFManager_SchemaUpdateDescription" xml:space="preserve"><value>Nyare inbyggda schemadefinitioner finns. Välj om varje lokal fil ska ersättas, om din fullständiga definition ska behållas som föredragen standard eller om du vill bestämma senare. Ändrade filer säkerhetskopieras före skrivning.</value></data>
+  <data name="IFFManager_SchemaUpdateFile" xml:space="preserve"><value>Schemafil</value></data>
+  <data name="IFFManager_SchemaUpdateRegion" xml:space="preserve"><value>Region</value></data>
+  <data name="IFFManager_SchemaUpdateLocalRevision" xml:space="preserve"><value>Lokal revision</value></data>
+  <data name="IFFManager_SchemaUpdateBundledRevision" xml:space="preserve"><value>Standardrevision</value></data>
+  <data name="IFFManager_SchemaUpdateAction" xml:space="preserve"><value>Åtgärd</value></data>
+  <data name="IFFManager_SchemaUpdateKeep" xml:space="preserve"><value>Behåll tills vidare</value></data>
+  <data name="IFFManager_SchemaUpdateReplace" xml:space="preserve"><value>Ersätt med inbyggd standard</value></data>
+  <data name="IFFManager_SchemaUpdateUseMine" xml:space="preserve"><value>Använd min definition som standard</value></data>
+  <data name="IFFManager_SchemaUpdateLocalDefinition" xml:space="preserve"><value>Din lokala definition</value></data>
+  <data name="IFFManager_SchemaUpdateBundledDefinition" xml:space="preserve"><value>Ny inbyggd standard</value></data>
+  <data name="IFFManager_SchemaUpdateApply" xml:space="preserve"><value>Verkställ valda åtgärder</value></data>
+  <data name="IFFManager_SchemaUpdateNoneAvailable" xml:space="preserve"><value>Det finns inga nyare standardscheman.</value></data>
+  <data name="IFFManager_SchemaUpdateAppliedFormat" xml:space="preserve"><value>Schemauppdateringar genomförda: {0} ersatta, {1} behållna som föredragna. Säkerhetskopia: {2}</value></data>
   <data name="IFFManager_Region" xml:space="preserve"><value>Region:</value></data>
   <data name="IFFManager_RegionAuto" xml:space="preserve"><value>Identifiera automatiskt</value></data>
   <data name="IFFManager_RegionThailand" xml:space="preserve"><value>Thailand</value></data>
@@ -1016,4 +1034,10 @@ Avbryt: Stoppa extraheringen.</value></data>
   <data name="UpdateList_InvalidDestinationFolder" xml:space="preserve"><value>Webbserverns målmapp är ogiltig.</value></data>
   <data name="UpdateList_PatchVersionRequired" xml:space="preserve"><value>Fyll i patchversionen.</value></data>
   <data name="IFFManager_DefaultLongStringSize" xml:space="preserve"><value>Standardstorlek för lång sträng:</value></data>
+  <data name="IFFManager_BaseSchema" xml:space="preserve"><value>Basschema:</value></data>
+  <data name="IFFManager_EditBase" xml:space="preserve"><value>Redigera bas...</value></data>
+  <data name="IFFManager_BaseNone" xml:space="preserve"><value>Ingen</value></data>
+  <data name="IFFManager_BaseAuto" xml:space="preserve"><value>Automatisk — Common.{0}</value></data>
+  <data name="IFFManager_BaseField" xml:space="preserve"><value>Bas</value></data>
+  <data name="IFFManager_RegionUnknown" xml:space="preserve"><value>Okänd</value></data>
 </root>

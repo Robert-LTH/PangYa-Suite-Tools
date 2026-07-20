@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "defaultRevision": 1,
   "fileName": "GrandPrixRankReward.iff",
   "region": "JP",
   "minimumRecordSize": 76,

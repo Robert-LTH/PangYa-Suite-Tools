@@ -367,7 +367,7 @@ internal sealed class IffFormRecordEditor : UserControl
             IffFieldType.Boolean or IffFieldType.BooleanBitField or IffFieldType.ZeroBoolean or
                 IffFieldType.ByteRangeBoolean => new CheckBox { AutoSize = true, Anchor = AnchorStyles.Left },
             IffFieldType.Byte or IffFieldType.UInt16 or IffFieldType.Int16 or IffFieldType.UInt32 or
-                IffFieldType.ItemIdReference or IffFieldType.Int32 or IffFieldType.BitField => CreateNumericEditor(field),
+                IffFieldType.ItemIdReference or IffFieldType.Int32 or IffFieldType.Int64 or IffFieldType.BitField => CreateNumericEditor(field),
             IffFieldType.DateTime => CreateDateTimeEditor(),
             IffFieldType.LongString => CreateLongStringEditor(),
             _ => new TextBox()
@@ -535,6 +535,7 @@ internal sealed class IffFormRecordEditor : UserControl
             IffFieldType.Int16 => (short.MinValue, short.MaxValue),
             IffFieldType.UInt32 or IffFieldType.ItemIdReference => (uint.MinValue, uint.MaxValue),
             IffFieldType.Int32 => (int.MinValue, int.MaxValue),
+            IffFieldType.Int64 => (long.MinValue, long.MaxValue),
             IffFieldType.BitField when field.BitMask is uint mask => (0, mask >> field.BitShift),
             _ => (long.MinValue, long.MaxValue)
         };

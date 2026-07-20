@@ -1,5 +1,6 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "defaultRevision": 1,
   "fileName": "Part.iff",
   "region": "JP",
   "minimumRecordSize": 560,
@@ -9,173 +10,239 @@
       {
         "name": "Basic Info",
         "fields": [
-          { "field": "Enabled", "label": "Active", "editor": "checkbox", "order": 0 },
-          { "field": "Name", "label": "Name", "editor": "text", "order": 1 },
-          { "field": "ItemId", "label": "ID", "editor": "numeric", "order": 2 },
-          { "field": "Icon", "label": "Icon", "editor": "text", "order": 3 },
-          { "field": "Price", "label": "Price", "editor": "numeric", "order": 4 },
-          { "field": "DiscountPrice", "label": "Discount", "editor": "numeric", "order": 5 },
-          { "field": "UsedPrice", "label": "Used Price", "editor": "numeric", "order": 6 },
-          { "field": "IsCash", "label": "Cash", "editor": "checkbox", "order": 7 },
-          { "field": "StartDate", "label": "Start Sell", "editor": "datetime", "order": 8 },
-          { "field": "EndDate", "label": "End Sell", "editor": "datetime", "order": 9 },
-          { "field": "TimeFlag", "label": "Time Active", "editor": "checkbox", "order": 10 },
-          { "field": "Time", "label": "Time", "editor": "numeric", "order": 11 }
+          {
+            "field": "Enabled",
+            "label": "Active",
+            "editor": "checkbox",
+            "order": 0
+          },
+          {
+            "field": "Name",
+            "label": "Name",
+            "editor": "text",
+            "order": 1
+          },
+          {
+            "field": "ItemId",
+            "label": "ID",
+            "editor": "numeric",
+            "order": 2
+          },
+          {
+            "field": "Icon",
+            "label": "Icon",
+            "editor": "text",
+            "order": 3
+          },
+          {
+            "field": "Price",
+            "label": "Price",
+            "editor": "numeric",
+            "order": 4
+          },
+          {
+            "field": "DiscountPrice",
+            "label": "Discount",
+            "editor": "numeric",
+            "order": 5
+          },
+          {
+            "field": "UsedPrice",
+            "label": "Used Price",
+            "editor": "numeric",
+            "order": 6
+          },
+          {
+            "field": "IsCash",
+            "label": "Cash",
+            "editor": "checkbox",
+            "order": 7
+          },
+          {
+            "field": "StartDate",
+            "label": "Start Sell",
+            "editor": "datetime",
+            "order": 8
+          },
+          {
+            "field": "EndDate",
+            "label": "End Sell",
+            "editor": "datetime",
+            "order": 9
+          },
+          {
+            "field": "TimeFlag",
+            "label": "Time Active",
+            "editor": "checkbox",
+            "order": 10
+          },
+          {
+            "field": "Time",
+            "label": "Time",
+            "editor": "numeric",
+            "order": 11
+          }
         ]
       },
       {
         "name": "TikiShop",
         "fields": [
-          { "field": "InStock", "label": "In Stock", "editor": "checkbox", "order": 0 },
-          { "field": "ShowNew", "label": "Item New", "editor": "checkbox", "order": 1 },
-          { "field": "DisplayOnly", "label": "Display Only", "editor": "checkbox", "order": 2 },
-          { "field": "ShowHot", "label": "Item Hot", "editor": "checkbox", "order": 3 },
-          { "field": "ShowSpecial", "label": "Item Special", "editor": "checkbox", "order": 4 },
-          { "field": "Point", "label": "Point", "editor": "numeric", "order": 5 }
+          {
+            "field": "InStock",
+            "label": "In Stock",
+            "editor": "checkbox",
+            "order": 0
+          },
+          {
+            "field": "ShowNew",
+            "label": "Item New",
+            "editor": "checkbox",
+            "order": 1
+          },
+          {
+            "field": "DisplayOnly",
+            "label": "Display Only",
+            "editor": "checkbox",
+            "order": 2
+          },
+          {
+            "field": "ShowHot",
+            "label": "Item Hot",
+            "editor": "checkbox",
+            "order": 3
+          },
+          {
+            "field": "ShowSpecial",
+            "label": "Item Special",
+            "editor": "checkbox",
+            "order": 4
+          },
+          {
+            "field": "Point",
+            "label": "Point",
+            "editor": "numeric",
+            "order": 5
+          }
         ]
       },
       {
         "name": "Part",
         "fields": [
-          { "field": "Character Serial", "label": "Character", "editor": "numeric", "order": 0 },
-          { "field": "Position", "label": "Position", "editor": "numeric", "order": 1 },
-          { "field": "Group", "label": "Group", "editor": "numeric", "order": 2 },
-          { "field": "Type", "label": "Type", "editor": "numeric", "order": 3 },
-          { "field": "Serial", "label": "Serial", "editor": "numeric", "order": 4 }
+          {
+            "field": "Character Serial",
+            "label": "Character",
+            "editor": "numeric",
+            "order": 0
+          },
+          {
+            "field": "Position",
+            "label": "Position",
+            "editor": "numeric",
+            "order": 1
+          },
+          {
+            "field": "Group",
+            "label": "Group",
+            "editor": "numeric",
+            "order": 2
+          },
+          {
+            "field": "Type",
+            "label": "Type",
+            "editor": "numeric",
+            "order": 3
+          },
+          {
+            "field": "Serial",
+            "label": "Serial",
+            "editor": "numeric",
+            "order": 4
+          }
         ]
       },
       {
         "name": "Desc Info",
         "fields": [
-          { "field": "SecondaryIcon", "label": "Secondary Icon", "editor": "text", "order": 0 }
+          {
+            "field": "SecondaryIcon",
+            "label": "Secondary Icon",
+            "editor": "text",
+            "order": 0
+          }
         ]
       },
       {
         "name": "Ability Info",
         "fields": [
-          { "field": "LevelFlags", "label": "Level Flags", "editor": "numeric", "order": 0 },
-          { "field": "ShopFlags", "label": "Shop Flags", "editor": "numeric", "order": 1 },
-          { "field": "MoneyFlags", "label": "Money Flags", "editor": "numeric", "order": 2 },
-          { "field": "CanSendMailAndPersonalShop", "label": "Mail / Personal Shop", "editor": "checkbox", "order": 3 },
-          { "field": "CanDuplicate", "label": "Can Duplicate", "editor": "checkbox", "order": 4 },
-          { "field": "ShopSpecial", "label": "Shop Special", "editor": "checkbox", "order": 5 },
-          { "field": "BlockMailAndPersonalShop", "label": "Block Mail / Shop", "editor": "checkbox", "order": 6 },
-          { "field": "IsSaleable", "label": "Saleable", "editor": "checkbox", "order": 7 },
-          { "field": "IsGift", "label": "Gift", "editor": "checkbox", "order": 8 },
-          { "field": "OnlyDisplay", "label": "Only Display", "editor": "checkbox", "order": 9 }
+          {
+            "field": "LevelFlags",
+            "label": "Level Flags",
+            "editor": "numeric",
+            "order": 0
+          },
+          {
+            "field": "ShopFlags",
+            "label": "Shop Flags",
+            "editor": "numeric",
+            "order": 1
+          },
+          {
+            "field": "MoneyFlags",
+            "label": "Money Flags",
+            "editor": "numeric",
+            "order": 2
+          },
+          {
+            "field": "CanSendMailAndPersonalShop",
+            "label": "Mail / Personal Shop",
+            "editor": "checkbox",
+            "order": 3
+          },
+          {
+            "field": "CanDuplicate",
+            "label": "Can Duplicate",
+            "editor": "checkbox",
+            "order": 4
+          },
+          {
+            "field": "ShopSpecial",
+            "label": "Shop Special",
+            "editor": "checkbox",
+            "order": 5
+          },
+          {
+            "field": "BlockMailAndPersonalShop",
+            "label": "Block Mail / Shop",
+            "editor": "checkbox",
+            "order": 6
+          },
+          {
+            "field": "IsSaleable",
+            "label": "Saleable",
+            "editor": "checkbox",
+            "order": 7
+          },
+          {
+            "field": "IsGift",
+            "label": "Gift",
+            "editor": "checkbox",
+            "order": 8
+          },
+          {
+            "field": "OnlyDisplay",
+            "label": "Only Display",
+            "editor": "checkbox",
+            "order": 9
+          }
         ]
       }
     ]
   },
   "fields": [
     {
-      "name": "Enabled",
-      "offset": 0,
-      "width": 1,
-      "type": "Boolean",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": null,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "ItemId",
-      "offset": 4,
-      "width": 4,
-      "type": "UInt32",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": null,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "IFF Type",
-      "offset": 4,
-      "width": 4,
-      "type": "BitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 4227858432,
-      "bitShift": 26,
-      "isVisible": true
-    },
-    {
-      "name": "Character Serial",
-      "offset": 4,
-      "width": 4,
-      "type": "BitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 66846720,
-      "bitShift": 18,
-      "isVisible": true
-    },
-    {
-      "name": "Position",
-      "offset": 4,
-      "width": 4,
-      "type": "BitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 253952,
-      "bitShift": 13,
-      "isVisible": true
-    },
-    {
-      "name": "Group",
-      "offset": 4,
-      "width": 4,
-      "type": "BitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 6144,
-      "bitShift": 11,
-      "isVisible": true
-    },
-    {
-      "name": "Type",
-      "offset": 4,
-      "width": 4,
-      "type": "BitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 1536,
-      "bitShift": 9,
-      "isVisible": true
-    },
-    {
-      "name": "Serial",
-      "offset": 4,
-      "width": 4,
-      "type": "BitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 511,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "Name",
-      "offset": 8,
-      "width": 64,
+      "name": "SecondaryIcon",
+      "offset": 192,
+      "width": 40,
       "type": "FixedString",
       "isEditable": true,
       "encodingCodePage": 28591,
@@ -186,11 +253,11 @@
       "isVisible": true
     },
     {
-      "name": "LevelFlags",
-      "offset": 72,
+      "name": "PartCategory",
+      "offset": 232,
       "width": 1,
       "type": "Byte",
-      "isEditable": false,
+      "isEditable": true,
       "encodingCodePage": null,
       "minimum": null,
       "maximum": null,
@@ -199,9 +266,152 @@
       "isVisible": true
     },
     {
-      "name": "Icon",
-      "offset": 73,
-      "width": 64,
+      "name": "Stat2",
+      "offset": 233,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat3",
+      "offset": 234,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat4",
+      "offset": 235,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat5",
+      "offset": 236,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat6",
+      "offset": 237,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat7",
+      "offset": 238,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat8",
+      "offset": 239,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat9",
+      "offset": 240,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat10",
+      "offset": 241,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat11",
+      "offset": 242,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Stat12",
+      "offset": 243,
+      "width": 1,
+      "type": "Byte",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Sprite3",
+      "offset": 244,
+      "width": 40,
       "type": "FixedString",
       "isEditable": true,
       "encodingCodePage": 28591,
@@ -212,8 +422,216 @@
       "isVisible": true
     },
     {
-      "name": "Price",
-      "offset": 140,
+      "name": "Sprite4",
+      "offset": 284,
+      "width": 40,
+      "type": "FixedString",
+      "isEditable": true,
+      "encodingCodePage": 28591,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Sprite5",
+      "offset": 324,
+      "width": 40,
+      "type": "FixedString",
+      "isEditable": true,
+      "encodingCodePage": 28591,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Sprite6",
+      "offset": 364,
+      "width": 40,
+      "type": "FixedString",
+      "isEditable": true,
+      "encodingCodePage": 28591,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Sprite7",
+      "offset": 404,
+      "width": 40,
+      "type": "FixedString",
+      "isEditable": true,
+      "encodingCodePage": 28591,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Sprite8",
+      "offset": 444,
+      "width": 40,
+      "type": "FixedString",
+      "isEditable": true,
+      "encodingCodePage": 28591,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "PowerUp",
+      "offset": 484,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "ControlUp",
+      "offset": 486,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "AccuracyUp",
+      "offset": 488,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "SpinUp",
+      "offset": 490,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "CurveUp",
+      "offset": 492,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "PowerSlotUp",
+      "offset": 494,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "ControlSlotUp",
+      "offset": 496,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "AccuracySlotUp",
+      "offset": 498,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "SpinSlotUp",
+      "offset": 500,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "CurveSlotUp",
+      "offset": 502,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "UnknownString1",
+      "offset": 504,
+      "width": 40,
+      "type": "FixedString",
+      "isEditable": true,
+      "encodingCodePage": 28591,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "EquipWith1",
+      "offset": 544,
       "width": 4,
       "type": "UInt32",
       "isEditable": true,
@@ -225,8 +643,8 @@
       "isVisible": true
     },
     {
-      "name": "DiscountPrice",
-      "offset": 144,
+      "name": "EquipWith2",
+      "offset": 548,
       "width": 4,
       "type": "UInt32",
       "isEditable": true,
@@ -238,10 +656,10 @@
       "isVisible": true
     },
     {
-      "name": "UsedPrice",
-      "offset": 148,
-      "width": 4,
-      "type": "UInt32",
+      "name": "Unknown67",
+      "offset": 552,
+      "width": 2,
+      "type": "UInt16",
       "isEditable": true,
       "encodingCodePage": null,
       "minimum": null,
@@ -251,205 +669,10 @@
       "isVisible": true
     },
     {
-      "name": "ShopFlags",
-      "offset": 152,
-      "width": 1,
-      "type": "Byte",
-      "isEditable": false,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": null,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "IsCash",
-      "offset": 152,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 1,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "CanSendMailAndPersonalShop",
-      "offset": 152,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 2,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "CanDuplicate",
-      "offset": 152,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 4,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "ShopSpecial",
-      "offset": 152,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 8,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "BlockMailAndPersonalShop",
-      "offset": 152,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 16,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "IsSaleable",
-      "offset": 152,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 32,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "IsGift",
-      "offset": 152,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 64,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "OnlyDisplay",
-      "offset": 152,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 128,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "MoneyFlags",
-      "offset": 153,
-      "width": 1,
-      "type": "Byte",
-      "isEditable": false,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": null,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "InStock",
-      "offset": 153,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 1,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "ShowNew",
-      "offset": 153,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 2,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "DisplayOnly",
-      "offset": 153,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 4,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "ShowHot",
-      "offset": 153,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 32,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "ShowSpecial",
-      "offset": 153,
-      "width": 1,
-      "type": "BooleanBitField",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": 64,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "TimeFlag",
-      "offset": 154,
-      "width": 1,
-      "type": "Byte",
+      "name": "Unknown68",
+      "offset": 554,
+      "width": 2,
+      "type": "UInt16",
       "isEditable": true,
       "encodingCodePage": null,
       "minimum": null,
@@ -459,10 +682,10 @@
       "isVisible": true
     },
     {
-      "name": "Time",
-      "offset": 155,
-      "width": 1,
-      "type": "Byte",
+      "name": "Unknown69",
+      "offset": 556,
+      "width": 2,
+      "type": "UInt16",
       "isEditable": true,
       "encodingCodePage": null,
       "minimum": null,
@@ -472,36 +695,10 @@
       "isVisible": true
     },
     {
-      "name": "Point",
-      "offset": 156,
-      "width": 4,
-      "type": "UInt32",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": null,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "StartDate",
-      "offset": 160,
-      "width": 16,
-      "type": "DateTime",
-      "isEditable": true,
-      "encodingCodePage": null,
-      "minimum": null,
-      "maximum": null,
-      "bitMask": null,
-      "bitShift": 0,
-      "isVisible": true
-    },
-    {
-      "name": "EndDate",
-      "offset": 176,
-      "width": 16,
-      "type": "DateTime",
+      "name": "Unknown70",
+      "offset": 558,
+      "width": 2,
+      "type": "UInt16",
       "isEditable": true,
       "encodingCodePage": null,
       "minimum": null,
@@ -524,5 +721,9 @@
       "isVisible": false
     }
   ],
-  "defaultStringSize": 64
+  "defaultStringSize": 64,
+  "base": {
+    "name": "Common",
+    "region": null
+  }
 }

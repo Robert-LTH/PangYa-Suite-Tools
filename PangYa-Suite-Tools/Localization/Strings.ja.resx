@@ -908,6 +908,24 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="IFFManager_OnlyCustomColumnsEditable" xml:space="preserve"><value>このダイアログでは、16進数列とチェックボックス列のみを編集できます。</value></data>
   <data name="IFFManager_SchemaRequiresColumn" xml:space="preserve"><value>IFF スキーマには少なくとも1つの列が含まれている必要があります。</value></data>
   <data name="IFFManager_SchemaWarning" xml:space="preserve"><value>JSON スキーマをロードできなかったため、IFF は読み取り専用の生データとして開かれました。</value></data>
+  <data name="IFFManager_SchemaRecoveryTitle" xml:space="preserve"><value>JSON スキーマを修復</value></data>
+  <data name="IFFManager_SchemaRecoveryDescription" xml:space="preserve"><value>保存されたスキーマを読み込めませんでした。以下の JSON を修正してください。スキーマが有効になるまで IFF は読み取り専用です。</value></data>
+  <data name="IFFManager_SchemaRecoverySourceFormat" xml:space="preserve"><value>ソース: {0}</value></data>
+  <data name="IFFManager_SchemaUpdates" xml:space="preserve"><value>スキーマ更新...</value></data>
+  <data name="IFFManager_SchemaUpdateDescription" xml:space="preserve"><value>新しい組み込みスキーマ定義があります。ローカルファイルを置換するか、現在の完全な定義を優先既定として使用するか、後で決めるかを選択してください。変更するファイルは書き込み前にバックアップされます。</value></data>
+  <data name="IFFManager_SchemaUpdateFile" xml:space="preserve"><value>スキーマファイル</value></data>
+  <data name="IFFManager_SchemaUpdateRegion" xml:space="preserve"><value>地域</value></data>
+  <data name="IFFManager_SchemaUpdateLocalRevision" xml:space="preserve"><value>ローカルリビジョン</value></data>
+  <data name="IFFManager_SchemaUpdateBundledRevision" xml:space="preserve"><value>既定リビジョン</value></data>
+  <data name="IFFManager_SchemaUpdateAction" xml:space="preserve"><value>操作</value></data>
+  <data name="IFFManager_SchemaUpdateKeep" xml:space="preserve"><value>今は保持</value></data>
+  <data name="IFFManager_SchemaUpdateReplace" xml:space="preserve"><value>組み込みの既定で置換</value></data>
+  <data name="IFFManager_SchemaUpdateUseMine" xml:space="preserve"><value>自分の定義を既定として使用</value></data>
+  <data name="IFFManager_SchemaUpdateLocalDefinition" xml:space="preserve"><value>ローカル定義</value></data>
+  <data name="IFFManager_SchemaUpdateBundledDefinition" xml:space="preserve"><value>新しい組み込みの既定</value></data>
+  <data name="IFFManager_SchemaUpdateApply" xml:space="preserve"><value>選択した操作を適用</value></data>
+  <data name="IFFManager_SchemaUpdateNoneAvailable" xml:space="preserve"><value>新しい既定スキーマはありません。</value></data>
+  <data name="IFFManager_SchemaUpdateAppliedFormat" xml:space="preserve"><value>スキーマ更新を適用しました: {0} 件を置換、{1} 件を優先として保持。バックアップ: {2}</value></data>
   <data name="IFFManager_Region" xml:space="preserve"><value>リージョン:</value></data>
   <data name="IFFManager_RegionAuto" xml:space="preserve"><value>自動検出</value></data>
   <data name="IFFManager_RegionThailand" xml:space="preserve"><value>タイ</value></data>
@@ -994,4 +1012,10 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="UpdateList_InvalidDestinationFolder" xml:space="preserve"><value>WebServer の保存先フォルダが無効です。</value></data>
   <data name="UpdateList_PatchVersionRequired" xml:space="preserve"><value>パッチバージョンを入力してください。</value></data>
   <data name="IFFManager_DefaultLongStringSize" xml:space="preserve"><value>長い文字列の既定サイズ:</value></data>
+  <data name="IFFManager_BaseSchema" xml:space="preserve"><value>基本スキーマ:</value></data>
+  <data name="IFFManager_EditBase" xml:space="preserve"><value>基本を編集...</value></data>
+  <data name="IFFManager_BaseNone" xml:space="preserve"><value>なし</value></data>
+  <data name="IFFManager_BaseAuto" xml:space="preserve"><value>自動 — Common.{0}</value></data>
+  <data name="IFFManager_BaseField" xml:space="preserve"><value>基本</value></data>
+  <data name="IFFManager_RegionUnknown" xml:space="preserve"><value>不明</value></data>
 </root>

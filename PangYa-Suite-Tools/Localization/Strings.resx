@@ -870,6 +870,24 @@
   <data name="IFFManager_OnlyCustomColumnsEditable" xml:space="preserve"><value>Only hexadecimal and checkbox columns can be edited with this dialog.</value></data>
   <data name="IFFManager_SchemaRequiresColumn" xml:space="preserve"><value>An IFF schema must contain at least one column.</value></data>
   <data name="IFFManager_SchemaWarning" xml:space="preserve"><value>The IFF was opened as read-only raw data because its JSON schema could not be loaded.</value></data>
+  <data name="IFFManager_SchemaRecoveryTitle" xml:space="preserve"><value>Repair JSON schema</value></data>
+  <data name="IFFManager_SchemaRecoveryDescription" xml:space="preserve"><value>The saved schema could not be loaded. Correct the JSON below; the IFF remains read-only until the schema is valid.</value></data>
+  <data name="IFFManager_SchemaRecoverySourceFormat" xml:space="preserve"><value>Source: {0}</value></data>
+  <data name="IFFManager_SchemaUpdates" xml:space="preserve"><value>Schema updates...</value></data>
+  <data name="IFFManager_SchemaUpdateDescription" xml:space="preserve"><value>Newer bundled schema definitions are available. Choose whether to replace each local file, keep your complete definition as the preferred default, or decide later. Changed files are backed up before they are written.</value></data>
+  <data name="IFFManager_SchemaUpdateFile" xml:space="preserve"><value>Schema file</value></data>
+  <data name="IFFManager_SchemaUpdateRegion" xml:space="preserve"><value>Region</value></data>
+  <data name="IFFManager_SchemaUpdateLocalRevision" xml:space="preserve"><value>Local revision</value></data>
+  <data name="IFFManager_SchemaUpdateBundledRevision" xml:space="preserve"><value>Default revision</value></data>
+  <data name="IFFManager_SchemaUpdateAction" xml:space="preserve"><value>Action</value></data>
+  <data name="IFFManager_SchemaUpdateKeep" xml:space="preserve"><value>Keep for now</value></data>
+  <data name="IFFManager_SchemaUpdateReplace" xml:space="preserve"><value>Replace with bundled default</value></data>
+  <data name="IFFManager_SchemaUpdateUseMine" xml:space="preserve"><value>Use my definition as default</value></data>
+  <data name="IFFManager_SchemaUpdateLocalDefinition" xml:space="preserve"><value>Your local definition</value></data>
+  <data name="IFFManager_SchemaUpdateBundledDefinition" xml:space="preserve"><value>New bundled default</value></data>
+  <data name="IFFManager_SchemaUpdateApply" xml:space="preserve"><value>Apply selected actions</value></data>
+  <data name="IFFManager_SchemaUpdateNoneAvailable" xml:space="preserve"><value>No newer schema defaults are available.</value></data>
+  <data name="IFFManager_SchemaUpdateAppliedFormat" xml:space="preserve"><value>Schema updates applied: {0} replaced, {1} kept as preferred. Backup: {2}</value></data>
   <data name="IFFManager_Region" xml:space="preserve"><value>Region:</value></data>
   <data name="IFFManager_RegionAuto" xml:space="preserve"><value>Auto detect</value></data>
   <data name="IFFManager_RegionThailand" xml:space="preserve"><value>Thailand</value></data>
@@ -1019,4 +1037,10 @@ Cancel: Stop the extraction.</value></data>
   <data name="UpdateList_InvalidDestinationFolder" xml:space="preserve"><value>The WebServer destination folder is invalid.</value></data>
   <data name="UpdateList_PatchVersionRequired" xml:space="preserve"><value>Please fill in the Patch Version.</value></data>
   <data name="IFFManager_DefaultLongStringSize" xml:space="preserve"><value>Default long string size:</value></data>
+  <data name="IFFManager_BaseSchema" xml:space="preserve"><value>Base schema:</value></data>
+  <data name="IFFManager_EditBase" xml:space="preserve"><value>Edit base...</value></data>
+  <data name="IFFManager_BaseNone" xml:space="preserve"><value>None</value></data>
+  <data name="IFFManager_BaseAuto" xml:space="preserve"><value>Auto — Common.{0}</value></data>
+  <data name="IFFManager_BaseField" xml:space="preserve"><value>Base</value></data>
+  <data name="IFFManager_RegionUnknown" xml:space="preserve"><value>Unknown</value></data>
 </root>

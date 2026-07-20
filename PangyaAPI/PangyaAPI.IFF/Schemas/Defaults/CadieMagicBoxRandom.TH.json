@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "defaultRevision": 1,
   "fileName": "CadieMagicBoxRandom.iff",
   "region": "TH",
   "minimumRecordSize": 16,

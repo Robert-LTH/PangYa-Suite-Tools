@@ -218,7 +218,7 @@ internal sealed class CustomIffColumnDialog : Form
         bool isString = SelectedType is IffFieldType.FixedString or IffFieldType.LongString or IffFieldType.Icon or IffFieldType.Sound;
         bool isNumeric = SelectedType is IffFieldType.Byte or IffFieldType.UInt16 or IffFieldType.Int16 or
             IffFieldType.UInt32 or IffFieldType.ItemIdReference or IffFieldType.Int32 or IffFieldType.Single or
-            IffFieldType.BitField;
+            IffFieldType.Int64 or IffFieldType.BitField;
         bool isBitField = SelectedType is IffFieldType.BitField or IffFieldType.BooleanBitField;
         bool isReference = SelectedType == IffFieldType.ItemIdReference || !string.IsNullOrWhiteSpace(_referenceTargetFile.Text);
         SetRowVisible(6, isString);

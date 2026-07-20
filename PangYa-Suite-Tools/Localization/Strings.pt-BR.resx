@@ -870,6 +870,24 @@
   <data name="IFFManager_OnlyCustomColumnsEditable" xml:space="preserve"><value>Somente colunas hexadecimais e caixas de seleção podem ser editadas nesta janela.</value></data>
   <data name="IFFManager_SchemaRequiresColumn" xml:space="preserve"><value>Um esquema IFF deve conter pelo menos uma coluna.</value></data>
   <data name="IFFManager_SchemaWarning" xml:space="preserve"><value>O IFF foi aberto como dados brutos somente leitura porque seu esquema JSON não pôde ser carregado.</value></data>
+  <data name="IFFManager_SchemaRecoveryTitle" xml:space="preserve"><value>Reparar esquema JSON</value></data>
+  <data name="IFFManager_SchemaRecoveryDescription" xml:space="preserve"><value>Não foi possível carregar o esquema salvo. Corrija o JSON abaixo; o IFF permanecerá somente leitura até que o esquema seja válido.</value></data>
+  <data name="IFFManager_SchemaRecoverySourceFormat" xml:space="preserve"><value>Origem: {0}</value></data>
+  <data name="IFFManager_SchemaUpdates" xml:space="preserve"><value>Atualizações de esquema...</value></data>
+  <data name="IFFManager_SchemaUpdateDescription" xml:space="preserve"><value>Há definições de esquema padrão mais recentes. Escolha se deseja substituir cada arquivo local, manter sua definição completa como padrão preferido ou decidir depois. Os arquivos alterados são copiados antes da gravação.</value></data>
+  <data name="IFFManager_SchemaUpdateFile" xml:space="preserve"><value>Arquivo de esquema</value></data>
+  <data name="IFFManager_SchemaUpdateRegion" xml:space="preserve"><value>Região</value></data>
+  <data name="IFFManager_SchemaUpdateLocalRevision" xml:space="preserve"><value>Revisão local</value></data>
+  <data name="IFFManager_SchemaUpdateBundledRevision" xml:space="preserve"><value>Revisão padrão</value></data>
+  <data name="IFFManager_SchemaUpdateAction" xml:space="preserve"><value>Ação</value></data>
+  <data name="IFFManager_SchemaUpdateKeep" xml:space="preserve"><value>Manter por enquanto</value></data>
+  <data name="IFFManager_SchemaUpdateReplace" xml:space="preserve"><value>Substituir pelo padrão incluído</value></data>
+  <data name="IFFManager_SchemaUpdateUseMine" xml:space="preserve"><value>Usar minha definição como padrão</value></data>
+  <data name="IFFManager_SchemaUpdateLocalDefinition" xml:space="preserve"><value>Sua definição local</value></data>
+  <data name="IFFManager_SchemaUpdateBundledDefinition" xml:space="preserve"><value>Novo padrão incluído</value></data>
+  <data name="IFFManager_SchemaUpdateApply" xml:space="preserve"><value>Aplicar ações selecionadas</value></data>
+  <data name="IFFManager_SchemaUpdateNoneAvailable" xml:space="preserve"><value>Não há padrões de esquema mais recentes disponíveis.</value></data>
+  <data name="IFFManager_SchemaUpdateAppliedFormat" xml:space="preserve"><value>Atualizações aplicadas: {0} substituído(s), {1} mantido(s) como preferido(s). Backup: {2}</value></data>
   <data name="IFFManager_Region" xml:space="preserve"><value>Região:</value></data>
   <data name="IFFManager_RegionAuto" xml:space="preserve"><value>Detectar automaticamente</value></data>
   <data name="IFFManager_RegionThailand" xml:space="preserve"><value>Tailândia</value></data>
@@ -1019,4 +1037,10 @@ Cancelar: Interromper a extração.</value></data>
   <data name="UpdateList_InvalidDestinationFolder" xml:space="preserve"><value>A pasta do WebServer de destino é inválida.</value></data>
   <data name="UpdateList_PatchVersionRequired" xml:space="preserve"><value>Por favor, preencha a Versão do Patch.</value></data>
   <data name="IFFManager_DefaultLongStringSize" xml:space="preserve"><value>Tamanho padrão de string longa:</value></data>
+  <data name="IFFManager_BaseSchema" xml:space="preserve"><value>Esquema base:</value></data>
+  <data name="IFFManager_EditBase" xml:space="preserve"><value>Editar base...</value></data>
+  <data name="IFFManager_BaseNone" xml:space="preserve"><value>Nenhum</value></data>
+  <data name="IFFManager_BaseAuto" xml:space="preserve"><value>Automático — Common.{0}</value></data>
+  <data name="IFFManager_BaseField" xml:space="preserve"><value>Base</value></data>
+  <data name="IFFManager_RegionUnknown" xml:space="preserve"><value>Desconhecida</value></data>
 </root>

@@ -272,6 +272,7 @@ internal sealed class RawRecordColumnDialog : Form
         IffFieldType.UInt16 or IffFieldType.Int16 => 2,
         IffFieldType.UInt32 or IffFieldType.ItemIdReference or IffFieldType.Int32 or
             IffFieldType.Single => 4,
+        IffFieldType.Int64 => 8,
         IffFieldType.DateTime => 16,
         IffFieldType.FixedString or IffFieldType.Icon or IffFieldType.Sound => Math.Max(1, defaultStringSize),
         IffFieldType.LongString => Math.Max(1, defaultLongStringSize),

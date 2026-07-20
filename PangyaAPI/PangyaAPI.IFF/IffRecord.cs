@@ -5,7 +5,7 @@ namespace PangyaAPI.IFF;
 public sealed class IffRecord
 {
     private readonly byte[] _bytes;
-    public IffSchema? Schema { get; }
+    public IffSchema? Schema { get; private set; }
     public int Index { get; }
     public bool IsDirty { get; private set; }
     public ReadOnlyMemory<byte> Bytes => _bytes;
@@ -63,6 +63,8 @@ public sealed class IffRecord
     }
 
     public void AcceptChanges() => IsDirty = false;
+
+    public void UpdateSchema(IffSchema? schema) => Schema = schema;
 
     private IffField Find(string name) => Schema?.Fields.FirstOrDefault(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
         ?? throw new KeyNotFoundException($"The IFF field '{name}' does not exist.");

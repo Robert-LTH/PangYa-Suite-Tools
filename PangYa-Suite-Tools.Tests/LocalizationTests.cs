@@ -1551,6 +1551,104 @@ public sealed class LocalizationTests : IDisposable
     }
 
     [Fact]
+    public void SchemaUpdateDialog_DefaultsToKeepAndShowsBothDefinitions()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                IffSchemaDefinition local = new(2, "Item.iff", "JP", 8, true,
+                    [new("Local", 0, 4, IffFieldType.UInt32)], DefaultRevision: 1);
+                IffSchemaDefinition bundled = local with
+                {
+                    Fields = [new("Bundled", 0, 4, IffFieldType.UInt32)],
+                    DefaultRevision = 2
+                };
+                var candidate = new IffSchemaUpdateCandidate("Item.iff", "JP", "Item.JP.json",
+                    local, bundled, IffSchemaJson.Serialize(local), IffSchemaJson.Serialize(bundled));
+                using var dialog = new IffSchemaUpdateDialog([candidate]);
+                DataGridView grid = PrivateField<DataGridView>(dialog, "_updates");
+
+                IffSchemaUpdateSelection initial = Assert.Single(dialog.Selections);
+                Assert.Equal(IffSchemaUpdateAction.KeepForNow, initial.Action);
+                Assert.Equal(Strings.IFFManager_SchemaUpdateFile, grid.Columns[0].HeaderText);
+                Assert.Contains("Local", PrivateField<TextBox>(dialog, "_localJson").Text);
+                Assert.Contains("Bundled", PrivateField<TextBox>(dialog, "_bundledJson").Text);
+
+                grid.Rows[0].Cells[4].Value = IffSchemaUpdateAction.UseLocalDefinition;
+                Assert.Equal(IffSchemaUpdateAction.UseLocalDefinition, Assert.Single(dialog.Selections).Action);
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    [Fact]
+    public void IffManager_SchemaUpdateCheckRunsOnceAutomaticallyAndToolbarStaysManual()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var form = new FrmIFFManager();
+                ToolStripButton button = PrivateField<ToolStripButton>(form, "_toolbarSchemaUpdates");
+
+                Assert.True(form.BeginSchemaUpdateCheck(manualRequest: false));
+                Assert.False(form.BeginSchemaUpdateCheck(manualRequest: false));
+                Assert.True(form.BeginSchemaUpdateCheck(manualRequest: true));
+                Assert.True(form.BeginSchemaUpdateCheck(manualRequest: true));
+                Assert.Equal(Strings.IFFManager_SchemaUpdates, button.Text);
+                Assert.True(button.Enabled);
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    [Fact]
+    public void SchemaManager_ShowsInheritedBaseFieldsAndKeepsThemOutsideLocalFields()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var baseDefinition = new IffSchemaDefinition(2, "Common.iff", "Global", 8, true,
+                    [new IffFieldDefinition("ItemId", 0, 4, IffFieldType.UInt32)]);
+                using var dialog = new IffSchemaManagerDialog(12,
+                    [new IffFieldDefinition("Value", 8, 4, IffFieldType.UInt32)],
+                    templateSchemas: [baseDefinition],
+                    baseReference: new IffSchemaBaseReference("Common"),
+                    inheritedFields: baseDefinition.Fields,
+                    resolvedRegion: "Global");
+                ListBox list = PrivateField<ListBox>(dialog, "_list");
+
+                Assert.Equal(2, list.Items.Count);
+                Assert.Contains(Strings.IFFManager_BaseField, list.Items[0]!.ToString());
+                Assert.Equal(["Value"], dialog.Fields.Select(field => field.Name));
+                Assert.Equal(new IffSchemaBaseReference("Common"), dialog.BaseReference);
+                list.SelectedIndex = 0;
+                typeof(IffSchemaManagerDialog).GetMethod("RemoveField",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(dialog, null);
+                Assert.Equal(["Value"], dialog.Fields.Select(field => field.Name));
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
     public void SchemaManager_SaveValidationKeepsDialogOpenWhenInvalid()
     {
         Exception? failure = null;
@@ -1601,6 +1699,77 @@ public sealed class LocalizationTests : IDisposable
         thread.Start();
         thread.Join();
         Assert.Null(failure);
+    }
+
+    [Fact]
+    public void SchemaRecovery_StructuredEligibilityPreservesSafeSavedFields()
+    {
+        var recoverable = new IffSchemaDefinition(2, "Data.iff", "JP", 16, true,
+        [
+            new("Duplicate", 0, 4, IffFieldType.UInt32),
+            new("Duplicate", 4, 4, IffFieldType.UInt32)
+        ], 8);
+        var unsafeDefinition = recoverable with
+        {
+            Fields = [new("Outside record", 14, 4, IffFieldType.UInt32)]
+        };
+
+        Assert.True(FrmIFFManager.CanDisplayStructuredSchema(recoverable, 16));
+        Assert.False(FrmIFFManager.CanDisplayStructuredSchema(unsafeDefinition, 16));
+    }
+
+    [Fact]
+    public void SchemaRecoveryDialog_KeepsExactTextAndStaysOpenAfterFailedSave()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                const string original = "{ exact saved text }";
+                var source = new IffSavedSchemaSource("Data.iff", "source", "destination", "JP",
+                    original, null, "Initial error");
+                bool shouldFail = true;
+                string? submitted = null;
+                using var dialog = new IffSchemaRecoveryDialog(source, json =>
+                {
+                    submitted = json;
+                    if (shouldFail) throw new InvalidDataException("Still invalid");
+                });
+
+                Assert.Equal(original, dialog.JsonText);
+                Assert.Equal("Initial error", dialog.ErrorText);
+                Assert.False(dialog.TrySave(showMessage: false));
+                Assert.Equal(original, submitted);
+                Assert.NotEqual(DialogResult.OK, dialog.DialogResult);
+                Assert.Equal("Still invalid", dialog.ErrorText);
+
+                shouldFail = false;
+                dialog.JsonText = "{ repaired }";
+                Assert.True(dialog.TrySave(showMessage: false));
+                Assert.Equal("{ repaired }", submitted);
+                Assert.Equal(DialogResult.OK, dialog.DialogResult);
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void SchemaRecoveryResources_ExistInEverySupportedCulture()
+    {
+        foreach (string cultureName in new[] { LocalizationManager.English, LocalizationManager.PortugueseBrazil,
+                     LocalizationManager.Swedish, LocalizationManager.Japonese, LocalizationManager.French })
+        {
+            LocalizationManager.SetCulture(cultureName);
+            Assert.False(string.IsNullOrWhiteSpace(Strings.IFFManager_SchemaRecoveryTitle));
+            Assert.False(string.IsNullOrWhiteSpace(Strings.IFFManager_SchemaRecoveryDescription));
+            Assert.Contains("schema.json", string.Format(LocalizationManager.CurrentCulture,
+                Strings.IFFManager_SchemaRecoverySourceFormat, "schema.json"));
+        }
     }
 
     [Fact]
@@ -1870,6 +2039,7 @@ public sealed class LocalizationTests : IDisposable
         IffSchemaDefinition character = schemas.Single(schema =>
             schema.FileName == "Character.iff" && schema.Region == "TH");
         Assert.Equal(40, character.DefaultStringSize);
+        Assert.Equal(1, character.DefaultRevision);
         Assert.NotEmpty(character.Fields);
     }
 

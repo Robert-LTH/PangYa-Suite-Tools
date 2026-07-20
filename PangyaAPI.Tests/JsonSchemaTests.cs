@@ -64,6 +64,75 @@ public sealed class JsonSchemaTests : IDisposable
     }
 
     [Fact]
+    public void JsonV2_RoundTripsBaseReference()
+    {
+        var definition = new IffSchemaDefinition(2, "Character.iff", "Global", 396, true,
+            [new("Model", 168, 40, IffFieldType.FixedString)], 40,
+            Base: new IffSchemaBaseReference("Common"));
+
+        IffSchemaDefinition result = IffSchemaJson.Deserialize(IffSchemaJson.Serialize(definition));
+
+        Assert.Equal(2, result.SchemaVersion);
+        Assert.Equal(new IffSchemaBaseReference("Common"), result.Base);
+    }
+
+    [Fact]
+    public void DefaultRevision_RoundTripsAndSurvivesMaterialization()
+    {
+        var definition = new IffSchemaDefinition(2, "Data.iff", "JP", 8, true,
+            [new("Value", 0, 4, IffFieldType.UInt32)], DefaultRevision: 7);
+
+        IffSchemaDefinition roundTrip = IffSchemaJson.Deserialize(IffSchemaJson.Serialize(definition));
+        IffSchema schema = IffSchemaJson.ToSchema(roundTrip, 8);
+        IffSchemaDefinition restored = IffSchemaJson.FromSchema("Data.iff", "JP", schema);
+
+        Assert.Equal(7, roundTrip.DefaultRevision);
+        Assert.Equal(7, schema.DefaultRevision);
+        Assert.Equal(7, restored.DefaultRevision);
+    }
+
+    [Fact]
+    public void MissingDefaultRevision_IsLegacyAndNegativeRevisionIsRejected()
+    {
+        IffSchemaDefinition legacy = IffSchemaJson.Deserialize(
+            """{"schemaVersion":1,"fileName":"Data.iff","region":"JP","minimumRecordSize":4,"isEditable":true,"fields":[{"name":"Value","offset":0,"width":4,"type":"UInt32"}],"defaultStringSize":4}""");
+        IffSchemaDefinition invalid = legacy with { DefaultRevision = -1 };
+
+        Assert.Equal(0, legacy.DefaultRevision);
+        Assert.Throws<InvalidDataException>(() => IffSchemaJson.ValidateDefinition(invalid, 4));
+    }
+
+    [Fact]
+    public void Composition_MarksInheritedFieldsAndKeepsLocalFields()
+    {
+        var baseDefinition = new IffSchemaDefinition(2, "Common.iff", "Global", 8, true,
+            [new("ItemId", 0, 4, IffFieldType.UInt32)]);
+        IffSchema baseSchema = IffSchemaJson.ToSchema(baseDefinition, 12);
+        var definition = new IffSchemaDefinition(2, "Item.iff", "Global", 12, true,
+            [new("Value", 8, 4, IffFieldType.UInt32)], Base: new IffSchemaBaseReference("Common"));
+
+        IffSchema schema = IffSchemaJson.ToSchema(definition, 12, baseSchema);
+
+        Assert.True(schema.Fields.Single(field => field.Name == "ItemId").IsInherited);
+        Assert.False(schema.Fields.Single(field => field.Name == "Value").IsInherited);
+        Assert.Equal(["Value"], schema.LocalFields!.Select(field => field.Name));
+        Assert.Equal(definition.Base, schema.BaseReference);
+    }
+
+    [Fact]
+    public void Composition_RejectsDuplicateAndOverlappingLocalFields()
+    {
+        IffSchema baseSchema = IffSchemaJson.ToSchema(new IffSchemaDefinition(2, "Common.iff", "Global", 8,
+            true, [new("ItemId", 0, 4, IffFieldType.UInt32)]), 12);
+        var duplicate = new IffSchemaDefinition(2, "Item.iff", "Global", 12, true,
+            [new("ItemId", 8, 4, IffFieldType.UInt32)], Base: new IffSchemaBaseReference("Common"));
+        var overlap = duplicate with { Fields = [new("Other", 2, 4, IffFieldType.UInt32)] };
+
+        Assert.Throws<InvalidDataException>(() => IffSchemaJson.ToSchema(duplicate, 12, baseSchema));
+        Assert.Throws<InvalidDataException>(() => IffSchemaJson.ToSchema(overlap, 12, baseSchema));
+    }
+
+    [Fact]
     public void Json_RoundTripsOptionalReferenceMetadata()
     {
         var definition = new IffSchemaDefinition(1, "SetItem.iff", "TH", 8, true,
@@ -144,6 +213,30 @@ public sealed class JsonSchemaTests : IDisposable
         Assert.NotNull(result.Schema);
         Assert.Equal(40, result.Schema.DefaultStringSize);
         Assert.Contains(result.Schema.Fields, field => field.Name == "ItemId");
+    }
+
+    [Fact]
+    public void DirectoryProvider_ComposesRegionalBaseAndReportsCycles()
+    {
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        provider.Save(new IffSchemaDefinition(2, "Common.iff", "Global", 4, true,
+            [new("ItemId", 0, 4, IffFieldType.UInt32)]));
+        provider.Save(new IffSchemaDefinition(2, "Data.iff", "Global", 8, true,
+            [new("Value", 4, 4, IffFieldType.UInt32)],
+            Base: new IffSchemaBaseReference("Common")));
+
+        IffSchemaResolution composed = provider.Resolve("Data.iff", ["Global_30447", "Global"], 8);
+
+        Assert.NotNull(composed.Schema);
+        Assert.Equal(["ItemId", "Value"], composed.Schema.Fields.Select(field => field.Name));
+        provider.Save(new IffSchemaDefinition(2, "Common.iff", "Global", 4, true,
+            [new("ItemId", 0, 4, IffFieldType.UInt32)],
+            Base: new IffSchemaBaseReference("Common")));
+
+        IffSchemaResolution cycle = provider.Resolve("Data.iff", "Global", 8);
+
+        Assert.Null(cycle.Schema);
+        Assert.Contains("Circular", cycle.Warning, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -246,6 +339,120 @@ public sealed class JsonSchemaTests : IDisposable
     }
 
     [Fact]
+    public void SavedSource_PreservesMalformedJsonAndCandidateMetadata()
+    {
+        Directory.CreateDirectory(_directory);
+        string path = Path.Combine(_directory, "Data.JP.json");
+        const string malformed = "{ saved but invalid }";
+        File.WriteAllText(path, malformed);
+        var provider = new DirectoryIffSchemaProvider(_directory);
+
+        IffSavedSchemaSource source = Assert.IsType<IffSavedSchemaSource>(
+            provider.ReadSavedSource("Data.iff", ["JP"], 8));
+
+        Assert.Equal("Data.iff", source.FileName);
+        Assert.Equal("JP", source.CandidateRegion);
+        Assert.Equal(path, source.SourcePath);
+        Assert.Equal(path, source.DestinationPath);
+        Assert.Equal(malformed, source.Json);
+        Assert.Null(source.Definition);
+        Assert.False(string.IsNullOrWhiteSpace(source.Error));
+    }
+
+    [Fact]
+    public void SavedSource_ReturnsDefinitionEvenWhenItDoesNotFitCurrentRecord()
+    {
+        Directory.CreateDirectory(_directory);
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        provider.Save(new IffSchemaDefinition(2, "Data.iff", "JP", 16, true,
+            [new("Saved field", 12, 4, IffFieldType.UInt32)], 8));
+
+        IffSavedSchemaSource source = Assert.IsType<IffSavedSchemaSource>(
+            provider.ReadSavedSource("Data.iff", ["JP"], 8));
+
+        Assert.NotNull(source.Definition);
+        Assert.Equal("Saved field", Assert.Single(source.Definition.Fields).Name);
+        Assert.False(string.IsNullOrWhiteSpace(source.Error));
+        Assert.Null(provider.Resolve("Data.iff", "JP", 8).Schema);
+    }
+
+    [Fact]
+    public void SavedSource_UsesExactThenFamilyThenDefaultPrecedence()
+    {
+        Directory.CreateDirectory(_directory);
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        provider.Save(Schema("Data.iff", "Global_1", "Exact"));
+        provider.Save(Schema("Data.iff", "Global", "Family"));
+        provider.Save(Schema("Data.iff", "*", "Default"));
+
+        Assert.Equal("Global_1", provider.ReadSavedSource("Data.iff", ["Global_1", "Global"])!.CandidateRegion);
+        File.Delete(provider.GetSchemaPath("Data.iff", "Global_1"));
+        Assert.Equal("Global", provider.ReadSavedSource("Data.iff", ["Global_1", "Global"])!.CandidateRegion);
+        File.Delete(provider.GetSchemaPath("Data.iff", "Global"));
+        Assert.Equal("*", provider.ReadSavedSource("Data.iff", ["Global_1", "Global"])!.CandidateRegion);
+    }
+
+    [Fact]
+    public void EmbeddedSavedSource_WritesRepairAsLocalOverride()
+    {
+        var provider = new DirectoryIffSchemaProvider(_directory, new EmbeddedIffSchemaProvider());
+
+        IffSavedSchemaSource source = Assert.IsType<IffSavedSchemaSource>(
+            provider.ReadSavedSource("Ability.iff", ["JP"], 80));
+
+        Assert.True(source.IsEmbedded);
+        Assert.False(File.Exists(source.DestinationPath));
+        provider.SaveJson(source, source.Json, ["JP"], 80);
+        Assert.True(File.Exists(source.DestinationPath));
+        Assert.NotNull(provider.Resolve("Ability.iff", "JP", 80).Schema);
+    }
+
+    [Fact]
+    public void SaveJson_LeavesOriginalUntouchedUntilReplacementFullyMaterializes()
+    {
+        Directory.CreateDirectory(_directory);
+        string path = Path.Combine(_directory, "Data.JP.json");
+        const string malformed = "{ original invalid json }";
+        File.WriteAllText(path, malformed);
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        IffSavedSchemaSource source = provider.ReadSavedSource("Data.iff", ["JP"])!;
+        string invalidReplacement = IffSchemaJson.Serialize(new IffSchemaDefinition(2, "Data.iff", "JP", 8,
+            true, [new("Too wide", 6, 4, IffFieldType.UInt32)], 4));
+
+        Assert.Throws<InvalidDataException>(() => provider.SaveJson(source, invalidReplacement, ["JP"], 8));
+        Assert.Equal(malformed, File.ReadAllText(path));
+
+        string validReplacement = IffSchemaJson.Serialize(new IffSchemaDefinition(2, "Data.iff", "JP", 8,
+            true, [new("Value", 0, 4, IffFieldType.UInt32)], 4));
+        IffSchemaDefinition saved = provider.SaveJson(source, validReplacement, ["JP"], 8);
+
+        Assert.Equal("Value", Assert.Single(saved.Fields).Name);
+        Assert.Equal(validReplacement, File.ReadAllText(path));
+        Assert.Equal("Value", Assert.Single(provider.Resolve("Data.iff", "JP", 8).Schema!.Fields).Name);
+    }
+
+    [Fact]
+    public void SaveValidated_RejectsBrokenInheritedCompositionWithoutOverwritingSchema()
+    {
+        Directory.CreateDirectory(_directory);
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        provider.Save(new IffSchemaDefinition(2, "Common.iff", "JP", 8, true,
+            [new("Base value", 0, 4, IffFieldType.UInt32)], 4));
+        var original = new IffSchemaDefinition(2, "Data.iff", "JP", 8, true,
+            [new("Local value", 4, 4, IffFieldType.UInt32)], 4, Base: new("Common"));
+        provider.SaveValidated(original, ["JP"], 8);
+        string path = provider.GetSchemaPath("Data.iff", "JP");
+        string before = File.ReadAllText(path);
+        IffSchemaDefinition overlapping = original with
+        {
+            Fields = [new("Overlapping", 2, 4, IffFieldType.UInt32)]
+        };
+
+        Assert.Throws<InvalidDataException>(() => provider.SaveValidated(overlapping, ["JP"], 8));
+        Assert.Equal(before, File.ReadAllText(path));
+    }
+
+    [Fact]
     public async Task SelectedOrFilenameRegion_DeterminesSchemaInsteadOfHeader()
     {
         Directory.CreateDirectory(_directory);
@@ -328,6 +535,138 @@ public sealed class JsonSchemaTests : IDisposable
         Assert.Equal("user-owned", File.ReadAllText(item));
     }
 
+    [Fact]
+    public void DefaultManager_DetectsOnlyNewerChangedDefinitionsAndStampsIdenticalLegacyFiles()
+    {
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        IffSchemaDefinition bundledChanged = Schema("Changed.iff", "JP", "Bundled") with { DefaultRevision = 2 };
+        IffSchemaDefinition localChanged = Schema("Changed.iff", "JP", "Local") with { DefaultRevision = 1 };
+        IffSchemaDefinition bundledSame = Schema("Same.iff", "JP", "Same") with { DefaultRevision = 1 };
+        IffSchemaDefinition localSame = bundledSame with { DefaultRevision = 0 };
+        IffSchemaDefinition bundledEqual = Schema("Equal.iff", "JP", "Equal") with { DefaultRevision = 2 };
+        IffSchemaDefinition bundledOlder = Schema("Older.iff", "JP", "Older") with { DefaultRevision = 2 };
+        provider.Save(localChanged);
+        provider.Save(localSame);
+        provider.Save(bundledEqual);
+        provider.Save(bundledOlder with { DefaultRevision = 3 });
+        provider.Save(Schema("Custom.iff", "JP", "Custom"));
+        var manager = new IffSchemaDefaultManager(provider,
+            [bundledChanged, bundledSame, bundledEqual, bundledOlder]);
+
+        IffSchemaUpdateCandidate candidate = Assert.Single(manager.FindUpdates());
+
+        Assert.Equal("Changed.iff", candidate.FileName);
+        Assert.Equal(1, candidate.LocalRevision);
+        Assert.Equal(2, candidate.BundledRevision);
+        IffSchemaDefinition stamped = IffSchemaJson.Deserialize(
+            File.ReadAllText(provider.GetSchemaPath("Same.iff", "JP")));
+        Assert.Equal(1, stamped.DefaultRevision);
+        Assert.Equal("Same", Assert.Single(stamped.Fields).Name);
+    }
+
+    [Fact]
+    public void DefaultManager_DetectsChangedLegacyAndWildcardSchemas()
+    {
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        IffSchemaDefinition localLegacy = Schema("Data.iff", "*", "Local");
+        IffSchemaDefinition bundled = Schema("Data.iff", "*", "Bundled") with { DefaultRevision = 1 };
+        provider.Save(localLegacy);
+        var manager = new IffSchemaDefaultManager(provider, [bundled]);
+
+        IffSchemaUpdateCandidate candidate = Assert.Single(manager.FindUpdates());
+
+        Assert.Equal("*", candidate.Region);
+        Assert.Equal(provider.GetSchemaPath("Data.iff", "*"), candidate.LocalPath);
+    }
+
+    [Fact]
+    public void DefaultManager_ReplacesOrKeepsCompleteUserDefinitionAndCreatesBackups()
+    {
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        IffSchemaDefinition localReplace = Schema("Replace.iff", "JP", "Local") with { DefaultRevision = 1 };
+        IffSchemaDefinition localPreferred = Schema("Preferred.iff", "JP", "My field") with
+        {
+            DefaultRevision = 1,
+            DefaultStringSize = 7,
+            Ui = new IffSchemaUiDefinition([new("Custom", [new("My field")])])
+        };
+        IffSchemaDefinition bundledReplace = Schema("Replace.iff", "JP", "Bundled") with { DefaultRevision = 2 };
+        IffSchemaDefinition bundledPreferred = Schema("Preferred.iff", "JP", "Default") with { DefaultRevision = 3 };
+        provider.Save(localReplace);
+        provider.Save(localPreferred);
+        var manager = new IffSchemaDefaultManager(provider, [bundledReplace, bundledPreferred]);
+        IffSchemaUpdateCandidate[] candidates = manager.FindUpdates().ToArray();
+
+        IffSchemaUpdateResult result = manager.ApplyUpdates([
+            new(candidates.Single(item => item.FileName == "Replace.iff"),
+                IffSchemaUpdateAction.ReplaceWithBundledDefault),
+            new(candidates.Single(item => item.FileName == "Preferred.iff"),
+                IffSchemaUpdateAction.UseLocalDefinition)
+        ]);
+
+        Assert.Equal(1, result.ReplacedCount);
+        Assert.Equal(1, result.PreferredLocalCount);
+        Assert.NotNull(result.BackupDirectory);
+        Assert.Equal(2, Directory.GetFiles(result.BackupDirectory!, "*.json").Length);
+        Assert.Equal(IffSchemaJson.Serialize(bundledReplace), IffSchemaJson.Serialize(IffSchemaJson.Deserialize(
+            File.ReadAllText(provider.GetSchemaPath("Replace.iff", "JP")))));
+        IffSchemaDefinition preferred = IffSchemaJson.Deserialize(
+            File.ReadAllText(provider.GetSchemaPath("Preferred.iff", "JP")));
+        Assert.Equal(IffSchemaJson.Serialize(localPreferred with { DefaultRevision = 3 }),
+            IffSchemaJson.Serialize(preferred));
+        Assert.Empty(manager.FindUpdates());
+    }
+
+    [Fact]
+    public void DefaultManager_RejectsInvalidStagedCompositionWithoutChangingFiles()
+    {
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        IffSchemaDefinition localBase = new(2, "Common.iff", "JP", 4, true,
+            [new("Base", 0, 4, IffFieldType.UInt32)], DefaultRevision: 1);
+        IffSchemaDefinition localDerived = new(2, "Data.iff", "JP", 8, true,
+            [new("Local", 4, 4, IffFieldType.UInt32)], Base: new("Common"), DefaultRevision: 1);
+        IffSchemaDefinition bundledBase = localBase with
+        {
+            MinimumRecordSize = 8,
+            Fields = [new("Expanded base", 0, 8, IffFieldType.Raw)],
+            DefaultRevision = 2
+        };
+        provider.Save(localBase);
+        provider.Save(localDerived);
+        string basePath = provider.GetSchemaPath("Common.iff", "JP");
+        string before = File.ReadAllText(basePath);
+        var manager = new IffSchemaDefaultManager(provider, [bundledBase]);
+        IffSchemaUpdateCandidate candidate = Assert.Single(manager.FindUpdates());
+
+        Assert.Throws<InvalidDataException>(() => manager.ApplyUpdates([
+            new(candidate, IffSchemaUpdateAction.ReplaceWithBundledDefault)
+        ]));
+
+        Assert.Equal(before, File.ReadAllText(basePath));
+        Assert.False(Directory.Exists(Path.Combine(_directory, "backups")));
+    }
+
+    [Fact]
+    public void DefaultManager_RejectsAStaleCandidateBeforeWritingOrBackingUp()
+    {
+        var provider = new DirectoryIffSchemaProvider(_directory);
+        IffSchemaDefinition local = Schema("Data.iff", "JP", "Local") with { DefaultRevision = 1 };
+        IffSchemaDefinition bundled = Schema("Data.iff", "JP", "Bundled") with { DefaultRevision = 2 };
+        provider.Save(local);
+        var manager = new IffSchemaDefaultManager(provider, [bundled]);
+        IffSchemaUpdateCandidate candidate = Assert.Single(manager.FindUpdates());
+        IffSchemaDefinition externalEdit = local with { Fields = [new("External", 0, 4, IffFieldType.UInt32)] };
+        provider.Save(externalEdit);
+
+        Assert.Throws<InvalidDataException>(() => manager.ApplyUpdates([
+            new(candidate, IffSchemaUpdateAction.ReplaceWithBundledDefault)
+        ]));
+
+        Assert.Equal("External", Assert.Single(IffSchemaJson.Deserialize(
+            File.ReadAllText(provider.GetSchemaPath("Data.iff", "JP"))).Fields).Name);
+        Assert.False(Directory.Exists(Path.Combine(_directory, "backups")));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
@@ -343,6 +682,7 @@ public sealed class JsonSchemaTests : IDisposable
             IffFieldType.Boolean or IffFieldType.Byte => 1,
             IffFieldType.UInt16 or IffFieldType.Int16 => 2,
             IffFieldType.UInt32 or IffFieldType.ItemIdReference or IffFieldType.Int32 or IffFieldType.Single => 4,
+            IffFieldType.Int64 => 8,
             IffFieldType.DateTime => 16,
             IffFieldType.BitField or IffFieldType.BooleanBitField => 4,
             _ => 8

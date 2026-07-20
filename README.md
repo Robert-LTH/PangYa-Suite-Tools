@@ -18,10 +18,9 @@ The project is built on top of a high-performance API (`PangyaAPI`) and a rich *
 - [x] **PangyaAPI.PAK Sync (`FrmPakDiff.cs`)**: Cross-client Multi-PAK structural synchronization tool to compare and isolate missing, modified, or identical files between different clients.
 - [x] **PangyaAPI.IFF**: Structured parser and editor for game data tables (`Character.iff`, `Item.iff`, etc.), enabling complete customization of server attributes and item mechanics.
 - [x] **PangyaAPI.UpdateList**: Utility for generating and signing encrypted XML patch lists for the game Launcher/Updater.
+- [x] **PangYa Shop Mockup**: Renders the extracted `shop.xml` skin and TGA assets, loads the real TH IFF catalog, simulates a cart, and atomically edits item prices and icons.
 
 ### 🚀 Advanced Features
-- **Auto-Elevated Execution:** Built-in dynamic check to request administrative UAC privileges automatically, preserving file path arguments.
-- **Windows File Association:** Integrated option to register the `.pak` extension into the Windows Registry, enabling direct execution via double-click or the "Open with PakMaker" context menu.
 - **Application Log Viewer:** A shared logging interface retains tool activity for the current session and exposes it from the main menu; PAK audit activity is also written to `activity_log.txt`.
 - **Multi-Region XTEA Cryptography:** Full support for official and custom header encryptions: Global (GB), Thailand (TH), Japan (JP), Korea (KR), Indonesia (ID), Europe (EU), and Super SS Dev (Custom).
 - **Advanced Tree View Interaction:** Full keyboard mapping supporting the **Delete** key for instant folder removals, along with right-click context menus for targeted extraction or deletion.
@@ -49,7 +48,9 @@ writer.CreateFromDirectory(@"C:\Modding\data", @"C:\Games\PangYa\ProjectG.pak");
 ### JSON IFF schemas
 
 IFF editor layouts are defined by versioned JSON files in
-`%LocalAppData%\PangYa-Suite-Tools\schemas`. Default TH and JP schemas are copied there on first use without overwriting existing files. Schema files are matched by IFF filename and region (for example, `Item.TH.json`), with `.default.json` as the optional fallback. The editor's **Schema columns** dialog saves column changes back to the matching JSON file.
+`%LocalAppData%\PangYa-Suite-Tools\schemas`. Default TH, JP, and Global schemas are copied there on first use without overwriting existing files. Schema files are matched by IFF filename and region (for example, `Item.TH.json`), with `.default.json` as the optional fallback. Version 2 schemas can inherit a `Common` base selected from the IFF header's revision and magic; version 1 flat custom schemas remain supported. The editor's **Schema columns** dialog shows inherited base fields as read-only schema definitions and saves local column changes back to the matching JSON file.
+JP schemas whose records use the 192-byte `Common` base expose their format-specific fields after that base instead of treating the remaining bytes only as raw data.
+Bundled schemas carry a `defaultRevision`. When a newer bundled revision differs from a local schema, the IFF Manager offers to replace the local file, keep the complete local definition as the preferred default for that revision, or defer the choice. Replaced or acknowledged files are backed up under `%LocalAppData%\PangYa-Suite-Tools\schemas\backups`; embedded defaults remain read-only and the preferred definition is always stored as a user-local override. The **Schema updates...** toolbar command reopens deferred updates.
 The region selector can be set before opening an IFF; delimited `TH` or `JP` tokens in the container filename automatically update the selector, while the manual choice is used for files whose region cannot be detected.
 The schema editor can clone fields from the current or another schema, reorder fields, configure a default width for new strings, and control each field's visibility. Embedded defaults are used whenever no matching user schema exists. Raw hexadecimal bytes are colored by their defining schema fields, with overlaps shown in red. The editor reports bytes whose bits are not fully represented by schema fields.
 Double-click a Raw grid cell to open its byte-range picker. Select one contiguous range and choose **Define column** to create a schema field prefilled with the selected offset and width.
@@ -78,10 +79,9 @@ O projeto é estruturado sobre uma API de alto desempenho (`PangyaAPI`) e uma in
 - [x] **PangyaAPI.PAK Sync (`FrmPakDiff.cs`)**: Ferramenta de sincronização estrutural Multi-PAK entre clientes para comparar e isolar arquivos ausentes, modificados ou idênticos.
 - [x] **PangyaAPI.IFF**: Parser e editor estruturado para tabelas de dados do jogo (`Character.iff`, `Item.iff`, etc.), permitindo a customização completa de atributos, itens e mecânicas internas do servidor.
 - [x] **PangyaAPI.UpdateList**: Utilitário para geração e assinatura de listas criptografadas em XML para o Launcher/Updater do jogo.
+- [x] **Simulação da Loja PangYa**: Renderiza o tema extraído de `shop.xml` e os recursos TGA, carrega o catálogo IFF TH real, simula o carrinho e edita preços e ícones de forma atômica.
 
 ### 🚀 Recursos Avançados
-- **Execução Auto-Elevada:** Verificação dinâmica integrada para solicitar privilégios administrativos (UAC) automaticamente, preservando os argumentos de arquivos originais.
-- **Associação de Arquivos do Windows:** Opção de registrar a extensão `.pak` no Registro do Windows, permitindo abertura direta por duplo clique ou pelo menu "Abrir com PakMaker".
 - **Visualizador de Log do Aplicativo:** Uma interface de log compartilhada mantém a atividade das ferramentas durante a sessão e pode ser aberta pelo menu principal; a auditoria de PAK também é gravada em `activity_log.txt`.
 - **Criptografia por Região (XTEA):** Suporte completo ao algoritmo XTEA para criptografia de cabeçalhos utilizando chaves oficiais e customizadas: Global (GB), Tailândia (TH), Japão (JP), Coreia (KR), Indonésia (ID), Europa (EU) e Super SS Dev (Custom).
 - **Interação Avançada em Árvore:** Mapeamento completo do teclado com suporte à tecla **Delete** para remoção instantânea de diretórios, além de menus de contexto via botão direito para extração ou exclusão direcionada.
