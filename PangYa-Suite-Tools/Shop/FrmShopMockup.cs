@@ -379,9 +379,8 @@ internal sealed class ShopCanvas : Control
         _editing = true;
         try
         {
-            using Image probe = selectedPath.EndsWith(".tga", StringComparison.OrdinalIgnoreCase)
-                ? TgaDecoder.Load(selectedPath)
-                : Image.FromFile(selectedPath);
+            using Image probe = IffPreviewImageLoader.Load(selectedPath)
+                ?? throw new InvalidDataException("The selected image resource could not be decoded.");
             await ShopCatalogEditor.SaveAsync(_iffPath, item, iconId, item.Price, item.DiscountPrice, item.RentalPrice,
                 item.ShopFlags, item.MoneyFlags, item.TimeFlag, item.Time, item.StartDate, item.EndDate);
             item.IconId = iconId;
@@ -445,8 +444,8 @@ internal sealed class ShopCanvas : Control
     private Image GetImageByPath(string path)
     {
         if (_images.TryGetValue(path, out Image? image)) return image;
-        if (path.EndsWith(".tga", StringComparison.OrdinalIgnoreCase)) image = TgaDecoder.Load(path);
-        else { using Image source = Image.FromFile(path); image = new Bitmap(source); }
+        image = IffPreviewImageLoader.Load(path)
+            ?? throw new InvalidDataException($"The image resource '{path}' could not be decoded.");
         _images[path] = image;
         return image;
     }

@@ -7,13 +7,11 @@
         private System.Windows.Forms.Button btnOpenUpdateList;
         private System.Windows.Forms.Button btnOpenIffManager;
         private System.Windows.Forms.Label lblTitle;
-        private System.Windows.Forms.StatusStrip statusStrip1;
-        private System.Windows.Forms.ToolStripStatusLabel lblLanguage;
-        private System.Windows.Forms.ToolStripComboBox cboLanguage;
         private System.Windows.Forms.Button btnOpenOptions;
         private System.Windows.Forms.Button btnOpenPakDiff;
         private System.Windows.Forms.Button btnOpenLog;
         private System.Windows.Forms.Button btnOpenShop;
+        private System.Windows.Forms.Button btnOpenFontViewer;
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null)) components.Dispose();
@@ -29,11 +27,8 @@
             btnOpenOptions = new Button();
             btnOpenLog = new Button();
             btnOpenShop = new CenteredImageButton();
+            btnOpenFontViewer = new Button();
             lblTitle = new Label();
-            statusStrip1 = new StatusStrip();
-            lblLanguage = new ToolStripStatusLabel();
-            cboLanguage = new ToolStripComboBox();
-            statusStrip1.SuspendLayout();
             SuspendLayout();
             // 
             // btnOpenPakMaker
@@ -79,20 +74,20 @@
             // 
             // btnOpenOptions
             // 
-            btnOpenOptions.Location = new Point(103, 395);
+            btnOpenOptions.Location = new Point(103, 460);
             btnOpenOptions.Name = "btnOpenOptions";
             btnOpenOptions.Size = new Size(180, 35);
-            btnOpenOptions.TabIndex = 6;
+            btnOpenOptions.TabIndex = 7;
             btnOpenOptions.Text = "Options";
             btnOpenOptions.UseVisualStyleBackColor = true;
             btnOpenOptions.Click += btnOpenOptions_Click;
             //
             // btnOpenLog
             //
-            btnOpenLog.Location = new Point(103, 440);
+            btnOpenLog.Location = new Point(103, 505);
             btnOpenLog.Name = "btnOpenLog";
             btnOpenLog.Size = new Size(180, 35);
-            btnOpenLog.TabIndex = 7;
+            btnOpenLog.TabIndex = 8;
             btnOpenLog.UseVisualStyleBackColor = true;
             btnOpenLog.Click += btnOpenLog_Click;
             //
@@ -105,6 +100,16 @@
             btnOpenShop.TabIndex = 5;
             btnOpenShop.UseVisualStyleBackColor = true;
             btnOpenShop.Click += btnOpenShop_Click;
+            //
+            // btnOpenFontViewer
+            //
+            btnOpenFontViewer.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnOpenFontViewer.Location = new Point(42, 395);
+            btnOpenFontViewer.Name = "btnOpenFontViewer";
+            btnOpenFontViewer.Size = new Size(300, 50);
+            btnOpenFontViewer.TabIndex = 6;
+            btnOpenFontViewer.UseVisualStyleBackColor = true;
+            btnOpenFontViewer.Click += btnOpenFontViewer_Click;
             // 
             // lblTitle
             // 
@@ -115,31 +120,12 @@
             lblTitle.TabIndex = 0;
             lblTitle.TextAlign = ContentAlignment.MiddleCenter;
             // 
-            // statusStrip1
-            // 
-            statusStrip1.Items.AddRange(new ToolStripItem[] { lblLanguage, cboLanguage });
-            statusStrip1.Location = new Point(0, 520);
-            statusStrip1.Name = "statusStrip1";
-            statusStrip1.Size = new Size(402, 23);
-            statusStrip1.TabIndex = 8;
-            // 
-            // lblLanguage
-            // 
-            lblLanguage.Name = "lblLanguage";
-            lblLanguage.Size = new Size(47, 18);
-            // 
-            // cboLanguage
-            // 
-            cboLanguage.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboLanguage.Name = "cboLanguage";
-            cboLanguage.Size = new Size(120, 23);
-            cboLanguage.SelectedIndexChanged += cboLanguage_SelectedIndexChanged;
-            // 
             // FrmMenu
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(402, 543);
+            ClientSize = new Size(402, 585);
+            Controls.Add(btnOpenFontViewer);
             Controls.Add(btnOpenShop);
             Controls.Add(btnOpenLog);
             Controls.Add(btnOpenOptions);
@@ -148,16 +134,12 @@
             Controls.Add(btnOpenUpdateList);
             Controls.Add(btnOpenPakMaker);
             Controls.Add(lblTitle);
-            Controls.Add(statusStrip1);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             Name = "FrmMenu";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Pangya Studio - Menu Principal";
-            statusStrip1.ResumeLayout(false);
-            statusStrip1.PerformLayout();
             ResumeLayout(false);
-            PerformLayout();
         }
     }
 }

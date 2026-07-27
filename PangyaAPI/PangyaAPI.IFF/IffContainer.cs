@@ -1,6 +1,4 @@
-using System.Buffers.Binary;
 using System.IO.Compression;
-using PangyaAPI.PAK.Models;
 using PangyaAPI.Utilities.Cryptography;
 
 namespace PangyaAPI.IFF;
@@ -83,7 +81,7 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
         string tempDirectory = options.TemporaryDirectory ?? Path.GetTempPath();
         Directory.CreateDirectory(tempDirectory);
         string xorTemp = Path.Combine(tempDirectory, $"pangya-iff-{Guid.NewGuid():N}.zip");
-        await TransformXorAsync(fullPath, xorTemp, cancellationToken).ConfigureAwait(false);
+        await XOR.TransformFileAsync(fullPath, xorTemp, 0x71, cancellationToken).ConfigureAwait(false);
         if (await HasZipSignatureAsync(xorTemp, cancellationToken).ConfigureAwait(false))
             return new IffContainer(fullPath, xorTemp, IffContainerKind.XorZipArchive, "XOR 0x71", xorTemp);
         TryDelete(xorTemp);
@@ -94,7 +92,7 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
             string temp = Path.Combine(tempDirectory, $"pangya-iff-{Guid.NewGuid():N}.zip");
             try
             {
-                await TransformXteaAsync(fullPath, temp, keys, decrypt: true, cancellationToken).ConfigureAwait(false);
+                await Xtea.TransformFileAsync(fullPath, temp, keys, decrypt: true, cancellationToken).ConfigureAwait(false);
                 if (!await HasZipSignatureAsync(temp, cancellationToken).ConfigureAwait(false)) { File.Delete(temp); continue; }
                 return new IffContainer(fullPath, temp, IffContainerKind.EncryptedZipArchive, label, temp);
             }
@@ -139,10 +137,10 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
                     if (outputKind == IffContainerKind.EncryptedZipArchive)
                     {
                         uint[] keys = PakKeys.All.Single(item => item.Label == outputRegion).Keys;
-                        await TransformXteaAsync(plainZip, temporaryOutput, keys, decrypt: false, cancellationToken).ConfigureAwait(false);
+                        await Xtea.TransformFileAsync(plainZip, temporaryOutput, keys, decrypt: false, cancellationToken).ConfigureAwait(false);
                     }
                     else if (outputKind == IffContainerKind.XorZipArchive)
-                        await TransformXorAsync(plainZip, temporaryOutput, cancellationToken).ConfigureAwait(false);
+                        await XOR.TransformFileAsync(plainZip, temporaryOutput, 0x71, cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -244,47 +242,6 @@ public sealed class IffContainer : IDisposable, IAsyncDisposable
     private static async IAsyncEnumerable<IffRecord> Enumerate(IReadOnlyList<IffRecord> records, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken token)
     {
         foreach (IffRecord record in records) { token.ThrowIfCancellationRequested(); yield return record; await Task.Yield(); }
-    }
-
-    private static async Task TransformXteaAsync(string inputPath, string outputPath, uint[] keys, bool decrypt, CancellationToken token)
-    {
-        await using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        await using var output = new FileStream(outputPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        if (decrypt && input.Length % 8 != 0) throw new InvalidDataException("Encrypted IFF containers must be aligned to an eight-byte XTEA block.");
-        byte[] buffer = new byte[64 * 1024];
-        int read;
-        while ((read = await input.ReadAsync(buffer, token).ConfigureAwait(false)) != 0)
-        {
-            int transformedLength = read;
-            if (read % 8 != 0)
-            {
-                if (decrypt) throw new InvalidDataException("The encrypted IFF stream ended in a partial XTEA block.");
-                transformedLength = (read + 7) & ~7;
-                Array.Clear(buffer, read, transformedLength - read);
-            }
-            for (int offset = 0; offset < transformedLength; offset += 8)
-            {
-                ulong source = BinaryPrimitives.ReadUInt64LittleEndian(buffer.AsSpan(offset, 8));
-                ulong transformed = decrypt ? Xtea.Decrypt(keys, source) : Xtea.Encrypt(keys, source);
-                BinaryPrimitives.WriteUInt64LittleEndian(buffer.AsSpan(offset, 8), transformed);
-            }
-            await output.WriteAsync(buffer.AsMemory(0, transformedLength), token).ConfigureAwait(false);
-        }
-    }
-
-    private static async Task TransformXorAsync(string inputPath, string outputPath, CancellationToken token)
-    {
-        await using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
-        await using var output = new FileStream(outputPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 64 * 1024,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
-        byte[] buffer = new byte[64 * 1024];
-        int read;
-        while ((read = await input.ReadAsync(buffer, token).ConfigureAwait(false)) != 0)
-        {
-            for (int i = 0; i < read; i++) buffer[i] ^= 0x71;
-            await output.WriteAsync(buffer.AsMemory(0, read), token).ConfigureAwait(false);
-        }
     }
 
     private static async Task<bool> HasZipSignatureAsync(string path, CancellationToken token)

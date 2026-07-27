@@ -62,8 +62,6 @@ namespace PangYa_Suite_Tools
             lblLog = new Label();
             txtLog = new TextBox();
             statusStrip1 = new StatusStrip();
-            // lblLanguage = new ToolStripStatusLabel();
-            // cboLanguage = new ToolStripComboBox();
             lblUpdateListSummary = new ToolStripStatusLabel();
 
             tabMain.SuspendLayout();
@@ -426,15 +424,6 @@ namespace PangYa_Suite_Tools
             lblUpdateListSummary.Spring = true;
             lblUpdateListSummary.TextAlign = ContentAlignment.MiddleLeft;
 
-            // lblLanguage.Name = "lblLanguage";
-            // lblLanguage.Size = new Size(47, 18);
-            // 
-            // cboLanguage
-            // 
-            // cboLanguage.DropDownStyle = ComboBoxStyle.DropDownList;
-            // cboLanguage.Name = "cboLanguage";
-            // cboLanguage.Size = new Size(120, 23);
-            // cboLanguage.SelectedIndexChanged += cboLanguage_SelectedIndexChanged;
 
             // ─────────────────────────────────────────────────────────────────
             // FrmUpdateList
@@ -535,7 +524,5 @@ namespace PangYa_Suite_Tools
         // status strip
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel lblUpdateListSummary;
-        // private ToolStripStatusLabel lblLanguage;
-        // private ToolStripComboBox cboLanguage;
     }
 }

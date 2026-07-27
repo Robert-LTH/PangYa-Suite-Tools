@@ -1,5 +1,6 @@
 using PangyaAPI.PAK.Flags;
 using PangyaAPI.PAK.Models;
+using PangyaAPI.Utilities.Cryptography;
 
 namespace PangyaAPI.Tests;
 
@@ -25,6 +26,78 @@ public sealed class PakStreamingTests
             writer.CreateFromDirectoryContents(source, first, null, cancelled.Token));
         Assert.Equal(original, File.ReadAllBytes(first));
         Assert.Empty(Directory.GetFiles(temp.Path, "*.tmp"));
+    }
+
+    [Theory]
+    [InlineData(PakFileEntryVersion.Raw)]
+    [InlineData(PakFileEntryVersion.V1)]
+    [InlineData(PakFileEntryVersion.V2)]
+    [InlineData(PakFileEntryVersion.V3)]
+    public void CreateEmpty_WritesReadableZeroEntryPakWithAuthor(PakFileEntryVersion version)
+    {
+        using var temp = new TemporaryDirectory();
+        string pak = temp.Combine($"empty-{version}.pak");
+        var writer = new PakWriter
+        {
+            EntryVersion = version,
+            EntryType = PakFileEntryType.LZ772,
+            LocationKeys = version == PakFileEntryVersion.Raw ? [] : PakKeys.JP,
+            Author = "EmptyPakTests"
+        };
+
+        writer.CreateEmpty(pak);
+
+        using var reader = new PakReader(pak);
+        reader.Parse(version == PakFileEntryVersion.V3 ? PakKeys.JP : null);
+        Assert.Empty(reader.Entries);
+        Assert.Equal(0u, reader.Header.NumFileEntry);
+        Assert.Equal("EmptyPakTests", reader.Header.Author);
+        Assert.Equal((uint)("EmptyPakTests".Length + sizeof(ushort)), reader.Header.OffsetFileEntry);
+        Assert.Equal(reader.Header.OffsetFileEntry + PakHeader.BinarySize, new FileInfo(pak).Length);
+    }
+
+    [Fact]
+    public void CreateEmpty_IsDeterministicAndCancellationPreservesDestination()
+    {
+        using var temp = new TemporaryDirectory();
+        string first = temp.Combine("empty-first.pak");
+        string second = temp.Combine("empty-second.pak");
+        var writer = NewWriter(PakKeys.JP);
+
+        writer.CreateEmpty(first);
+        writer.CreateEmpty(second);
+        Assert.Equal(File.ReadAllBytes(first), File.ReadAllBytes(second));
+
+        byte[] original = File.ReadAllBytes(first);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            writer.CreateEmpty(first, null, cancellation.Token));
+        Assert.Equal(original, File.ReadAllBytes(first));
+        Assert.Empty(Directory.GetFiles(temp.Path, "*.tmp"));
+    }
+
+    [Fact]
+    public void EmptyPak_CanReceiveFoldersAndInjectedFiles()
+    {
+        using var temp = new TemporaryDirectory();
+        string pak = temp.Combine("from-scratch.pak");
+        string sourceFile = temp.Combine("new.bin");
+        File.WriteAllBytes(sourceFile, [4, 3, 2, 1]);
+        NewWriter(PakKeys.JP).CreateEmpty(pak);
+
+        using (var reader = Open(pak, PakKeys.JP))
+            Assert.True(PakManager.CreateDirectory(
+                pak, reader, "mods/empty", Options(PakKeys.JP)));
+        using (var reader = Open(pak, PakKeys.JP))
+            PakManager.InjectFiles(pak, reader,
+                [new PakInjectItem(sourceFile, "mods/empty")], Options(PakKeys.JP));
+
+        using var updated = Open(pak, PakKeys.JP);
+        Assert.Contains(updated.Entries, entry =>
+            entry.Type == PakFileEntryType.Directory && Normalize(entry.Name) == "mods/empty");
+        PakFileEntry injected = FindEntry(updated, "mods/empty/new.bin");
+        Assert.Equal([4, 3, 2, 1], updated.ExtractEntryToBytes(injected));
     }
 
     [Fact]
@@ -121,6 +194,135 @@ public sealed class PakStreamingTests
         Assert.Equal(originalBytes, updated.ExtractEntryToBytes(FindEntry(updated, "nested/data.bin")));
         Assert.Equal(replacementBytes,
             updated.ExtractEntryToBytes(FindEntry(updated, "selected/folder/data.bin")));
+    }
+
+    [Fact]
+    public void CreateDirectory_PersistsEmptyNestedPathAndMissingParents()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("create-directory.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+        byte[] keepBytes = File.ReadAllBytes(Path.Combine(source, "keep.txt"));
+
+        using (var reader = Open(pak, PakKeys.JP))
+            Assert.True(PakManager.CreateDirectory(pak, reader, "mods/empty/leaf", Options(PakKeys.JP)));
+
+        using var updated = Open(pak, PakKeys.JP);
+        Assert.Contains(updated.Entries, entry => entry.Type == PakFileEntryType.Directory && Normalize(entry.Name) == "mods");
+        Assert.Contains(updated.Entries, entry => entry.Type == PakFileEntryType.Directory && Normalize(entry.Name) == "mods/empty");
+        Assert.Contains(updated.Entries, entry => entry.Type == PakFileEntryType.Directory && Normalize(entry.Name) == "mods/empty/leaf");
+        Assert.DoesNotContain(updated.Entries, entry =>
+            entry.Type != PakFileEntryType.Directory && Normalize(entry.Name).StartsWith("mods/empty/leaf/"));
+        Assert.Equal(keepBytes, updated.ExtractEntryToBytes(FindEntry(updated, "keep.txt")));
+    }
+
+    [Fact]
+    public void CreateDirectory_ExistingLogicalFolderReturnsFalseWithoutChangingPak()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("duplicate-directory.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+        byte[] original = File.ReadAllBytes(pak);
+
+        using var reader = Open(pak, PakKeys.JP);
+        Assert.False(PakManager.CreateDirectory(pak, reader, "nested", Options(PakKeys.JP)));
+        Assert.Equal(original, File.ReadAllBytes(pak));
+    }
+
+    [Fact]
+    public void CreateDirectory_FileCollisionThrowsWithoutChangingPak()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("directory-collision.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+        byte[] original = File.ReadAllBytes(pak);
+
+        using var reader = Open(pak, PakKeys.JP);
+        Assert.Throws<InvalidDataException>(() =>
+            PakManager.CreateDirectory(pak, reader, "keep.txt/child", Options(PakKeys.JP)));
+        Assert.Equal(original, File.ReadAllBytes(pak));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("/root")]
+    [InlineData("root/")]
+    [InlineData("root//child")]
+    [InlineData("root/../child")]
+    public void CreateDirectory_InvalidPathThrowsWithoutChangingPak(string directoryPath)
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("invalid-directory.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+        byte[] original = File.ReadAllBytes(pak);
+
+        using var reader = Open(pak, PakKeys.JP);
+        Assert.Throws<ArgumentException>(() =>
+            PakManager.CreateDirectory(pak, reader, directoryPath, Options(PakKeys.JP)));
+        Assert.Equal(original, File.ReadAllBytes(pak));
+    }
+
+    [Fact]
+    public void CreateDirectory_OverlongPathThrowsWithoutChangingPak()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("overlong-directory.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+        byte[] original = File.ReadAllBytes(pak);
+
+        using var reader = Open(pak, PakKeys.JP);
+        Assert.Throws<InvalidDataException>(() =>
+            PakManager.CreateDirectory(pak, reader, new string('a', 256), Options(PakKeys.JP)));
+        Assert.Equal(original, File.ReadAllBytes(pak));
+    }
+
+    [Fact]
+    public void CreateDirectory_CancellationPreservesOriginalAndRemovesCandidate()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("cancel-directory.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+        byte[] original = File.ReadAllBytes(pak);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        using var reader = Open(pak, PakKeys.JP);
+        Assert.ThrowsAny<OperationCanceledException>(() => PakManager.CreateDirectory(
+            pak, reader, "cancelled", Options(PakKeys.JP), null, null, false, cancellation.Token));
+        Assert.Equal(original, File.ReadAllBytes(pak));
+        Assert.Empty(Directory.GetFiles(temp.Path, "*.tmp"));
+    }
+
+    [Fact]
+    public void RemoveDirectory_RemovesEmptyAndPopulatedSubtrees()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("remove-directory.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+
+        using (var reader = Open(pak, PakKeys.JP))
+            Assert.True(PakManager.CreateDirectory(pak, reader, "empty/child", Options(PakKeys.JP)));
+        using (var reader = Open(pak, PakKeys.JP))
+            Assert.True(PakManager.RemoveDirectory(pak, reader, "empty", Options(PakKeys.JP)));
+        using (var reader = Open(pak, PakKeys.JP))
+            Assert.True(PakManager.RemoveDirectory(pak, reader, "nested", Options(PakKeys.JP)));
+
+        using var updated = Open(pak, PakKeys.JP);
+        Assert.DoesNotContain(updated.Entries, entry =>
+            Normalize(entry.Name).Equals("empty", StringComparison.OrdinalIgnoreCase) ||
+            Normalize(entry.Name).StartsWith("empty/", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(updated.Entries, entry =>
+            Normalize(entry.Name).Equals("nested", StringComparison.OrdinalIgnoreCase) ||
+            Normalize(entry.Name).StartsWith("nested/", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(updated.Entries, entry => Normalize(entry.Name) == "keep.txt");
     }
 
     [Theory]

@@ -60,6 +60,13 @@ public class PakWriter
         CreateAtomically(EnumerateDirectory(dir, dir).ToList(), outputPath, log, cancellationToken);
     }
 
+    public void CreateEmpty(string outputPath, Action<string>? log = null) =>
+        CreateEmpty(outputPath, log, CancellationToken.None);
+
+    public void CreateEmpty(string outputPath, Action<string>? log,
+                            CancellationToken cancellationToken) =>
+        CreateAtomically([], outputPath, log, cancellationToken);
+
     public void CreateFromFile(string filePath, string outputPath, Action<string>? log = null) =>
         CreateFromFile(filePath, outputPath, log, CancellationToken.None);
 
@@ -278,18 +285,14 @@ public class PakWriter
             if (EntryVersion != PakFileEntryVersion.Raw && EntryVersion < PakFileEntryVersion.V3)
             {
                 size ^= kXorKey;
-                for (int index = 0; index < entry.NameLength; index++) name[index] ^= (byte)kXorKey;
+                XOR.Cipher(name.AsSpan(0, entry.NameLength), (byte)kXorKey);
             }
             else if (EntryVersion == PakFileEntryVersion.V3)
             {
                 ulong packed = Xtea.Encrypt(LocationKeys, ((ulong)size << 32) | offset);
                 size = (uint)(packed >> 32);
                 offset = (uint)packed;
-                for (int index = 0; index < name.Length; index += 8)
-                {
-                    byte[] block = BitConverter.GetBytes(Xtea.Encrypt(LocationKeys, BitConverter.ToUInt64(name, index)));
-                    Buffer.BlockCopy(block, 0, name, index, 8);
-                }
+                name = Xtea.EncryptBlocks(name, LocationKeys);
             }
 
             writer.Write(offset);

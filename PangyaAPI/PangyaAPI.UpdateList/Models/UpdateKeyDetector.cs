@@ -2,7 +2,6 @@
 using System.IO;
 using System.Text;
 using PangyaAPI.UpdateList.Flags;
-using PangyaAPI.UpdateList.Models;
 using PangyaAPI.Utilities.Cryptography;
 
 public class UpdateKeyDetector
@@ -20,73 +19,19 @@ public class UpdateKeyDetector
         }
 
         var data = File.ReadAllBytes(filePath);
-        if (data.Length < 8) return UpdateResult.Falied;
+        if (data.Length < 8 || data.Length % 8 != 0) return UpdateResult.Falied;
 
-        // Mapeia todas as chaves conhecidas do seu UpdateKeys.cs para testar
-        var keysToTest = new Dictionary<string, uint[]>
+        if (Xtea.TryDecryptBlocks(data, UpdateKeys.All, "<?"u8, out string? matchedLabel,
+            out uint[]? matchedKeys, out byte[]? plaintext))
         {
-            { "GB", UpdateKeys.GB },
-            { "TH", UpdateKeys.TH },
-            { "JP", UpdateKeys.JP },
-            { "KR", UpdateKeys.KR },
-            { "ID", UpdateKeys.ID },
-            { "EU", UpdateKeys.EU }
-        };
+            Console.WriteLine($"[Sucesso] Chave detectada com sucesso: Região {matchedLabel}");
+            detectedKey = matchedKeys;
+            Document = Encoding.UTF8.GetString(plaintext!).Replace("\0", "").Trim();
+            decryptedData = Encoding.UTF8.GetBytes(Document);
 
-        foreach (var kvp in keysToTest)
-        {
-            uint[] key = kvp.Value;
-            var _data = new byte[data.Length];
-            bool currentKeyFailed = false;
-
-            // Loop pulando de 8 em 8 bytes (Tamanho do bloco XTEA clássico)
-            for (int i = 0; i < data.Length; i += 8)
-            {
-                // Proteção para o último bloco caso o arquivo não seja múltiplo de 8
-                int bytesToCopy = Math.Min(8, data.Length - i);
-
-                // Se o bloco final for menor que 8 bytes, precisamos de um buffer temporário de 8 bytes acolchoado com zeros
-                byte[] blockBytes = new byte[8];
-                Buffer.BlockCopy(data, srcOffset: i, dst: blockBytes, dstOffset: 0, count: bytesToCopy);
-
-                // 1. Converte os 8 bytes do bloco direto para um ÚNICO ulong
-                ulong blockValue = BitConverter.ToUInt64(blockBytes, 0);
-                 
-                blockValue = Xtea.Decrypt(key, blockValue); // Se o método retornar o valor descriptografado
-                                                            // Xtea.Decrypt(key, ref blockValue);      // Use esta linha se o método usar 'ref'
-
-                // 3. Converte o ulong descriptografado de volta para um array de 8 bytes
-                byte[] decryptedBlockBytes = BitConverter.GetBytes(blockValue);
-
-                // 4. Devolve os bytes decodificados para a posição correta do buffer de resultado
-                Buffer.BlockCopy(decryptedBlockBytes, srcOffset: 0, dst: _data, dstOffset: i, count: bytesToCopy);
-
-                // VALIDAÇÃO CRÍTICA: Se decodificou o primeiro bloco e falhou, aborta
-                if (i == 0 && (_data[0] != '<' || _data[1] != '?'))
-                {
-                    currentKeyFailed = true;
-                    break;
-                }
-            }
-
-            // Se o loop terminou sem quebrar no primeiro bloco, encontramos a chave correta!
-            if (!currentKeyFailed)
-            {
-                Console.WriteLine($"[Sucesso] Chave detectada com sucesso: Região {kvp.Key}");
-
-                detectedKey = key;
-
-                // Remove possíveis bytes nulos (\0) inseridos pelo padding do XTEA
-               Document = Encoding.UTF8.GetString(_data).Replace("\0", "").Trim();
-                decryptedData = Encoding.UTF8.GetBytes(Document);
-
-                // Salva o XML descriptografado na raiz para análise
-
-                string outputXmlPath = Path.Combine(Directory.GetCurrentDirectory(), "updatelist.xml");
-                File.WriteAllBytes(outputXmlPath, decryptedData);
-
-                return UpdateResult.Sucess;
-            }
+            string outputXmlPath = Path.Combine(Directory.GetCurrentDirectory(), "updatelist.xml");
+            File.WriteAllBytes(outputXmlPath, decryptedData);
+            return UpdateResult.Sucess;
         }
 
         Console.WriteLine("[Aviso] Nenhuma das chaves conhecidas conseguiu descriptografar o arquivo.");

@@ -45,6 +45,7 @@ internal sealed class IffFormRecordEditor : UserControl
     public event EventHandler? CopyRequested;
     public event EventHandler? SaveRequested;
     public event EventHandler? Applied;
+    public event EventHandler? PendingChangesChanged;
     public event Action<string>? DataRootChangeRequested;
 
     public IffFormRecordEditor()
@@ -54,7 +55,9 @@ internal sealed class IffFormRecordEditor : UserControl
 
         _splitContainer.Dock = DockStyle.Fill;
         _splitContainer.FixedPanel = FixedPanel.Panel1;
-        _splitContainer.SplitterDistance = 220;
+        _splitContainer.Size = new Size(700, 400);
+        _splitContainer.Panel1MinSize = 280;
+        _splitContainer.SplitterDistance = 320;
 
         _txtSearch.Name = "txtFormRecordSearch";
         _txtSearch.Dock = DockStyle.Top;
@@ -64,6 +67,7 @@ internal sealed class IffFormRecordEditor : UserControl
 
         _lstRecords.Name = "lstFormRecords";
         _lstRecords.Dock = DockStyle.Fill;
+        _lstRecords.HorizontalScrollbar = true;
         _lstRecords.IntegralHeight = false;
         _lstRecords.SelectedIndexChanged += RecordList_SelectedIndexChanged;
 
@@ -152,7 +156,7 @@ internal sealed class IffFormRecordEditor : UserControl
         _referenceResolver = null;
         SetDataRootPath(null);
         _selectedRecordIndex = -1;
-        _hasPendingChanges = false;
+        SetPendingChanges(false);
         BuildTabs();
         RefreshRecordList(keepSelection: false);
         if (records.Count > 0) SelectRecord(0);
@@ -184,7 +188,7 @@ internal sealed class IffFormRecordEditor : UserControl
         _tabs.TabPages.Clear();
         _lstRecords.Items.Clear();
         _selectedRecordIndex = -1;
-        _hasPendingChanges = false;
+        SetPendingChanges(false);
         ClearReferenceSummary();
         UpdateActionState();
     }
@@ -238,8 +242,9 @@ internal sealed class IffFormRecordEditor : UserControl
                 if (!binding.Field.IsEditable || !binding.Editor.Enabled) continue;
                 record.SetValue(binding.Field, ReadEditorValue(binding.Field, binding.Editor), _encoding);
             }
-            _hasPendingChanges = false;
+            SetPendingChanges(false);
             Applied?.Invoke(this, EventArgs.Empty);
+            RefreshCurrentRecordListItem();
             RefreshReferencePreviews();
             return true;
         }
@@ -367,7 +372,7 @@ internal sealed class IffFormRecordEditor : UserControl
             IffFieldType.Boolean or IffFieldType.BooleanBitField or IffFieldType.ZeroBoolean or
                 IffFieldType.ByteRangeBoolean => new CheckBox { AutoSize = true, Anchor = AnchorStyles.Left },
             IffFieldType.Byte or IffFieldType.UInt16 or IffFieldType.Int16 or IffFieldType.UInt32 or
-                IffFieldType.ItemIdReference or IffFieldType.Int32 or IffFieldType.BitField => CreateNumericEditor(field),
+                IffFieldType.ItemIdReference or IffFieldType.Int32 or IffFieldType.Int64 or IffFieldType.BitField => CreateNumericEditor(field),
             IffFieldType.DateTime => CreateDateTimeEditor(),
             IffFieldType.LongString => CreateLongStringEditor(),
             _ => new TextBox()
@@ -535,6 +540,7 @@ internal sealed class IffFormRecordEditor : UserControl
             IffFieldType.Int16 => (short.MinValue, short.MaxValue),
             IffFieldType.UInt32 or IffFieldType.ItemIdReference => (uint.MinValue, uint.MaxValue),
             IffFieldType.Int32 => (int.MinValue, int.MaxValue),
+            IffFieldType.Int64 => (long.MinValue, long.MaxValue),
             IffFieldType.BitField when field.BitMask is uint mask => (0, mask >> field.BitShift),
             _ => (long.MinValue, long.MaxValue)
         };
@@ -554,7 +560,15 @@ internal sealed class IffFormRecordEditor : UserControl
             for (int index = 0; index < _records.Count; index++)
             {
                 string text = FormatRecord(index, _records[index]);
-                if (filter.Length > 0 && text.IndexOf(filter, StringComparison.CurrentCultureIgnoreCase) < 0) continue;
+                string searchableText = text;
+                if (_document is not null &&
+                    Path.GetFileName(_document.FileName).Equals("Desc.iff", StringComparison.OrdinalIgnoreCase))
+                {
+                    string? description = TryGetDisplayValue(index, _records[index], "Description");
+                    if (!string.IsNullOrEmpty(description)) searchableText += "\n" + description;
+                }
+                if (filter.Length > 0 &&
+                    searchableText.IndexOf(filter, StringComparison.CurrentCultureIgnoreCase) < 0) continue;
                 _filteredIndices.Add(index);
                 _lstRecords.Items.Add(text);
             }
@@ -567,18 +581,28 @@ internal sealed class IffFormRecordEditor : UserControl
 
     private string FormatRecord(int index, IffRecord record)
     {
-        string? name = TryGetDisplayValue(record, "Name");
-        string? id = TryGetDisplayValue(record, "ItemId") ?? TryGetDisplayValue(record, "ID");
-        return string.IsNullOrWhiteSpace(name)
+        string? name = TryGetDisplayValue(index, record, "Name");
+        string? id = TryGetDisplayValue(index, record, "ItemId", "TypeID", "ID");
+        string text = string.IsNullOrWhiteSpace(name)
             ? string.Format(CultureInfo.CurrentCulture, Strings.IFFManager_FormRecordFormat, index, id ?? string.Empty)
             : string.Format(CultureInfo.CurrentCulture, Strings.IFFManager_FormRecordNameFormat, index, id ?? string.Empty, name);
+        return record.IsDirty || index == _selectedRecordIndex && _hasPendingChanges ? "* " + text : text;
     }
 
-    private string? TryGetDisplayValue(IffRecord record, string fieldName)
+    private string? TryGetDisplayValue(int index, IffRecord record, params string[] fieldNames)
     {
-        return record.TryGetValue(fieldName, out object? value, _encoding)
-            ? Convert.ToString(value, CultureInfo.CurrentCulture)
-            : null;
+        foreach (string fieldName in fieldNames)
+        {
+            if (index == _selectedRecordIndex && _hasPendingChanges &&
+                _bindings.FirstOrDefault(binding =>
+                    binding.Field.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase)) is { } binding)
+            {
+                return Convert.ToString(ReadEditorValue(binding.Field, binding.Editor), CultureInfo.CurrentCulture);
+            }
+            if (record.TryGetValue(fieldName, out object? value, _encoding))
+                return Convert.ToString(value, CultureInfo.CurrentCulture);
+        }
+        return null;
     }
 
     private void RecordList_SelectedIndexChanged(object? sender, EventArgs e)
@@ -601,6 +625,7 @@ internal sealed class IffFormRecordEditor : UserControl
                 SelectRecord(_selectedRecordIndex);
                 return;
             }
+            if (result == DialogResult.No) SetPendingChanges(false);
         }
 
         _selectedRecordIndex = nextIndex;
@@ -617,7 +642,7 @@ internal sealed class IffFormRecordEditor : UserControl
             IffRecord record = _records[_selectedRecordIndex];
             foreach (FieldBinding binding in _bindings)
                 WriteEditorValue(binding.Field, binding.Editor, binding.Field.GetValue(record.Bytes.Span, _encoding));
-            _hasPendingChanges = false;
+            SetPendingChanges(false);
             RefreshReferencePreviews();
         }
         finally { _loadingRecord = false; }
@@ -765,6 +790,7 @@ internal sealed class IffFormRecordEditor : UserControl
             _loadingRecord = true;
             try { WriteEditorValue(field, binding.Editor, key); }
             finally { _loadingRecord = wasLoading; }
+            RefreshCurrentRecordListItem();
             Applied?.Invoke(this, EventArgs.Empty);
             RefreshReferencePreviews();
             return true;
@@ -805,6 +831,7 @@ internal sealed class IffFormRecordEditor : UserControl
             _loadingRecord = true;
             try { WriteEditorValue(field, binding.Editor, iconId); }
             finally { _loadingRecord = wasLoading; }
+            RefreshCurrentRecordListItem();
             Applied?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -1025,7 +1052,25 @@ internal sealed class IffFormRecordEditor : UserControl
 
     private void MarkPending()
     {
-        if (!_loadingRecord) _hasPendingChanges = true;
+        if (_loadingRecord) return;
+        SetPendingChanges(true);
+        RefreshCurrentRecordListItem();
+    }
+
+    private void SetPendingChanges(bool value)
+    {
+        if (_hasPendingChanges == value) return;
+        _hasPendingChanges = value;
+        RefreshCurrentRecordListItem();
+        PendingChangesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RefreshCurrentRecordListItem()
+    {
+        if (_records is null || _selectedRecordIndex < 0 || _selectedRecordIndex >= _records.Count) return;
+        int filteredIndex = _filteredIndices.IndexOf(_selectedRecordIndex);
+        if (filteredIndex < 0 || filteredIndex >= _lstRecords.Items.Count) return;
+        _lstRecords.Items[filteredIndex] = FormatRecord(_selectedRecordIndex, _records[_selectedRecordIndex]);
     }
 
     private void UpdateActionState()

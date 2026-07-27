@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 2,
+  "defaultRevision": 1,
+  "fileName": "CaddieItem.iff",
+  "region": "Global",
+  "minimumRecordSize": 260,
+  "isEditable": true,
+  "fields": [
+    {
+      "name": "MPet",
+      "offset": 168,
+      "width": 40,
+      "type": "FixedString",
+      "isEditable": true,
+      "encodingCodePage": 28591,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "TexTure",
+      "offset": 208,
+      "width": 40,
+      "type": "FixedString",
+      "isEditable": true,
+      "encodingCodePage": 28591,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Price1Day",
+      "offset": 248,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Price7Day",
+      "offset": 250,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Price15Day",
+      "offset": 252,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Price30Day",
+      "offset": 254,
+      "width": 2,
+      "type": "UInt16",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "FlagRoll",
+      "offset": 256,
+      "width": 4,
+      "type": "UInt32",
+      "isEditable": true,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    },
+    {
+      "name": "Raw record",
+      "offset": 0,
+      "width": 260,
+      "type": "Raw",
+      "isEditable": false,
+      "encodingCodePage": null,
+      "minimum": null,
+      "maximum": null,
+      "bitMask": null,
+      "bitShift": 0,
+      "isVisible": true
+    }
+  ],
+  "defaultStringSize": 40,
+  "defaultLongStringSize": 512,
+  "base": {
+    "name": "Common",
+    "region": null
+  }
+}

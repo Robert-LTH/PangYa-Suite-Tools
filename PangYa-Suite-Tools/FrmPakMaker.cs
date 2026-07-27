@@ -3,6 +3,7 @@ using PangYa_Suite_Tools.Logging;
 using PangYa_Suite_Tools.Configuration;
 using PangyaAPI.PAK.Flags;
 using PangyaAPI.PAK.Models;
+using PangyaAPI.Utilities.Cryptography;
 using System.ComponentModel;
 using System.Data;
 using System.Text;
@@ -18,10 +19,13 @@ namespace PangYa_Suite_Tools
 
         // Mapa caminho-da-pasta -> TreeNode, para navegação rápida (duplo clique em uma pasta na lista)
         private readonly Dictionary<string, TreeNode> _folderNodes = new(StringComparer.OrdinalIgnoreCase);
+        private ToolStripMenuItem? _menuCreateFolder;
+        private TreeNode? _pendingFolderNode;
 
         // Conjunto de entries atualmente "no escopo" (pasta selecionada na árvore), antes do filtro de pesquisa
         private List<PakFileEntry> _scopedEntries = [];
         private sealed record RegionOption(string Label, uint[] Keys);
+        private PakCreationOptions _creationOptions = PakCreationOptions.Default;
         private int _selectedFilenameEncodingCodePage = PakFilenameEncodingPreferences.DefaultCodePage;
         private bool _isInitializingFilenameEncoding;
         private CancellationTokenSource? _operationCancellation;
@@ -33,6 +37,7 @@ namespace PangYa_Suite_Tools
         private ToolStripLabel? _pakOperationsLabel;
         private ToolStripLabel? _fileOperationsLabel;
         private ToolStripLabel? _toolbarAuthorLabel;
+        private ToolStripButton? _toolbarNewPak;
         private ToolStripButton? _toolbarFilenameEncoding;
         private ToolStripButton? _toolbarBatchExtract;
         private ToolStripButton? _toolbarUpdatePak;
@@ -54,6 +59,7 @@ namespace PangYa_Suite_Tools
         private bool _isClearingTreeChecks;
         private enum ToolbarIconKind
         {
+            New,
             Folder,
             Update,
             ExtractAll,
@@ -66,8 +72,9 @@ namespace PangYa_Suite_Tools
         public FrmPakMaker()
         {
             InitializeComponent();
+            txtPakPath.Text = PathTextBoxPreferences.LoadPath(PathTextBoxKind.PakArchive);
             SetupCustomComponents();
-            LoadSetupOptions();
+            InitializeFilenameEncodingComboBox();
             SetupContextMenu(); // Inicializa o menu de contexto da ListView
             SetupToolbarLayout();
             ApplyLocalization();
@@ -75,6 +82,10 @@ namespace PangYa_Suite_Tools
             LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
             Disposed += (_, _) =>
             {
+                PathTextBoxPreferences.SavePaths(new Dictionary<PathTextBoxKind, string?>
+                {
+                    [PathTextBoxKind.PakArchive] = txtPakPath.Text
+                });
                 LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
                 _operationCancellation?.Cancel();
                 _operationCancellation?.Dispose();
@@ -107,8 +118,7 @@ namespace PangYa_Suite_Tools
             lblFilenameEncoding.ToolTipText = Strings.Pak_FilenameEncodingTooltip;
             cboFilenameEncoding.ToolTipText = Strings.Pak_FilenameEncodingTooltip;
 
-            // --- ABA 1: LEITOR & MODIFICAÇÕES ---
-            tabExtract.Text = Strings.Pak_TabExtract;
+            // --- LEITOR & MODIFICAÇÕES ---
             btnBrowsePak.Text = Strings.Pak_Browse;
             txtPakPath.PlaceholderText = Strings.Pak_PathHint;
 
@@ -142,21 +152,6 @@ namespace PangYa_Suite_Tools
             btnChangeKey.Text = Strings.Pak_ChangeKey;
 
 
-            // --- ABA 2: CRIAR NOVO PAK ---
-            tabCreate.Text = Strings.Pak_TabCreate;
-            txtSourceFolder.PlaceholderText = Strings.Pak_SourceHint;
-            btnBrowseFolder.Text = Strings.Pak_SelectFolder;
-
-            lblVol.Text = Strings.Pak_EntryVersion;
-            lblComp.Text = Strings.Pak_Compression;
-            lblLevel.Text = Strings.Pak_CompressionLevel;
-            lblReg.Text = Strings.Pak_Region;
-            label1.Text = Strings.PakMaker_Author;
-            label2.Text = Strings.PakMaker_Author;
-            ckSecurityPak.Text = Strings.Pak_SecurityPak;
-            btnCreatePak.Text = Strings.Pak_Create;
-
-
             // --- COMPONENTES GLOBAIS ---
             if (string.IsNullOrWhiteSpace(lblStatus.Text)) lblStatus.Text = Strings.Pak_Ready;
             UpdateDisplayedPakKey();
@@ -174,6 +169,8 @@ namespace PangYa_Suite_Tools
                 _menuRemoveFolder.Text = Strings.PakMaker_RemoveThisFolderFromPAK;
             if (_menuRename != null)
                 _menuRename.Text = Strings.PakMaker_RenameThisPAK;
+            if (_menuCreateFolder != null)
+                _menuCreateFolder.Text = Strings.PakMaker_CreateFolder;
 
             ApplyToolbarLocalization();
         }
@@ -252,6 +249,11 @@ namespace PangYa_Suite_Tools
             _settingsToolbar = CreateToolbar(officeStyle: false);
 
             _pakOperationsLabel = AddSectionLabel(_pakOperationsToolbar);
+            _toolbarNewPak = AddOperationButton(
+                _pakOperationsToolbar,
+                async (_, _) => await CreateEmptyPakAsync(),
+                ToolbarIconKind.New,
+                requiresLoadedPak: false);
             _toolbarBatchExtract = AddOperationButton(_pakOperationsToolbar, btnBatchExtract_Click, ToolbarIconKind.Folder, requiresLoadedPak: false);
             _toolbarExtractAll = AddOperationButton(_pakOperationsToolbar, btnExtractAll_Click, ToolbarIconKind.ExtractAll);
             _toolbarChangePakKey = AddOperationButton(_pakOperationsToolbar, btnChangeKey_Click, ToolbarIconKind.Key);
@@ -263,10 +265,6 @@ namespace PangYa_Suite_Tools
             _toolbarRenameSelected = AddOperationButton(_openedPakFileToolbar, (s, e) => BeginSelectedFileRename(), ToolbarIconKind.Rename);
             _toolbarRemoveSelected = AddOperationButton(_openedPakFileToolbar, btnRemoveSelected_Click, ToolbarIconKind.Remove);
 
-            label1.Visible = false;
-            txtNewAuthorPak.Visible = false;
-            MoveCreatePakOptionsUp();
-            label2.Visible = false;
             txtUpdateAuthor.Width = 130;
             _toolbarAuthorLabel = new ToolStripLabel();
             _settingsToolbar.Items.Add(_toolbarAuthorLabel);
@@ -281,8 +279,6 @@ namespace PangYa_Suite_Tools
 
             statusStrip1.Items.Remove(lblFilenameEncoding);
             statusStrip1.Items.Remove(cboFilenameEncoding);
-            statusStrip1.Items.Remove(lblLanguage);
-            statusStrip1.Items.Remove(cboLanguage);
             if (!statusStrip1.Items.Contains(_filenameEncodingStatusLabel))
             {
                 int pakKeyIndex = statusStrip1.Items.IndexOf(lblPakKey);
@@ -292,22 +288,15 @@ namespace PangYa_Suite_Tools
             _toolbarLayout.Controls.Add(_pakOperationsToolbar, 0, 0);
             _toolbarLayout.Controls.Add(_settingsToolbar, 0, 1);
 
-            Controls.Remove(tabControl1);
+            Controls.Remove(readerPanel);
             Controls.Remove(statusStrip1);
-            Controls.Remove(ckSecurityPak);
 
-            tabControl1.Dock = DockStyle.Fill;
+            readerPanel.Dock = DockStyle.Fill;
             statusStrip1.Dock = DockStyle.Fill;
             _rootLayout.Controls.Add(_toolbarLayout, 0, 0);
-            _rootLayout.Controls.Add(tabControl1, 0, 1);
+            _rootLayout.Controls.Add(readerPanel, 0, 1);
             _rootLayout.Controls.Add(statusStrip1, 0, 2);
             Controls.Add(_rootLayout);
-
-            if (!tabCreate.Controls.Contains(ckSecurityPak))
-            {
-                ckSecurityPak.Location = new Point(20, btnCreatePak.Bottom + 12);
-                tabCreate.Controls.Add(ckSecurityPak);
-            }
 
             EmphasizeOpenPakEntryPoint();
             InstallOpenedPakFileToolbar();
@@ -322,42 +311,33 @@ namespace PangYa_Suite_Tools
 
         private void EmphasizeOpenPakEntryPoint()
         {
-            txtPakPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtPakPath.Width = Math.Max(320, tabExtract.ClientSize.Width - txtPakPath.Left - btnBrowsePak.Width - 24);
-
+            txtPakPath.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             btnBrowsePak.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnBrowsePak.Location = new Point(txtPakPath.Right + 10, txtPakPath.Top - 2);
             btnBrowsePak.Size = new Size(104, 28);
             btnBrowsePak.BackColor = Color.FromArgb(0, 122, 204);
             btnBrowsePak.ForeColor = Color.White;
             btnBrowsePak.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnBrowsePak.UseVisualStyleBackColor = false;
+            readerPanel.Resize += ReaderPanel_Resize;
+            LayoutOpenPakEntryPoint();
 
             groupHeader.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            groupHeader.Width = tabExtract.ClientSize.Width - (groupHeader.Left * 2);
+            groupHeader.Width = readerPanel.ClientSize.Width - (groupHeader.Left * 2);
             lblCurrentPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             lstEntries.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             tvFolders.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
         }
 
-        private void MoveCreatePakOptionsUp()
+        private void ReaderPanel_Resize(object? sender, EventArgs e) =>
+            LayoutOpenPakEntryPoint();
+
+        private void LayoutOpenPakEntryPoint()
         {
-            const int delta = 36;
-            foreach (Control control in new Control[]
-            {
-                lblVol,
-                cboVersion,
-                lblComp,
-                cboCompressType,
-                lblLevel,
-                numCompressLevel,
-                lblReg,
-                cboRegion,
-                btnCreatePak
-            })
-            {
-                control.Location = new Point(control.Left, control.Top - delta);
-            }
+            const int gap = 10;
+            int visibleRight = readerPanel.ClientSize.Width - readerPanel.Padding.Right;
+            int buttonLeft = Math.Max(readerPanel.Padding.Left, visibleRight - btnBrowsePak.Width);
+            btnBrowsePak.Location = new Point(buttonLeft, txtPakPath.Top - 2);
+            txtPakPath.Width = Math.Max(40, buttonLeft - gap - txtPakPath.Left);
         }
 
         private void InstallOpenedPakFileToolbar()
@@ -367,10 +347,10 @@ namespace PangYa_Suite_Tools
 
             _openedPakFileToolbar.Dock = DockStyle.None;
             _openedPakFileToolbar.Location = new Point(txtPakPath.Left, txtPakPath.Bottom + 8);
-            _openedPakFileToolbar.Width = tabExtract.ClientSize.Width - (txtPakPath.Left * 2);
+            _openedPakFileToolbar.Width = readerPanel.ClientSize.Width - (txtPakPath.Left * 2);
             _openedPakFileToolbar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            tabExtract.Controls.Add(_openedPakFileToolbar);
-            tabExtract.Controls.SetChildIndex(_openedPakFileToolbar, 0);
+            readerPanel.Controls.Add(_openedPakFileToolbar);
+            readerPanel.Controls.SetChildIndex(_openedPakFileToolbar, 0);
 
             _openedPakFileToolbar.PerformLayout();
             int toolbarBottom = _openedPakFileToolbar.Bottom + 8;
@@ -445,7 +425,7 @@ namespace PangYa_Suite_Tools
             _pakOperationsToolbar?.PerformLayout();
             _openedPakFileToolbar?.PerformLayout();
             if (_openedPakFileToolbar != null)
-                _openedPakFileToolbar.Width = tabExtract.ClientSize.Width - (txtPakPath.Left * 2);
+                _openedPakFileToolbar.Width = readerPanel.ClientSize.Width - (txtPakPath.Left * 2);
         }
 
         private void ApplyToolbarButtonDisplay(ToolStripButton button)
@@ -479,6 +459,20 @@ namespace PangYa_Suite_Tools
 
             switch (iconKind)
             {
+                case ToolbarIconKind.New:
+                    g.FillRectangle(white, 7, 3, 18, 26);
+                    g.DrawRectangle(dark, 7, 3, 18, 26);
+                    g.DrawLine(dark, 19, 3, 25, 9);
+                    g.DrawLine(dark, 19, 3, 19, 9);
+                    g.DrawLine(dark, 19, 9, 25, 9);
+                    g.DrawLine(whitePen, 16, 14, 16, 24);
+                    g.DrawLine(whitePen, 11, 19, 21, 19);
+                    using (var newPen = new Pen(Color.FromArgb(40, 167, 69), 3F))
+                    {
+                        g.DrawLine(newPen, 16, 14, 16, 24);
+                        g.DrawLine(newPen, 11, 19, 21, 19);
+                    }
+                    break;
                 case ToolbarIconKind.Folder:
                     g.FillRectangle(amber, 3, 10, 26, 17);
                     g.FillRectangle(amber, 5, 6, 10, 6);
@@ -540,7 +534,7 @@ namespace PangYa_Suite_Tools
 
         private void ResizeExtractListArea()
         {
-            int bottom = tabExtract.ClientSize.Height - tabExtract.Padding.Bottom;
+            int bottom = readerPanel.ClientSize.Height - readerPanel.Padding.Bottom;
             tvFolders.Height = Math.Max(180, bottom - tvFolders.Top);
             lstEntries.Height = Math.Max(180, bottom - lstEntries.Top);
         }
@@ -550,6 +544,11 @@ namespace PangYa_Suite_Tools
             if (_pakOperationsLabel != null) _pakOperationsLabel.Text = Strings.PakMaker_PakOperations;
             if (_fileOperationsLabel != null) _fileOperationsLabel.Text = Strings.PakMaker_FileOperations;
             if (_toolbarAuthorLabel != null) _toolbarAuthorLabel.Text = Strings.PakMaker_Author;
+            if (_toolbarNewPak != null)
+            {
+                _toolbarNewPak.Text = Strings.Pak_New;
+                _toolbarNewPak.ToolTipText = Strings.Pak_CreateEmpty;
+            }
             if (_toolbarFilenameEncoding != null)
             {
                 _toolbarFilenameEncoding.Text = TrimToolbarLabel(Strings.Pak_FilenameEncoding);
@@ -563,7 +562,10 @@ namespace PangYa_Suite_Tools
             if (_toolbarRenameSelected != null) _toolbarRenameSelected.Text = Strings.Pak_RenameSelected;
             if (_toolbarRemoveSelected != null) _toolbarRemoveSelected.Text = Strings.Pak_RemoveSelected;
             foreach (ToolStripButton button in _officeToolbarButtons)
-                button.ToolTipText = button.Text;
+            {
+                if (!ReferenceEquals(button, _toolbarNewPak))
+                    button.ToolTipText = button.Text;
+            }
         }
 
         private static string TrimToolbarLabel(string text) => text.Trim().TrimEnd(':');
@@ -574,6 +576,8 @@ namespace PangYa_Suite_Tools
         private void SetupFolderContextMenu()
         {
             ContextMenuStrip folderContextMenu = new ContextMenuStrip();
+            _menuCreateFolder = new ToolStripMenuItem(Strings.PakMaker_CreateFolder);
+            _menuCreateFolder.Click += (_, _) => BeginCreateFolder();
             _menuExtractFolder = new ToolStripMenuItem(Strings.PakMaker_ExtractThisFolder);
             _menuExtractFolder.Click += async (s, e) => await ExtractSelectedFolderAsync();
 
@@ -584,6 +588,8 @@ namespace PangYa_Suite_Tools
                 if (tvFolders.SelectedNode != null)
                     tvFolders.SelectedNode.BeginEdit();
             };
+            folderContextMenu.Items.Add(_menuCreateFolder);
+            folderContextMenu.Items.Add(new ToolStripSeparator());
             folderContextMenu.Items.Add(_menuRename); 
             folderContextMenu.Items.Add(_menuExtractFolder);
             folderContextMenu.Items.Add(_menuRemoveFolder);
@@ -845,25 +851,6 @@ namespace PangYa_Suite_Tools
             !fileName.Contains('\\') &&
             fileName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
 
-        private void LoadSetupOptions()
-        {
-            InitializeFilenameEncodingComboBox();
-
-            // Popula os seletores usando os Enums e Listas da sua PangyaAPI
-            cboVersion.DataSource = Enum.GetValues(typeof(PakFileEntryVersion));
-            cboVersion.SelectedItem = PakFileEntryVersion.V3;
-
-            cboCompressType.DataSource = Enum.GetValues(typeof(PakFileEntryType));
-            cboCompressType.SelectedItem = PakFileEntryType.LZ772;
-
-            cboRegion.DataSource = PakKeys.All
-                .Select(x => new RegionOption(x.Label, x.Keys))
-                .ToList();
-            cboRegion.DisplayMember = "Label";
-            cboRegion.SelectedIndex = 0;
-
-        }
-
         private void InitializeFilenameEncodingComboBox()
         {
             List<PakEncodingOption> encodings =
@@ -1041,53 +1028,34 @@ namespace PangYa_Suite_Tools
             if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
             {
                 txtPakPath.BackColor = SystemColors.Control;
-                int currentTab = tabControl1.SelectedIndex;
-
-                if (currentTab == 0)
+                if (_currentReader == null || string.IsNullOrEmpty(txtPakPath.Text) || !File.Exists(txtPakPath.Text))
                 {
-                    if (_currentReader == null || string.IsNullOrEmpty(txtPakPath.Text) || !File.Exists(txtPakPath.Text))
+                    string firstPath = files[0];
+                    if (File.Exists(firstPath) && firstPath.EndsWith(".pak", StringComparison.OrdinalIgnoreCase))
                     {
-                        string firstPath = files[0];
-                        if (File.Exists(firstPath) && firstPath.EndsWith(".pak", StringComparison.OrdinalIgnoreCase))
-                        {
-                            txtPakPath.Text = firstPath;
-                            LoadPak(firstPath);
-                        }
-                        else
-                        {
-                            MessageBox.Show(
-                                Strings.PakMaker_PleaseDragAValidPakFile,
-                                Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        }
-                    }
-                    else
-                    {
-                        List<PakInjectItem> itemsToInject = BuildPakInjectItems(files, GetSelectedArchiveFolder());
-
-                        if (itemsToInject.Count == 0)
-                        {
-                            MessageBox.Show(
-                                Strings.PakMaker_NoValidFilesOrFoldersWere,
-                                Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                            return;
-                        }
-
-                        await InjectFilesIntoCurrentPakAsync(itemsToInject);
-                    }
-                }
-                else if (currentTab == 1)
-                {
-                    string path = files[0];
-                    if (Directory.Exists(path))
-                    {
-                        txtSourceFolder.Text = path;
+                        txtPakPath.Text = firstPath;
+                        LoadPak(firstPath);
                     }
                     else
                     {
                         MessageBox.Show(
-                            Strings.PakMaker_PleaseDragAValidFolderTo,
+                            Strings.PakMaker_PleaseDragAValidPakFile,
                             Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
+                }
+                else
+                {
+                    List<PakInjectItem> itemsToInject = BuildPakInjectItems(files, GetSelectedArchiveFolder());
+
+                    if (itemsToInject.Count == 0)
+                    {
+                        MessageBox.Show(
+                            Strings.PakMaker_NoValidFilesOrFoldersWere,
+                            Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    await InjectFilesIntoCurrentPakAsync(itemsToInject);
                 }
             }
         }
@@ -1104,7 +1072,13 @@ namespace PangYa_Suite_Tools
             }
         }
 
-        private void LoadPak(string path, Encoding? filenameEncoding = null)
+        private void LoadPak(string path, Encoding? filenameEncoding = null) =>
+            LoadPakCore(path, filenameEncoding, forceKeys: null);
+
+        private void LoadPakWithKeys(string path, Encoding filenameEncoding, uint[] forceKeys) =>
+            LoadPakCore(path, filenameEncoding, forceKeys);
+
+        private void LoadPakCore(string path, Encoding? filenameEncoding, uint[]? forceKeys)
         {
             AppLogger.Instance.Log("PAK Manager", $"PAK load requested: '{path}'.");
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
@@ -1121,7 +1095,7 @@ namespace PangYa_Suite_Tools
                 _currentReader?.Dispose();
                 var reader = new PakReader(path, filenameEncoding ?? SelectedFilenameEncoding, AppLogger.Instance);
                 _currentReader = reader;
-                reader.Parse();
+                reader.Parse(forceKeys);
                 UpdateDisplayedPakKey();
                 UpdateToolbarEnabledState();
                 if (reader.LocationKeys?.SequenceEqual(PakKeys.SS) == true)
@@ -1173,9 +1147,9 @@ namespace PangYa_Suite_Tools
                 // Garante que toda pasta (mesmo sem uma entry "Directory" explícita) exista na árvore
                 foreach (var entry in _currentReader.Entries)
                 {
-                    if (entry.Type == PakFileEntryType.Directory) continue;
-
-                    string folder = Path.GetDirectoryName(entry.Name.Replace('/', '\\')) ?? "";
+                    string folder = entry.Type == PakFileEntryType.Directory
+                        ? entry.Name.Replace('/', '\\').TrimEnd('\\')
+                        : Path.GetDirectoryName(entry.Name.Replace('/', '\\')) ?? "";
                     EnsureFolderNode(folder);
                 }
             }
@@ -1332,6 +1306,50 @@ namespace PangYa_Suite_Tools
 
         private async void TvFolders_AfterLabelEdit(object? sender, NodeLabelEditEventArgs e)
         {
+            TreeNode? pendingFolderNode = _pendingFolderNode;
+            if (pendingFolderNode != null && ReferenceEquals(e.Node, pendingFolderNode))
+            {
+                e.CancelEdit = true;
+                TreeNode pendingNode = pendingFolderNode;
+                _pendingFolderNode = null;
+
+                if (string.IsNullOrWhiteSpace(e.Label))
+                {
+                    TreeNode? parent = pendingNode.Parent;
+                    pendingNode.Remove();
+                    if (parent != null) tvFolders.SelectedNode = parent;
+                    return;
+                }
+
+                string folderName = e.Label.Trim();
+                if (!IsValidFolderLeafName(folderName))
+                {
+                    MessageBox.Show(Strings.PakMaker_InvalidFolderName,
+                        Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    pendingNode.Remove();
+                    return;
+                }
+
+                string parentPath = pendingNode.Parent?.Tag as string ?? RootFolderTag;
+                string targetPath = CombineArchiveFolders(parentPath, folderName);
+                bool siblingExists = pendingNode.Parent?.Nodes.Cast<TreeNode>()
+                    .Where(node => !ReferenceEquals(node, pendingNode))
+                    .Any(node => NormalizeArchiveFolder(node.Tag as string ?? string.Empty)
+                        .Equals(targetPath, StringComparison.OrdinalIgnoreCase)) == true;
+                if (siblingExists)
+                {
+                    MessageBox.Show(Strings.PakMaker_FolderAlreadyExists,
+                        Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    pendingNode.Remove();
+                    return;
+                }
+
+                pendingNode.Text = "📁 " + folderName;
+                pendingNode.Tag = targetPath;
+                await CreateFolderInCurrentPakAsync(targetPath);
+                return;
+            }
+
             // Se o usuário cancelou a digitação ou enviou vazio, ignora
             if (string.IsNullOrWhiteSpace(e.Label) || _currentReader == null)
             {
@@ -1370,6 +1388,104 @@ namespace PangYa_Suite_Tools
             // Dispara a nossa assinatura dedicada
             await ExecuteItemRename(node, newName);
         }
+
+        private void BeginCreateFolder()
+        {
+            if (_currentReader == null || string.IsNullOrEmpty(txtPakPath.Text) || !File.Exists(txtPakPath.Text))
+            {
+                MessageBox.Show(Strings.PakMaker_SelectAnActivePakFileFirst,
+                    Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (_pendingFolderNode != null)
+            {
+                _pendingFolderNode.Remove();
+                _pendingFolderNode = null;
+            }
+
+            TreeNode parent = tvFolders.SelectedNode ?? tvFolders.Nodes[0];
+            var node = new TreeNode(Strings.PakMaker_NewFolderDefaultName)
+            {
+                Tag = CombineArchiveFolders(parent.Tag as string ?? RootFolderTag,
+                    Strings.PakMaker_NewFolderDefaultName)
+            };
+            parent.Nodes.Add(node);
+            parent.Expand();
+            _pendingFolderNode = node;
+            tvFolders.SelectedNode = node;
+            node.BeginEdit();
+        }
+
+        private async Task CreateFolderInCurrentPakAsync(string targetPath)
+        {
+            if (_currentReader == null || string.IsNullOrEmpty(txtPakPath.Text)) return;
+
+            string pakPath = txtPakPath.Text;
+            PakReader reader = _currentReader;
+            PakRebuildOptions options = BuildRebuildOptionsForCurrentPak();
+            lblStatus.Text = Strings.PakMaker_CreatingFolder;
+            tvFolders.Enabled = false;
+            using CancellationTokenSource operation = BeginOperation();
+
+            try
+            {
+                bool created = await Task.Run(() => PakManager.CreateDirectory(
+                    pakPath, reader, targetPath, options,
+                    log: message => AppLogger.Instance.Log("PAK Manager", message),
+                    onProgress: (done, total) => ReportProgress(done, total, Strings.PakMaker_RebuildingPAK),
+                    SaveBck: false, cancellationToken: operation.Token));
+
+                LoadPak(pakPath, options.FileNameEncoding);
+                TreeNode? targetNode = FindFolderNode(targetPath);
+                if (targetNode != null)
+                {
+                    tvFolders.SelectedNode = targetNode;
+                    targetNode.EnsureVisible();
+                }
+
+                if (created)
+                    lblStatus.Text = Strings.PakMaker_FolderCreated;
+                else
+                    MessageBox.Show(Strings.PakMaker_FolderAlreadyExists,
+                        Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = Strings.Pak_OperationCancelled;
+                LoadPak(pakPath, options.FileNameEncoding);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Instance.Log("PAK Manager", $"Folder creation failed: {ex}", AppLogLevel.Error);
+                lblStatus.Text = Strings.PakMaker_CreateFolderFailed;
+                MessageBox.Show($"{Strings.PakMaker_CreateFolderFailed} {ex.Message}",
+                    Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                LoadPak(pakPath, options.FileNameEncoding);
+            }
+            finally
+            {
+                HideProgress();
+                tvFolders.Enabled = true;
+                EndOperation(operation);
+            }
+        }
+
+        private TreeNode? FindFolderNode(string folderPath)
+        {
+            string normalized = NormalizeArchiveFolder(folderPath);
+            return _folderNodes.Values.FirstOrDefault(node =>
+                NormalizeArchiveFolder(node.Tag as string ?? string.Empty)
+                    .Equals(normalized, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool IsValidFolderLeafName(string name) =>
+            !string.IsNullOrWhiteSpace(name) &&
+            string.Equals(name, name.Trim(), StringComparison.Ordinal) &&
+            name is not "." and not ".." &&
+            !name.Contains('/') &&
+            !name.Contains('\\') &&
+            name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
 
         private void UpdateChildNodeTags(TreeNode parentNode, string newPrefix)
         {
@@ -1434,14 +1550,6 @@ namespace PangYa_Suite_Tools
                 .Select(en => en.Name)
                 .ToList();
 
-            if (filesInFolder.Count == 0)
-            {
-                AppLogger.Instance.Log("PAK Manager", $"No files were found in folder '{folderTag}'.", AppLogLevel.Warning);
-                MessageBox.Show(Strings.PakMaker_NoFilesFoundInsideThisFolder,
-                    Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
             // Mensagem de confirmação específica para a pasta selecionada
             string folderName = tvFolders.SelectedNode.Text.Replace("📁 ", "");
             string confirmationMessage = string.Format(LocalizationManager.CurrentCulture,
@@ -1472,7 +1580,7 @@ namespace PangYa_Suite_Tools
 
                 await Task.Run(() =>
                 {
-                    PakManager.RemoveFiles(pakPath, reader, filesInFolder, options,
+                    PakManager.RemoveDirectory(pakPath, reader, folderTag, options,
                         log: msg => AppLogger.Instance.Log("PAK Manager", msg),
                         onProgress: (done, total) => ReportProgress(done, total, Strings.PakMaker_RebuildingPAK),
                         SaveBck: false, cancellationToken: operation.Token);
@@ -1666,6 +1774,7 @@ namespace PangYa_Suite_Tools
                 foreach (ToolStripItem item in _requiresLoadedPakToolbarItems)
                     item.Enabled = canUsePak;
 
+                if (_toolbarNewPak != null) _toolbarNewPak.Enabled = !_operationInProgress;
                 if (_toolbarBatchExtract != null) _toolbarBatchExtract.Enabled = !_operationInProgress;
                 btnBatchExtract.Enabled = !_operationInProgress;
                 if (_toolbarExtractSelected != null) _toolbarExtractSelected.Enabled = canUsePak && hasSelection;
@@ -2126,20 +2235,12 @@ namespace PangYa_Suite_Tools
                 }
             }
 
-            // Obtém a região selecionada na ComboBox
-            RegionOption selectedRegion = cboRegion.SelectedItem as RegionOption
-                ?? new RegionOption("Japan", PakKeys.JP);
-            PakFileEntryVersion entryVersion = cboVersion.SelectedItem is PakFileEntryVersion version
-                ? version : PakFileEntryVersion.V3;
-            PakFileEntryType entryType = cboCompressType.SelectedItem is PakFileEntryType type
-                ? type : PakFileEntryType.LZ772;
-
             // Retorna as opções preenchidas corretamente com o estado atual do Header.Author
             return new PakRebuildOptions(
-                EntryVersion: entryVersion,
-                EntryType: entryType,
-                CompressLevel: (byte)numCompressLevel.Value,
-                LocationKeys: _currentReader?.LocationKeys ?? (uint[])selectedRegion.Keys,
+                EntryVersion: _creationOptions.EntryVersion,
+                EntryType: _creationOptions.EntryType,
+                CompressLevel: _creationOptions.CompressLevel,
+                LocationKeys: _currentReader?.LocationKeys ?? [.. _creationOptions.LocationKeys],
                 Author: _currentReader?.Header.Author ?? "PakMaker"
             )
             {
@@ -2485,93 +2586,76 @@ namespace PangYa_Suite_Tools
             }
         }
 
-        // ─── ABA 2: CRIAÇÃO DE PAK ─────────────────────────────────────────────
-        private void btnBrowseFolder_Click(object? sender, EventArgs e)
+        private async Task CreateEmptyPakAsync()
         {
-            using var folderDialog = new FolderBrowserDialog();
-            if (folderDialog.ShowDialog() == DialogResult.OK)
-            {
-                txtSourceFolder.Text = folderDialog.SelectedPath;
-            }
-        }
-
-        private async void btnCreatePak_Click(object? sender, EventArgs e)
-        {
-            AppLogger.Instance.Log("PAK Writer", "Create PAK requested.");
-            string source = txtSourceFolder.Text;
-            if (string.IsNullOrEmpty(source) || !Directory.Exists(source))
-            {
-                MessageBox.Show(
-                          Strings.PakMaker_SelectAValidSourceDirectory,
-                          Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            using var optionsDialog = new PakCreationOptionsDialog(_creationOptions);
+            if (optionsDialog.ShowDialog(this) != DialogResult.OK)
                 return;
-            }
 
-            using var saveFileDialog = new SaveFileDialog { Filter = Strings.Pak_SaveFileFilter, Title = Strings.PakMaker_SaveNewPAK };
-            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+            PakCreationOptions selectedOptions = optionsDialog.SelectedOptions;
+            AppLogger.Instance.Log("PAK Writer", "Create empty PAK requested.");
+
+            using var saveFileDialog = new SaveFileDialog
             {
-                using CancellationTokenSource operation = BeginOperation();
-                try
-                {
-                    RegionOption? selectedItem = cboRegion.SelectedItem as RegionOption;
-                    if (selectedItem != null)
-                    {
-                        btnCreatePak.Enabled = false;
-                        lblStatus.Text = Strings.PakMaker_CompilingPAK;
-                        uint[] selectedKeys = selectedItem.Keys;//name is keys, label is name key 
-                        var selectedVersion = cboVersion.SelectedItem is PakFileEntryVersion version
-                            ? version : PakFileEntryVersion.V3;
-                        //minha tecnica antiga para criar paks raw
-                        if (selectedVersion == PakFileEntryVersion.Raw)
-                        {
-                            selectedKeys = Array.Empty<uint>(); 
-                        }
+                Filter = Strings.Pak_SaveFileFilter,
+                Title = Strings.Pak_SaveEmptyFileTitle
+            };
+            if (saveFileDialog.ShowDialog(this) != DialogResult.OK) return;
 
-                        //tambem tem a versao raw ou universal key, que nao inserimos chave, pois ela se trata de dados brutos diferentes
-                        var writer = new PakWriter
-                        {
-                            EntryVersion = selectedVersion,
-                            EntryType = cboCompressType.SelectedItem is PakFileEntryType type
-                                ? type : PakFileEntryType.LZ772,
-                            CompressLevel = (byte)numCompressLevel.Value,
-                            // Se não for Raw e selectedKeys vier nulo por falha de seleção, aplica o fallback JP
-                            LocationKeys = selectedKeys ?? (selectedVersion == PakFileEntryVersion.Raw ? Array.Empty<uint>() : PakKeys.JP),
-                            Author = txtUpdateAuthor.Text, // Assinatura do PAK
-                            FileNameEncoding = SelectedFilenameEncoding,
-                            LogSink = AppLogger.Instance
-                        };
-                        //inicia a criacao do pak
-                        await Task.Run(() => writer.CreateFromDirectory(
-                            source, saveFileDialog.FileName, log: null, operation.Token));
-                        //terminou
-                        lblStatus.Text = Strings.PakMaker_Ready;
-                        btnCreatePak.Enabled = true;
-                        MessageBox.Show(
-                                            Strings.PakMaker_PakFileGeneratedSuccessfully,
-                                            Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    else
-                    {
-                        MessageBox.Show(Strings.PakMaker_PleaseSelectAValidRegionBefore, Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
-                    }
-                }
-                catch (OperationCanceledException)
+            _creationOptions = selectedOptions;
+            uint[] selectedKeys = selectedOptions.EntryVersion == PakFileEntryVersion.Raw
+                ? Array.Empty<uint>()
+                : [.. selectedOptions.LocationKeys];
+            Encoding filenameEncoding = SelectedFilenameEncoding;
+            var writer = new PakWriter
+            {
+                EntryVersion = selectedOptions.EntryVersion,
+                EntryType = selectedOptions.EntryType,
+                CompressLevel = selectedOptions.CompressLevel,
+                LocationKeys = selectedKeys,
+                Author = txtUpdateAuthor.Text,
+                FileNameEncoding = filenameEncoding,
+                LogSink = AppLogger.Instance
+            };
+
+            using CancellationTokenSource operation = BeginOperation();
+            lblStatus.Text = Strings.Pak_CreatingEmpty;
+            try
+            {
+                await Task.Run(() => writer.CreateEmpty(
+                    saveFileDialog.FileName, log: null, operation.Token));
+
+                uint[]? forceKeys = selectedOptions.EntryVersion switch
                 {
-                    lblStatus.Text = Strings.Pak_OperationCancelled;
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.Instance.Log("PAK Writer", $"Create PAK failed: {ex}", AppLogLevel.Error);
-                    lblStatus.Text = Strings.PakMaker_ErrorCreatingPAK;
-                    btnCreatePak.Enabled = true;
-                    MessageBox.Show($"{Strings.PakMaker_CompilationError} {ex.Message}", Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                finally
-                {
-                    btnCreatePak.Enabled = true;
-                    EndOperation(operation);
-                }
+                    PakFileEntryVersion.V3 => selectedKeys,
+                    PakFileEntryVersion.Raw => Array.Empty<uint>(),
+                    _ => null
+                };
+                txtPakPath.Text = saveFileDialog.FileName;
+                if (forceKeys != null)
+                    LoadPakWithKeys(saveFileDialog.FileName, filenameEncoding, forceKeys);
+                else
+                    LoadPak(saveFileDialog.FileName, filenameEncoding);
+
+                lblStatus.Text = Strings.PakMaker_Ready;
+                MessageBox.Show(
+                    Strings.Pak_EmptyCreated,
+                    Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = Strings.Pak_OperationCancelled;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Instance.Log("PAK Writer", $"Create PAK failed: {ex}", AppLogLevel.Error);
+                lblStatus.Text = Strings.PakMaker_ErrorCreatingPAK;
+                MessageBox.Show($"{Strings.PakMaker_CompilationError} {ex.Message}",
+                    Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                EndOperation(operation);
             }
         }
 

@@ -1,9 +1,19 @@
 using PangyaAPI.UpdateList.Models;
+using PangyaAPI.Utilities.Cryptography;
 
 namespace PangyaAPI.Tests;
 
 public sealed class UpdateListRoundTripTests
 {
+    [Fact]
+    public void UpdateKeys_IncludesSuperSsDevForGeneratorSelection()
+    {
+        var ssDev = Assert.Single(UpdateKeys.All, item => item.Label == "Super SS Dev");
+
+        Assert.Same(UpdateKeys.SS, ssDev.Keys);
+        Assert.Equal([0x087A0F82u, 0x1880DD08u, 0x85FA69CBu, 0xFF5808EAu], ssDev.Keys);
+    }
+
     [Fact]
     public void GenerateFromDirectory_EnumeratesDeterministicallyAndSkipsMetadataFiles()
     {

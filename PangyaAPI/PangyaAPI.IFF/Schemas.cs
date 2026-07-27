@@ -4,7 +4,7 @@ using System.Text;
 
 namespace PangyaAPI.IFF;
 
-public enum IffFieldType { Boolean, Byte, UInt16, Int16, UInt32, Int32, Single, BitField, BooleanBitField, ZeroBoolean, FixedString, LongString, DateTime, Raw, ByteRangeBoolean, ItemIdReference, Icon, Sound }
+public enum IffFieldType { Boolean, Byte, UInt16, Int16, UInt32, Int32, Single, BitField, BooleanBitField, ZeroBoolean, FixedString, LongString, DateTime, Raw, ByteRangeBoolean, ItemIdReference, Icon, Sound, Int64 }
 
 public sealed record IffField(
     string Name, int Offset, int Width, IffFieldType Type, bool IsEditable = true,
@@ -12,7 +12,8 @@ public sealed record IffField(
     uint? BitMask = null, int BitShift = 0, bool IsVisible = true,
     IffFieldReference? Reference = null,
     string? IconPath = null,
-    string? SoundPath = null)
+    string? SoundPath = null,
+    bool IsInherited = false)
 {
     public object GetValue(ReadOnlySpan<byte> record, Encoding? stringEncoding = null)
     {
@@ -26,6 +27,7 @@ public sealed record IffField(
             IffFieldType.Int16 => BinaryPrimitives.ReadInt16LittleEndian(value),
             IffFieldType.UInt32 or IffFieldType.ItemIdReference => BinaryPrimitives.ReadUInt32LittleEndian(value),
             IffFieldType.Int32 => BinaryPrimitives.ReadInt32LittleEndian(value),
+            IffFieldType.Int64 => BinaryPrimitives.ReadInt64LittleEndian(value),
             IffFieldType.Single => BinaryPrimitives.ReadSingleLittleEndian(value),
             IffFieldType.BitField => ReadBitField(value),
             IffFieldType.BooleanBitField => ReadBooleanBitField(value),
@@ -53,6 +55,7 @@ public sealed record IffField(
                 BinaryPrimitives.WriteUInt32LittleEndian(target, checked((uint)CheckedInteger(input)));
                 break;
             case IffFieldType.Int32: BinaryPrimitives.WriteInt32LittleEndian(target, checked((int)CheckedInteger(input))); break;
+            case IffFieldType.Int64: BinaryPrimitives.WriteInt64LittleEndian(target, CheckedInteger(input)); break;
             case IffFieldType.Single: BinaryPrimitives.WriteSingleLittleEndian(target, Convert.ToSingle(input, CultureInfo.InvariantCulture)); break;
             case IffFieldType.BitField: WriteBitField(target, input); break;
             case IffFieldType.BooleanBitField: WriteBooleanBitField(target, input); break;
@@ -235,4 +238,7 @@ public sealed record IffSchema(
     bool IsEditable = true,
     int DefaultStringSize = 32,
     IffSchemaUiDefinition? Ui = null,
-    int DefaultLongStringSize = 512);
+    int DefaultLongStringSize = 512,
+    IffSchemaBaseReference? BaseReference = null,
+    IReadOnlyList<IffField>? LocalFields = null,
+    int DefaultRevision = 0);

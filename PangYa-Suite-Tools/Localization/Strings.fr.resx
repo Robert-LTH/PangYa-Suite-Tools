@@ -109,6 +109,13 @@ Sélectionnez le répertoire des fichiers IFF.</value>
   <data name="PakMaker_RenameThisPAK" xml:space="preserve">
     <value>✏️ Renommer le dossier/fichier (F2)</value>
   </data>
+  <data name="PakMaker_CreateFolder" xml:space="preserve"><value>📁 Nouveau dossier...</value></data>
+  <data name="PakMaker_NewFolderDefaultName" xml:space="preserve"><value>Nouveau dossier</value></data>
+  <data name="PakMaker_CreatingFolder" xml:space="preserve"><value>Création du dossier et reconstruction du PAK...</value></data>
+  <data name="PakMaker_FolderCreated" xml:space="preserve"><value>Dossier créé avec succès.</value></data>
+  <data name="PakMaker_CreateFolderFailed" xml:space="preserve"><value>Impossible de créer le dossier.</value></data>
+  <data name="PakMaker_FolderAlreadyExists" xml:space="preserve"><value>Un dossier portant ce nom existe déjà à l’emplacement sélectionné.</value></data>
+  <data name="PakMaker_InvalidFolderName" xml:space="preserve"><value>Saisissez un nom de dossier valide sans séparateur de chemin.</value></data>
   <data name="PakMaker_RenameProcess" xml:space="preserve">
     <value>Traitement des nouveaux chemins et mise à jour du fichier PAK...</value>
   </data>
@@ -147,9 +154,6 @@ Sélectionnez le répertoire des fichiers IFF.</value>
   </data>
   <data name="PakMaker_NoValidFilesOrFoldersWere" xml:space="preserve">
     <value>Aucun fichier ou dossier valide n'a été trouvé pour l'injection.</value>
-  </data>
-  <data name="PakMaker_PleaseDragAValidFolderTo" xml:space="preserve">
-    <value>Veuillez glisser un dossier valide pour compiler un nouveau PAK.</value>
   </data>
   <data name="PakMaker_Author" xml:space="preserve">
     <value>Auteur :</value>
@@ -334,21 +338,6 @@ Sélectionnez un dossier spécifique.</value>
   </data>
   <data name="PakMaker_TheSelectedItemsWereRemovedSuccessfully" xml:space="preserve">
     <value>Les éléments sélectionnés ont été supprimés avec succès et le fichier PAK a été reconstruit !</value>
-  </data>
-  <data name="PakMaker_SelectAValidSourceDirectory" xml:space="preserve">
-    <value>Sélectionnez un répertoire source valide.</value>
-  </data>
-  <data name="PakMaker_SaveNewPAK" xml:space="preserve">
-    <value>Enregistrer le nouveau PAK</value>
-  </data>
-  <data name="PakMaker_CompilingPAK" xml:space="preserve">
-    <value>Compilation du PAK...</value>
-  </data>
-  <data name="PakMaker_PakFileGeneratedSuccessfully" xml:space="preserve">
-    <value>Fichier .pak généré avec succès !</value>
-  </data>
-  <data name="PakMaker_PleaseSelectAValidRegionBefore" xml:space="preserve">
-    <value>Veuillez sélectionner une région valide avant de continuer.</value>
   </data>
   <data name="PakMaker_ErrorCreatingPAK" xml:space="preserve">
     <value>Erreur lors de la création du PAK</value>
@@ -558,9 +547,6 @@ Déclencheur :</value>
   <data name="Pak_Title" xml:space="preserve">
     <value>PangYa Studio - Gestionnaire PAK</value>
   </data>
-  <data name="Pak_TabExtract" xml:space="preserve">
-    <value>Lecteur &amp; Modifications</value>
-  </data>
   <data name="Pak_Browse" xml:space="preserve">
     <value>Parcourir...</value>
   </data>
@@ -627,15 +613,8 @@ Déclencheur :</value>
   <data name="Pak_ShowToolbarText" xml:space="preserve">
     <value>Afficher le texte sous les icônes de la barre d'outils</value>
   </data>
-  <data name="Pak_TabCreate" xml:space="preserve">
-    <value>Créer un nouveau PAK</value>
-  </data>
-  <data name="Pak_SourceHint" xml:space="preserve">
-    <value>Glissez un dossier ici...</value>
-  </data>
-  <data name="Pak_SelectFolder" xml:space="preserve">
-    <value>Sélectionner...</value>
-  </data>
+  <data name="Pak_New" xml:space="preserve"><value>Nouveau</value></data>
+  <data name="Pak_NewDialogTitle" xml:space="preserve"><value>Créer un nouveau PAK</value></data>
   <data name="Pak_EntryVersion" xml:space="preserve">
     <value>Version de l'entrée :</value>
   </data>
@@ -648,9 +627,10 @@ Déclencheur :</value>
   <data name="Pak_Region" xml:space="preserve">
     <value>Région / Clés (XTEA) :</value>
   </data>
-  <data name="Pak_Create" xml:space="preserve">
-    <value>📦 GÉNÉRER LE FICHIER .PAK</value>
-  </data>
+  <data name="Pak_CreateEmpty" xml:space="preserve"><value>📄 CRÉER UN FICHIER .PAK VIDE</value></data>
+  <data name="Pak_SaveEmptyFileTitle" xml:space="preserve"><value>Enregistrer un PAK vide</value></data>
+  <data name="Pak_CreatingEmpty" xml:space="preserve"><value>Création du PAK vide...</value></data>
+  <data name="Pak_EmptyCreated" xml:space="preserve"><value>Le PAK vide a été créé et ouvert. Ajoutez des dossiers ou des fichiers pour commencer à le construire.</value></data>
   <data name="Pak_Ready" xml:space="preserve">
     <value>Prêt</value>
   </data>
@@ -723,6 +703,7 @@ Déclencheur :</value>
   <data name="Common_OK" xml:space="preserve">
     <value>OK</value>
   </data>
+  <data name="Common_Cancel" xml:space="preserve"><value>Annuler</value></data>
   <data name="Pak_OpenFileTitle" xml:space="preserve">
     <value>Ouvrir une archive PAK</value>
   </data>
@@ -731,9 +712,6 @@ Déclencheur :</value>
   </data>
   <data name="Pak_SaveFileFilter" xml:space="preserve">
     <value>PAK Pangya (*.pak)|*.pak</value>
-  </data>
-  <data name="Pak_SecurityPak" xml:space="preserve">
-    <value>PAK de sécurité</value>
   </data>
   <data name="Pak_FilenameEncoding" xml:space="preserve">
     <value>Noms de fichiers :</value>
@@ -812,6 +790,18 @@ Déclencheur :</value>
   <data name="PakDiff_ColumnSourcePak" xml:space="preserve"><value>PAK source</value></data>
   <data name="PakDiff_ExtractSelected" xml:space="preserve"><value>📦 Extraire la sélection</value></data>
   <data name="IFFManager_OpenArchive" xml:space="preserve"><value>Ouvrir l'archive</value></data>
+  <data name="IFFManager_Extract" xml:space="preserve"><value>Extraire l’IFF</value></data>
+  <data name="IFFManager_ExtractAll" xml:space="preserve"><value>Extraire tous les IFF</value></data>
+  <data name="IFFManager_ExtractAllTitle" xml:space="preserve"><value>Sélectionnez le dossier de destination de tous les fichiers IFF</value></data>
+  <data name="IFFManager_ExtractTitle" xml:space="preserve"><value>Extraire l’IFF sélectionné</value></data>
+  <data name="IFFManager_ExtractFilter" xml:space="preserve"><value>Fichiers IFF (*.iff)|*.iff|Tous les fichiers (*.*)|*.*</value></data>
+  <data name="IFFManager_ExtractedFormat" xml:space="preserve"><value>{0} a été extrait avec succès.</value></data>
+  <data name="IFFManager_ExtractedAllFormat" xml:space="preserve"><value>{0} fichiers IFF ont été extraits vers {1}.</value></data>
+  <data name="IFFManager_ExtractCancelled" xml:space="preserve"><value>L’extraction de l’IFF a été annulée.</value></data>
+  <data name="IFFManager_ExtractSourceConflict" xml:space="preserve"><value>La destination sélectionnée est l’IFF ou le conteneur source. Choisissez un autre fichier.</value></data>
+  <data name="IFFManager_ExtractAllNameCollisionFormat" xml:space="preserve"><value>Plusieurs entrées de l’archive seraient extraites sous le nom {0}. Renommez-les ou extrayez-les individuellement.</value></data>
+  <data name="IFFManager_ExtractAllInvalidNameFormat" xml:space="preserve"><value>L’entrée d’archive {0} n’a pas un nom de fichier Windows valide.</value></data>
+  <data name="IFFManager_ExtractAllFailedFormat" xml:space="preserve"><value>Impossible d’extraire tous les fichiers IFF : {0}</value></data>
   <data name="IFFManager_OpenArchiveFilter" xml:space="preserve"><value>Archives IFF PangYa (*.iff;*.zip)|*.iff;*.zip|Tous les fichiers (*.*)|*.*</value></data>
   <data name="IFFManager_Save" xml:space="preserve"><value>Enregistrer</value></data>
   <data name="IFFManager_Saved" xml:space="preserve"><value>IFF enregistré avec succès. Une sauvegarde a été créée.</value></data>
@@ -853,12 +843,61 @@ Déclencheur :</value>
   <data name="IFFManager_OnlyCustomColumnsEditable" xml:space="preserve"><value>Seules les colonnes hexadécimales et de cases à cocher peuvent être modifiées avec cette boîte de dialogue.</value></data>
   <data name="IFFManager_SchemaRequiresColumn" xml:space="preserve"><value>Un schéma IFF doit contenir au moins une colonne.</value></data>
   <data name="IFFManager_SchemaWarning" xml:space="preserve"><value>L'IFF a été ouvert en tant que données brutes en lecture seule car son schéma JSON n'a pas pu être chargé.</value></data>
+  <data name="IFFManager_SchemaRecoveryTitle" xml:space="preserve"><value>Réparer le schéma JSON</value></data>
+  <data name="IFFManager_SchemaRecoveryDescription" xml:space="preserve"><value>Le schéma enregistré n'a pas pu être chargé. Corrigez le JSON ci-dessous ; l'IFF reste en lecture seule jusqu'à ce que le schéma soit valide.</value></data>
+  <data name="IFFManager_SchemaRecoverySourceFormat" xml:space="preserve"><value>Source : {0}</value></data>
+  <data name="IFFManager_SchemaUpdates" xml:space="preserve"><value>Mises à jour des schémas...</value></data>
+  <data name="IFFManager_SchemaUpdateDescription" xml:space="preserve"><value>Des définitions de schéma intégrées plus récentes sont disponibles. Choisissez de remplacer chaque fichier local, de conserver votre définition complète comme valeur par défaut préférée ou de décider plus tard. Les fichiers modifiés sont sauvegardés avant écriture.</value></data>
+  <data name="IFFManager_SchemaUpdateFile" xml:space="preserve"><value>Fichier de schéma</value></data>
+  <data name="IFFManager_SchemaUpdateRegion" xml:space="preserve"><value>Région</value></data>
+  <data name="IFFManager_SchemaUpdateLocalRevision" xml:space="preserve"><value>Révision locale</value></data>
+  <data name="IFFManager_SchemaUpdateBundledRevision" xml:space="preserve"><value>Révision par défaut</value></data>
+  <data name="IFFManager_SchemaUpdateAction" xml:space="preserve"><value>Action</value></data>
+  <data name="IFFManager_SchemaUpdateKeep" xml:space="preserve"><value>Conserver pour l'instant</value></data>
+  <data name="IFFManager_SchemaUpdateReplace" xml:space="preserve"><value>Remplacer par le schéma intégré</value></data>
+  <data name="IFFManager_SchemaUpdateUseMine" xml:space="preserve"><value>Utiliser ma définition par défaut</value></data>
+  <data name="IFFManager_SchemaUpdateLocalDefinition" xml:space="preserve"><value>Votre définition locale</value></data>
+  <data name="IFFManager_SchemaUpdateBundledDefinition" xml:space="preserve"><value>Nouveau schéma intégré</value></data>
+  <data name="IFFManager_SchemaUpdateApply" xml:space="preserve"><value>Appliquer les actions sélectionnées</value></data>
+  <data name="IFFManager_SchemaUpdateNoneAvailable" xml:space="preserve"><value>Aucun schéma par défaut plus récent n'est disponible.</value></data>
+  <data name="IFFManager_SchemaUpdateAppliedFormat" xml:space="preserve"><value>Mises à jour appliquées : {0} remplacé(s), {1} conservé(s) comme préféré(s). Sauvegarde : {2}</value></data>
   <data name="IFFManager_Region" xml:space="preserve"><value>Région :</value></data>
   <data name="IFFManager_RegionAuto" xml:space="preserve"><value>Détection automatique</value></data>
   <data name="IFFManager_RegionThailand" xml:space="preserve"><value>Thaïlande</value></data>
   <data name="IFFManager_RegionJapan" xml:space="preserve"><value>Japon</value></data>
+  <data name="IFFManager_RegionGlobal" xml:space="preserve"><value>Global</value></data>
+  <data name="IFFManager_UnknownRegionTitle" xml:space="preserve"><value>Région IFF inconnue</value></data>
+  <data name="IFFManager_UnknownRegionDescription" xml:space="preserve"><value>L’en-tête ne correspond à aucune région connue. Vérifiez-le et sélectionnez la région du schéma.</value></data>
+  <data name="IFFManager_UnknownRegionHeaderFormat" xml:space="preserve"><value>Enregistrements : {0}&#xD;&#xA;Révision : {1}&#xD;&#xA;Magic : {2}&#xD;&#xA;Réservé : {3}&#xD;&#xA;Taille d’enregistrement : {4} octets</value></data>
+  <data name="IFFManager_UnknownRegionSelect" xml:space="preserve"><value>Région du schéma :</value></data>
+  <data name="IFFManager_UnknownRegionOpen" xml:space="preserve"><value>Ouvrir</value></data>
+  <data name="IFFManager_Patch" xml:space="preserve"><value>Patch IFF</value></data>
+  <data name="IFFManager_PatchSelectSource" xml:space="preserve"><value>Sélectionner l’IFF source du patch</value></data>
+  <data name="IFFManager_PatchSourceFilter" xml:space="preserve"><value>Fichiers IFF (*.iff)|*.iff|Tous les fichiers (*.*)|*.*</value></data>
+  <data name="IFFManager_PatchNameMismatch" xml:space="preserve"><value>Sélectionnez un fichier source nommé {0}.iff.</value></data>
+  <data name="IFFManager_PatchSourceOptions" xml:space="preserve"><value>Encodage du fichier de patch</value></data>
+  <data name="IFFManager_PatchSourceEncoding" xml:space="preserve"><value>Encodage du fichier de patch :</value></data>
+  <data name="IFFManager_PatchEncodingDescriptionFormat" xml:space="preserve"><value>Sélectionnez l’encodage de texte utilisé par le fichier de patch : {0}</value></data>
+  <data name="IFFManager_PatchNext" xml:space="preserve"><value>Suivant</value></data>
+  <data name="IFFManager_PatchNoSharedItems" xml:space="preserve"><value>La source et la cible n’ont aucun ID d’article en commun.</value></data>
+  <data name="IFFManager_PatchSelectItems" xml:space="preserve"><value>Sélectionner les articles à patcher</value></data>
+  <data name="IFFManager_PatchSelectionDescription" xml:space="preserve"><value>Sélectionnez les ID correspondants dont les valeurs compatibles remplaceront les valeurs cibles.</value></data>
+  <data name="IFFManager_PatchItemFormat" xml:space="preserve"><value>ID {0} — {1} champs modifiés{2}</value></data>
+  <data name="IFFManager_PatchSelectAll" xml:space="preserve"><value>Tout sélectionner</value></data>
+  <data name="IFFManager_PatchClearAll" xml:space="preserve"><value>Tout désélectionner</value></data>
+  <data name="IFFManager_PatchReview" xml:space="preserve"><value>Vérifier le patch</value></data>
+  <data name="IFFManager_PatchNoItemsSelected" xml:space="preserve"><value>Aucun ID d’article n’a été sélectionné.</value></data>
+  <data name="IFFManager_PatchNoCompatibleFields" xml:space="preserve"><value>La source et la cible ne contiennent aucun champ compatible à patcher.</value></data>
+  <data name="IFFManager_PatchSelectFields" xml:space="preserve"><value>Sélectionner les champs à patcher</value></data>
+  <data name="IFFManager_PatchFieldSelectionDescription" xml:space="preserve"><value>Sélectionnez les champs à copier depuis le fichier de patch pour chaque ID d’article sélectionné.</value></data>
+  <data name="IFFManager_PatchNoFieldsSelected" xml:space="preserve"><value>Aucun champ n’a été sélectionné.</value></data>
+  <data name="IFFManager_PatchNoChangesSelected" xml:space="preserve"><value>Les articles et champs sélectionnés ne contiennent aucune modification à appliquer.</value></data>
+  <data name="IFFManager_PatchSummaryFormat" xml:space="preserve"><value>Appliquer ce patch ?&#xD;&#xA;&#xD;&#xA;Articles sélectionnés : {0}&#xD;&#xA;Champs modifiés : {1}&#xD;&#xA;Champs ignorés : {2}&#xD;&#xA;Textes tronqués : {3}&#xD;&#xA;Uniquement dans la source : {4}&#xD;&#xA;Uniquement dans la cible : {5}</value></data>
+  <data name="IFFManager_PatchAppliedFormat" xml:space="preserve"><value>Patch appliqué à {0} enregistrements. Enregistrez l’IFF pour conserver les modifications.</value></data>
   <data name="IFFManager_RegionAppliesNextLoad" xml:space="preserve"><value>La région sélectionnée sera utilisée lors du prochain chargement d'un IFF.</value></data>
   <data name="IFFManager_FieldType" xml:space="preserve"><value>Type de champ :</value></data>
+  <data name="IFFManager_FieldTypeImageResource" xml:space="preserve"><value>Ressource image</value></data>
+  <data name="IFFManager_FieldImageResourcePath" xml:space="preserve"><value>Chemin de la ressource image :</value></data>
   <data name="IFFManager_FieldEditable" xml:space="preserve"><value>Le champ est modifiable</value></data>
   <data name="IFFManager_EncodingCodePage" xml:space="preserve"><value>Page de code d'encodage :</value></data>
   <data name="IFFManager_EncodingDocumentDefault" xml:space="preserve"><value>Encodage du document/par défaut</value></data>
@@ -871,7 +910,7 @@ Déclencheur :</value>
   <data name="IFFManager_ReferenceDisplayField" xml:space="preserve"><value>Champ d'affichage :</value></data>
   <data name="IFFManager_ReferenceIconField" xml:space="preserve"><value>Champ d'icône :</value></data>
   <data name="IFFManager_ReferenceIconPath" xml:space="preserve"><value>Chemin de l'icône :</value></data>
-  <data name="IFFManager_FieldIconPath" xml:space="preserve"><value>Chemin de l'icône du champ :</value></data>
+  <data name="IFFManager_FieldIconPath" xml:space="preserve"><value>Chemin de la ressource image :</value></data>
   <data name="IFFManager_FieldSoundPath" xml:space="preserve"><value>Chemin du son du champ :</value></data>
   <data name="IFFManager_PlaySound" xml:space="preserve"><value>Lire</value></data>
   <data name="IFFManager_SoundFileNotFound" xml:space="preserve"><value>Le fichier son est introuvable dans le dossier de données sélectionné.</value></data>
@@ -884,6 +923,9 @@ Déclencheur :</value>
   <data name="IFFManager_MoveDown" xml:space="preserve"><value>Descendre</value></data>
   <data name="IFFManager_DefaultStringSize" xml:space="preserve"><value>Taille de chaîne par défaut :</value></data>
   <data name="IFFManager_ContainerKey" xml:space="preserve"><value>Clé IFF :</value></data>
+  <data name="IFFManager_ToolbarRegionFormat" xml:space="preserve"><value>Région : {0}</value></data>
+  <data name="IFFManager_ToolbarKeyFormat" xml:space="preserve"><value>Clé IFF : {0}</value></data>
+  <data name="IFFManager_ToolbarStringEncodingFormat" xml:space="preserve"><value>Encodage des chaînes : {0}</value></data>
   <data name="IFFManager_KeyNone" xml:space="preserve"><value>Aucune</value></data>
   <data name="IFFManager_KeyPlainZip" xml:space="preserve"><value>ZIP brut</value></data>
   <data name="IFFManager_SelectTemplate" xml:space="preserve"><value>Sélectionner le modèle de champ</value></data>
@@ -939,4 +981,54 @@ Déclencheur :</value>
   <data name="UpdateList_InvalidDestinationFolder" xml:space="preserve"><value>Le dossier de destination du WebServer n’est pas valide.</value></data>
   <data name="UpdateList_PatchVersionRequired" xml:space="preserve"><value>Veuillez renseigner la version du patch.</value></data>
   <data name="IFFManager_DefaultLongStringSize" xml:space="preserve"><value>Taille par défaut des chaînes longues :</value></data>
+  <data name="IFFManager_BaseSchema" xml:space="preserve"><value>Schéma de base :</value></data>
+  <data name="IFFManager_EditBase" xml:space="preserve"><value>Modifier la base...</value></data>
+  <data name="IFFManager_BaseNone" xml:space="preserve"><value>Aucun</value></data>
+  <data name="IFFManager_BaseAuto" xml:space="preserve"><value>Auto — Common.{0}</value></data>
+  <data name="IFFManager_BaseField" xml:space="preserve"><value>Base</value></data>
+  <data name="IFFManager_RegionUnknown" xml:space="preserve"><value>Inconnue</value></data>
+  <data name="Menu_Shop" xml:space="preserve"><value>Éditeur d’interface PangYa</value></data>
+  <data name="UiEditor_Title" xml:space="preserve"><value>Éditeur d’interface PangYa</value></data>
+  <data name="UiEditor_SelectDataFolder" xml:space="preserve"><value>Sélectionnez le dossier de données PangYa extrait contenant le répertoire ui.</value></data>
+  <data name="UiEditor_NoXmlFiles" xml:space="preserve"><value>Aucun fichier XML d’interface PangYa n’a été trouvé dans le répertoire ui.</value></data>
+  <data name="UiEditor_OpenXml" xml:space="preserve"><value>Ouvrir le XML</value></data>
+  <data name="UiEditor_XmlFilter" xml:space="preserve"><value>XML d’interface PangYa (*.xml)|*.xml|Tous les fichiers (*.*)|*.*</value></data>
+  <data name="UiEditor_Reload" xml:space="preserve"><value>Recharger</value></data>
+  <data name="UiEditor_DebugBounds" xml:space="preserve"><value>Cadres de débogage</value></data>
+  <data name="UiEditor_Defines" xml:space="preserve"><value>Définitions :</value></data>
+  <data name="UiEditor_ConditionalPreview" xml:space="preserve"><value>Aperçu conditionnel (lecture seule)</value></data>
+  <data name="UiEditor_ButtonState" xml:space="preserve"><value>État du bouton :</value></data>
+  <data name="UiEditor_StateNormal" xml:space="preserve"><value>Normal</value></data>
+  <data name="UiEditor_StateHover" xml:space="preserve"><value>Survol</value></data>
+  <data name="UiEditor_StateSelected" xml:space="preserve"><value>Sélectionné</value></data>
+  <data name="UiEditor_LoadedFormat" xml:space="preserve"><value>{0} chargé ({1} éléments).</value></data>
+  <data name="UiEditor_Saved" xml:space="preserve"><value>Enregistré.</value></data>
+  <data name="UiEditor_Ready" xml:space="preserve"><value>Sélectionnez un fichier XML d’interface pour commencer.</value></data>
+  <data name="UiEditor_Properties" xml:space="preserve"><value>Propriétés de l’élément</value></data>
+  <data name="UiEditor_Name" xml:space="preserve"><value>Nom</value></data>
+  <data name="UiEditor_Type" xml:space="preserve"><value>Type</value></data>
+  <data name="UiEditor_Width" xml:space="preserve"><value>Largeur</value></data>
+  <data name="UiEditor_Height" xml:space="preserve"><value>Hauteur</value></data>
+  <data name="UiEditor_Resource" xml:space="preserve"><value>Ressource</value></data>
+  <data name="UiEditor_SelectResource" xml:space="preserve"><value>Sélectionner une ressource</value></data>
+  <data name="UiEditor_ResourceMustBeInData" xml:space="preserve"><value>La ressource sélectionnée doit se trouver dans le dossier de données PangYa.</value></data>
+  <data name="UiEditor_LoadFailed" xml:space="preserve"><value>Impossible d’ouvrir l’éditeur d’interface PangYa : {0}</value></data>
+  <data name="Menu_FontViewer" xml:space="preserve"><value>Visionneuse de polices WFT</value></data>
+  <data name="WftViewer_Title" xml:space="preserve"><value>Visionneuse de polices WFT PangYa</value></data>
+  <data name="WftViewer_Open" xml:space="preserve"><value>Ouvrir WFT</value></data>
+  <data name="WftViewer_OpenTitle" xml:space="preserve"><value>Ouvrir une police WFT PangYa</value></data>
+  <data name="WftViewer_FileFilter" xml:space="preserve"><value>Polices WFT PangYa (*.wft)|*.wft</value></data>
+  <data name="WftViewer_Jump" xml:space="preserve"><value>Point de code :</value></data>
+  <data name="WftViewer_Go" xml:space="preserve"><value>Aller</value></data>
+  <data name="WftViewer_SampleZoom" xml:space="preserve"><value>Zoom de l’exemple :</value></data>
+  <data name="WftViewer_SampleText" xml:space="preserve"><value>Texte d’exemple</value></data>
+  <data name="WftViewer_Ready" xml:space="preserve"><value>Ouvrez ou déposez une police WFT pour commencer.</value></data>
+  <data name="WftViewer_Loading" xml:space="preserve"><value>Chargement de la police WFT...</value></data>
+  <data name="WftViewer_MetadataFormat" xml:space="preserve"><value>Cellule : {0}×{0} px   Couverture : {1} bits   Glyphes : {2:N0}   Réservé : 0x{3:X8}</value></data>
+  <data name="WftViewer_LoadedFormat" xml:space="preserve"><value>{0} chargé.</value></data>
+  <data name="WftViewer_LoadFailed" xml:space="preserve"><value>Impossible d’ouvrir la police WFT : {0}</value></data>
+  <data name="WftViewer_GlyphFormat" xml:space="preserve"><value>Caractère : {0}   U+{1:X4}   Avance : {2} px</value></data>
+  <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>Entrez un point de code hexadécimal pris en charge par la police chargée (U+0020 à U+FFFF).</value></data>
+  <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;Le rapide renard brun.</value></data>
+  <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>Seuls les fichiers de police PangYa .wft sont pris en charge.</value></data>
 </root>

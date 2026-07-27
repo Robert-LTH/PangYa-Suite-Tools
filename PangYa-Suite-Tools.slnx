@@ -5,5 +5,6 @@
   <Project Path="PangyaAPI/PangyaAPI.IFF/PangyaAPI.IFF.csproj" />
   <Project Path="PangyaAPI/PangyaAPI.UpdateList/PangyaAPI.UpdateList.csproj" />
   <Project Path="PangyaAPI/PangyaAPI.Utilities/PangyaAPI.Utilities.csproj" />
+  <Project Path="PangyaAPI/PangyaAPI.WFT/PangyaAPI.WFT.csproj" />
   <Project Path="PangyaAPI.Tests/PangyaAPI.Tests.csproj" />
 </Solution>

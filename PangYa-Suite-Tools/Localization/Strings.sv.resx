@@ -108,6 +108,13 @@
   <data name="PakMaker_RenameThisPAK" xml:space="preserve">
     <value>✏️ Byt namn på mapp/fil (F2)</value>
   </data>
+  <data name="PakMaker_CreateFolder" xml:space="preserve"><value>📁 Ny mapp...</value></data>
+  <data name="PakMaker_NewFolderDefaultName" xml:space="preserve"><value>Ny mapp</value></data>
+  <data name="PakMaker_CreatingFolder" xml:space="preserve"><value>Skapar mapp och bygger om PAK-filen...</value></data>
+  <data name="PakMaker_FolderCreated" xml:space="preserve"><value>Mappen skapades.</value></data>
+  <data name="PakMaker_CreateFolderFailed" xml:space="preserve"><value>Det gick inte att skapa mappen.</value></data>
+  <data name="PakMaker_FolderAlreadyExists" xml:space="preserve"><value>Det finns redan en mapp med detta namn på den valda sökvägen.</value></data>
+  <data name="PakMaker_InvalidFolderName" xml:space="preserve"><value>Ange ett giltigt mappnamn utan sökvägsavgränsare.</value></data>
   <data name="PakMaker_RenameProcess" xml:space="preserve">
     <value>Bearbetar nya sökvägar och uppdaterar PAK-filen...</value>
   </data>
@@ -146,9 +153,6 @@
   </data>
   <data name="PakMaker_NoValidFilesOrFoldersWere" xml:space="preserve">
     <value>Inga giltiga filer eller mappar hittades för injicering.</value>
-  </data>
-  <data name="PakMaker_PleaseDragAValidFolderTo" xml:space="preserve">
-    <value>Dra en giltig mapp för att kompilera en ny PAK.</value>
   </data>
   <data name="PakMaker_Author" xml:space="preserve">
     <value>Skapare:</value>
@@ -332,21 +336,6 @@
   </data>
   <data name="PakMaker_TheSelectedItemsWereRemovedSuccessfully" xml:space="preserve">
     <value>De markerade objekten togs bort framgångsrikt och PAK-filen byggdes om!</value>
-  </data>
-  <data name="PakMaker_SelectAValidSourceDirectory" xml:space="preserve">
-    <value>Välj en giltig källmapp.</value>
-  </data>
-  <data name="PakMaker_SaveNewPAK" xml:space="preserve">
-    <value>Spara ny PAK</value>
-  </data>
-  <data name="PakMaker_CompilingPAK" xml:space="preserve">
-    <value>Kompilerar PAK...</value>
-  </data>
-  <data name="PakMaker_PakFileGeneratedSuccessfully" xml:space="preserve">
-    <value>.pak-fil genererades framgångsrikt!</value>
-  </data>
-  <data name="PakMaker_PleaseSelectAValidRegionBefore" xml:space="preserve">
-    <value>Vänligen välj en giltig region innan du fortsätter.</value>
   </data>
   <data name="PakMaker_ErrorCreatingPAK" xml:space="preserve">
     <value>Fel vid skapande av PAK</value>
@@ -572,9 +561,6 @@
   <data name="Pak_Title" xml:space="preserve">
     <value>PangYa Studio - PAK Hanterare</value>
   </data>
-  <data name="Pak_TabExtract" xml:space="preserve">
-    <value>Läsare &amp; Ändringar</value>
-  </data>
   <data name="Pak_Browse" xml:space="preserve">
     <value>Bläddra...</value>
   </data>
@@ -641,15 +627,8 @@
   <data name="Pak_ShowToolbarText" xml:space="preserve">
     <value>Visa text under toolbarikoner</value>
   </data>
-  <data name="Pak_TabCreate" xml:space="preserve">
-    <value>Skapa ny PAK</value>
-  </data>
-  <data name="Pak_SourceHint" xml:space="preserve">
-    <value>Dra en mapp hit...</value>
-  </data>
-  <data name="Pak_SelectFolder" xml:space="preserve">
-    <value>Välj...</value>
-  </data>
+  <data name="Pak_New" xml:space="preserve"><value>Ny</value></data>
+  <data name="Pak_NewDialogTitle" xml:space="preserve"><value>Skapa ny PAK</value></data>
   <data name="Pak_EntryVersion" xml:space="preserve">
     <value>Postversion:</value>
   </data>
@@ -662,9 +641,10 @@
   <data name="Pak_Region" xml:space="preserve">
     <value>Region / Nycklar (XTEA):</value>
   </data>
-  <data name="Pak_Create" xml:space="preserve">
-    <value>📦 GENERERA .PAK-FIL</value>
-  </data>
+  <data name="Pak_CreateEmpty" xml:space="preserve"><value>📄 SKAPA TOM .PAK-FIL</value></data>
+  <data name="Pak_SaveEmptyFileTitle" xml:space="preserve"><value>Spara tom PAK</value></data>
+  <data name="Pak_CreatingEmpty" xml:space="preserve"><value>Skapar tom PAK-fil...</value></data>
+  <data name="Pak_EmptyCreated" xml:space="preserve"><value>Den tomma PAK-filen skapades och öppnades. Lägg till mappar eller filer för att börja bygga den.</value></data>
   <data name="Pak_Ready" xml:space="preserve">
     <value>Klar</value>
   </data>
@@ -737,6 +717,7 @@
   <data name="Common_OK" xml:space="preserve">
     <value>OK</value>
   </data>
+  <data name="Common_Cancel" xml:space="preserve"><value>Avbryt</value></data>
   <data name="Pak_OpenFileTitle" xml:space="preserve">
     <value>Öppna PAK-arkiv</value>
   </data>
@@ -745,9 +726,6 @@
   </data>
   <data name="Pak_SaveFileFilter" xml:space="preserve">
     <value>Pangya PAK (*.pak)|*.pak</value>
-  </data>
-  <data name="Pak_SecurityPak" xml:space="preserve">
-    <value>Säkerhets-PAK</value>
   </data>
   <data name="Pak_FilenameEncoding" xml:space="preserve">
     <value>Filnamn:</value>
@@ -826,6 +804,18 @@
   <data name="PakDiff_ColumnSourcePak" xml:space="preserve"><value>Käll-PAK</value></data>
   <data name="PakDiff_ExtractSelected" xml:space="preserve"><value>📦 Extrahera valda</value></data>
   <data name="IFFManager_OpenArchive" xml:space="preserve"><value>Öppna arkiv</value></data>
+  <data name="IFFManager_Extract" xml:space="preserve"><value>Extrahera IFF</value></data>
+  <data name="IFFManager_ExtractAll" xml:space="preserve"><value>Extrahera alla IFF-filer</value></data>
+  <data name="IFFManager_ExtractAllTitle" xml:space="preserve"><value>Välj målmapp för alla IFF-filer</value></data>
+  <data name="IFFManager_ExtractTitle" xml:space="preserve"><value>Extrahera vald IFF</value></data>
+  <data name="IFFManager_ExtractFilter" xml:space="preserve"><value>IFF-filer (*.iff)|*.iff|Alla filer (*.*)|*.*</value></data>
+  <data name="IFFManager_ExtractedFormat" xml:space="preserve"><value>{0} extraherades.</value></data>
+  <data name="IFFManager_ExtractedAllFormat" xml:space="preserve"><value>{0} IFF-filer extraherades till {1}.</value></data>
+  <data name="IFFManager_ExtractCancelled" xml:space="preserve"><value>IFF-extraheringen avbröts.</value></data>
+  <data name="IFFManager_ExtractSourceConflict" xml:space="preserve"><value>Den valda destinationen är IFF-källfilen eller behållaren. Välj en annan fil.</value></data>
+  <data name="IFFManager_ExtractAllNameCollisionFormat" xml:space="preserve"><value>Flera arkivposter skulle extraheras som {0}. Byt namn på posterna eller extrahera dem var för sig.</value></data>
+  <data name="IFFManager_ExtractAllInvalidNameFormat" xml:space="preserve"><value>Arkivposten {0} har inte ett giltigt Windows-filnamn.</value></data>
+  <data name="IFFManager_ExtractAllFailedFormat" xml:space="preserve"><value>Det gick inte att extrahera alla IFF-filer: {0}</value></data>
   <data name="IFFManager_OpenArchiveFilter" xml:space="preserve"><value>PangYa IFF-arkiv (*.iff;*.zip)|*.iff;*.zip|Alla filer (*.*)|*.*</value></data>
   <data name="IFFManager_Save" xml:space="preserve"><value>Spara</value></data>
   <data name="IFFManager_Saved" xml:space="preserve"><value>IFF-filen sparades. En säkerhetskopia skapades.</value></data>
@@ -867,12 +857,61 @@
   <data name="IFFManager_OnlyCustomColumnsEditable" xml:space="preserve"><value>Endast hexadecimala kolumner och kryssrutor kan redigeras i den här dialogrutan.</value></data>
   <data name="IFFManager_SchemaRequiresColumn" xml:space="preserve"><value>Ett IFF-schema måste innehålla minst en kolumn.</value></data>
   <data name="IFFManager_SchemaWarning" xml:space="preserve"><value>IFF-filen öppnades som skrivskyddade rådata eftersom dess JSON-schema inte kunde läsas.</value></data>
+  <data name="IFFManager_SchemaRecoveryTitle" xml:space="preserve"><value>Reparera JSON-schema</value></data>
+  <data name="IFFManager_SchemaRecoveryDescription" xml:space="preserve"><value>Det sparade schemat kunde inte läsas. Korrigera JSON-texten nedan; IFF-filen förblir skrivskyddad tills schemat är giltigt.</value></data>
+  <data name="IFFManager_SchemaRecoverySourceFormat" xml:space="preserve"><value>Källa: {0}</value></data>
+  <data name="IFFManager_SchemaUpdates" xml:space="preserve"><value>Schemauppdateringar...</value></data>
+  <data name="IFFManager_SchemaUpdateDescription" xml:space="preserve"><value>Nyare inbyggda schemadefinitioner finns. Välj om varje lokal fil ska ersättas, om din fullständiga definition ska behållas som föredragen standard eller om du vill bestämma senare. Ändrade filer säkerhetskopieras före skrivning.</value></data>
+  <data name="IFFManager_SchemaUpdateFile" xml:space="preserve"><value>Schemafil</value></data>
+  <data name="IFFManager_SchemaUpdateRegion" xml:space="preserve"><value>Region</value></data>
+  <data name="IFFManager_SchemaUpdateLocalRevision" xml:space="preserve"><value>Lokal revision</value></data>
+  <data name="IFFManager_SchemaUpdateBundledRevision" xml:space="preserve"><value>Standardrevision</value></data>
+  <data name="IFFManager_SchemaUpdateAction" xml:space="preserve"><value>Åtgärd</value></data>
+  <data name="IFFManager_SchemaUpdateKeep" xml:space="preserve"><value>Behåll tills vidare</value></data>
+  <data name="IFFManager_SchemaUpdateReplace" xml:space="preserve"><value>Ersätt med inbyggd standard</value></data>
+  <data name="IFFManager_SchemaUpdateUseMine" xml:space="preserve"><value>Använd min definition som standard</value></data>
+  <data name="IFFManager_SchemaUpdateLocalDefinition" xml:space="preserve"><value>Din lokala definition</value></data>
+  <data name="IFFManager_SchemaUpdateBundledDefinition" xml:space="preserve"><value>Ny inbyggd standard</value></data>
+  <data name="IFFManager_SchemaUpdateApply" xml:space="preserve"><value>Verkställ valda åtgärder</value></data>
+  <data name="IFFManager_SchemaUpdateNoneAvailable" xml:space="preserve"><value>Det finns inga nyare standardscheman.</value></data>
+  <data name="IFFManager_SchemaUpdateAppliedFormat" xml:space="preserve"><value>Schemauppdateringar genomförda: {0} ersatta, {1} behållna som föredragna. Säkerhetskopia: {2}</value></data>
   <data name="IFFManager_Region" xml:space="preserve"><value>Region:</value></data>
   <data name="IFFManager_RegionAuto" xml:space="preserve"><value>Identifiera automatiskt</value></data>
   <data name="IFFManager_RegionThailand" xml:space="preserve"><value>Thailand</value></data>
   <data name="IFFManager_RegionJapan" xml:space="preserve"><value>Japan</value></data>
+  <data name="IFFManager_RegionGlobal" xml:space="preserve"><value>Global</value></data>
+  <data name="IFFManager_UnknownRegionTitle" xml:space="preserve"><value>Okänd IFF-region</value></data>
+  <data name="IFFManager_UnknownRegionDescription" xml:space="preserve"><value>Rubriken matchar ingen känd region. Granska den och välj schemaregion.</value></data>
+  <data name="IFFManager_UnknownRegionHeaderFormat" xml:space="preserve"><value>Poster: {0}&#xD;&#xA;Revision: {1}&#xD;&#xA;Magic: {2}&#xD;&#xA;Reserverat: {3}&#xD;&#xA;Poststorlek: {4} byte</value></data>
+  <data name="IFFManager_UnknownRegionSelect" xml:space="preserve"><value>Schemaregion:</value></data>
+  <data name="IFFManager_UnknownRegionOpen" xml:space="preserve"><value>Öppna</value></data>
+  <data name="IFFManager_Patch" xml:space="preserve"><value>Patcha IFF</value></data>
+  <data name="IFFManager_PatchSelectSource" xml:space="preserve"><value>Välj IFF-patchkälla</value></data>
+  <data name="IFFManager_PatchSourceFilter" xml:space="preserve"><value>IFF-filer (*.iff)|*.iff|Alla filer (*.*)|*.*</value></data>
+  <data name="IFFManager_PatchNameMismatch" xml:space="preserve"><value>Välj en källfil med namnet {0}.iff.</value></data>
+  <data name="IFFManager_PatchSourceOptions" xml:space="preserve"><value>Patchfilens kodning</value></data>
+  <data name="IFFManager_PatchSourceEncoding" xml:space="preserve"><value>Patchfilens kodning:</value></data>
+  <data name="IFFManager_PatchEncodingDescriptionFormat" xml:space="preserve"><value>Välj textkodningen som används av patchfilen: {0}</value></data>
+  <data name="IFFManager_PatchNext" xml:space="preserve"><value>Nästa</value></data>
+  <data name="IFFManager_PatchNoSharedItems" xml:space="preserve"><value>Källan och målet har inga gemensamma artikel-ID:n.</value></data>
+  <data name="IFFManager_PatchSelectItems" xml:space="preserve"><value>Välj poster att patcha</value></data>
+  <data name="IFFManager_PatchSelectionDescription" xml:space="preserve"><value>Välj de matchande artikel-ID:n vars kompatibla värden ska ersätta målvärdena.</value></data>
+  <data name="IFFManager_PatchItemFormat" xml:space="preserve"><value>ID {0} — {1} ändrade fält{2}</value></data>
+  <data name="IFFManager_PatchSelectAll" xml:space="preserve"><value>Markera alla</value></data>
+  <data name="IFFManager_PatchClearAll" xml:space="preserve"><value>Avmarkera alla</value></data>
+  <data name="IFFManager_PatchReview" xml:space="preserve"><value>Granska patch</value></data>
+  <data name="IFFManager_PatchNoItemsSelected" xml:space="preserve"><value>Inga artikel-ID:n valdes.</value></data>
+  <data name="IFFManager_PatchNoCompatibleFields" xml:space="preserve"><value>Källan och målet har inga kompatibla fält att patcha.</value></data>
+  <data name="IFFManager_PatchSelectFields" xml:space="preserve"><value>Välj fält att patcha</value></data>
+  <data name="IFFManager_PatchFieldSelectionDescription" xml:space="preserve"><value>Välj fälten som ska kopieras från patchfilen för varje markerat artikel-ID.</value></data>
+  <data name="IFFManager_PatchNoFieldsSelected" xml:space="preserve"><value>Inga fält valdes.</value></data>
+  <data name="IFFManager_PatchNoChangesSelected" xml:space="preserve"><value>De valda artiklarna och fälten innehåller inga ändringar att tillämpa.</value></data>
+  <data name="IFFManager_PatchSummaryFormat" xml:space="preserve"><value>Tillämpa patchen?&#xD;&#xA;&#xD;&#xA;Valda poster: {0}&#xD;&#xA;Ändrade fält: {1}&#xD;&#xA;Överhoppade fält: {2}&#xD;&#xA;Avkortade texter: {3}&#xD;&#xA;Endast i källan: {4}&#xD;&#xA;Endast i målet: {5}</value></data>
+  <data name="IFFManager_PatchAppliedFormat" xml:space="preserve"><value>Patchen tillämpades på {0} poster. Spara IFF-filen för att behålla ändringarna.</value></data>
   <data name="IFFManager_RegionAppliesNextLoad" xml:space="preserve"><value>Den valda regionen används nästa gång en IFF-fil läses in.</value></data>
   <data name="IFFManager_FieldType" xml:space="preserve"><value>Fälttyp:</value></data>
+  <data name="IFFManager_FieldTypeImageResource" xml:space="preserve"><value>Bildresurs</value></data>
+  <data name="IFFManager_FieldImageResourcePath" xml:space="preserve"><value>Bildresurssökväg:</value></data>
   <data name="IFFManager_FieldEditable" xml:space="preserve"><value>Fältet är redigerbart</value></data>
   <data name="IFFManager_EncodingCodePage" xml:space="preserve"><value>Teckenkodningssida:</value></data>
   <data name="IFFManager_EncodingDocumentDefault" xml:space="preserve"><value>Dokumentets/standardens teckenkodning</value></data>
@@ -885,7 +924,7 @@
   <data name="IFFManager_ReferenceDisplayField" xml:space="preserve"><value>Visningsfält:</value></data>
   <data name="IFFManager_ReferenceIconField" xml:space="preserve"><value>Ikonfält:</value></data>
   <data name="IFFManager_ReferenceIconPath" xml:space="preserve"><value>Ikonsökväg:</value></data>
-  <data name="IFFManager_FieldIconPath" xml:space="preserve"><value>Fältets ikonsökväg:</value></data>
+  <data name="IFFManager_FieldIconPath" xml:space="preserve"><value>Bildresurssökväg:</value></data>
   <data name="IFFManager_FieldSoundPath" xml:space="preserve"><value>Fältets ljudsökväg:</value></data>
   <data name="IFFManager_PlaySound" xml:space="preserve"><value>Spela</value></data>
   <data name="IFFManager_SoundFileNotFound" xml:space="preserve"><value>Ljudfilen kunde inte hittas från den valda datamappen.</value></data>
@@ -898,6 +937,9 @@
   <data name="IFFManager_MoveDown" xml:space="preserve"><value>Ned</value></data>
   <data name="IFFManager_DefaultStringSize" xml:space="preserve"><value>Standardstorlek för sträng:</value></data>
   <data name="IFFManager_ContainerKey" xml:space="preserve"><value>IFF-nyckel:</value></data>
+  <data name="IFFManager_ToolbarRegionFormat" xml:space="preserve"><value>Region: {0}</value></data>
+  <data name="IFFManager_ToolbarKeyFormat" xml:space="preserve"><value>IFF-nyckel: {0}</value></data>
+  <data name="IFFManager_ToolbarStringEncodingFormat" xml:space="preserve"><value>Textkodning: {0}</value></data>
   <data name="IFFManager_KeyNone" xml:space="preserve"><value>Ingen</value></data>
   <data name="IFFManager_KeyPlainZip" xml:space="preserve"><value>Oskyddad ZIP</value></data>
   <data name="IFFManager_SelectTemplate" xml:space="preserve"><value>Välj fältmall</value></data>
@@ -950,7 +992,7 @@
 Ja: Behåll den nuvarande strukturen (mål\PAK-namn\filer).
 Nej: Skriv alla filer direkt under målmappen med deras interna sökvägar. Filer från senare PAK-filer kan skriva över tidigare filer.
 Avbryt: Stoppa extraheringen.</value></data>
-  <data name="Menu_Shop" xml:space="preserve"><value>PangYa-butik</value></data>
+  <data name="Menu_Shop" xml:space="preserve"><value>PangYa UI-redigerare</value></data>
   <data name="Shop_Title" xml:space="preserve"><value>PangYa-butikssimulering</value></data>
   <data name="Shop_SelectDataFolder" xml:space="preserve"><value>Välj den extraherade PangYa-mappen data.</value></data>
   <data name="Shop_MissingRequiredFile" xml:space="preserve"><value>En obligatorisk butiksfil saknas.</value></data>
@@ -971,7 +1013,7 @@ Avbryt: Stoppa extraheringen.</value></data>
   <data name="Shop_RentalPrice" xml:space="preserve"><value>Hyrespris</value></data>
   <data name="Shop_EditSaved" xml:space="preserve"><value>IFF-objektet sparades.</value></data>
   <data name="Shop_EditFailed" xml:space="preserve"><value>IFF-objektet kunde inte sparas: {0}</value></data>
-  <data name="Shop_IconFilter" xml:space="preserve"><value>Bildfiler som stöds|*.tga;*.png;*.jpg;*.jpeg;*.bmp|Alla filer|*.*</value></data>
+  <data name="Shop_IconFilter" xml:space="preserve"><value>Bildfiler som stöds|*.tga;*.png;*.jpg;*.jpeg;*.jpe;*.jfif;*.bmp;*.dib;*.rle;*.gif;*.tif;*.tiff;*.ico;*.wmf;*.emf;*.exif|Alla filer|*.*</value></data>
   <data name="Shop_SelectIcon" xml:space="preserve"><value>Välj en ikon från den extraherade data-mappen</value></data>
   <data name="Shop_IconMustBeInData" xml:space="preserve"><value>Den valda ikonen måste redan finnas i den extraherade data-mappen så att spelet kan hitta den.</value></data>
   <data name="Shop_EditHint" xml:space="preserve"><value>Klicka på en ikon för att ersätta den. Högerklicka på ett objekt för att redigera priserna.</value></data>
@@ -1016,4 +1058,53 @@ Avbryt: Stoppa extraheringen.</value></data>
   <data name="UpdateList_InvalidDestinationFolder" xml:space="preserve"><value>Webbserverns målmapp är ogiltig.</value></data>
   <data name="UpdateList_PatchVersionRequired" xml:space="preserve"><value>Fyll i patchversionen.</value></data>
   <data name="IFFManager_DefaultLongStringSize" xml:space="preserve"><value>Standardstorlek för lång sträng:</value></data>
+  <data name="IFFManager_BaseSchema" xml:space="preserve"><value>Basschema:</value></data>
+  <data name="IFFManager_EditBase" xml:space="preserve"><value>Redigera bas...</value></data>
+  <data name="IFFManager_BaseNone" xml:space="preserve"><value>Ingen</value></data>
+  <data name="IFFManager_BaseAuto" xml:space="preserve"><value>Automatisk — Common.{0}</value></data>
+  <data name="IFFManager_BaseField" xml:space="preserve"><value>Bas</value></data>
+  <data name="IFFManager_RegionUnknown" xml:space="preserve"><value>Okänd</value></data>
+  <data name="UiEditor_Title" xml:space="preserve"><value>PangYa UI-redigerare</value></data>
+  <data name="UiEditor_SelectDataFolder" xml:space="preserve"><value>Välj den extraherade PangYa-datamappen som innehåller katalogen ui.</value></data>
+  <data name="UiEditor_NoXmlFiles" xml:space="preserve"><value>Inga PangYa UI XML-filer hittades i katalogen ui.</value></data>
+  <data name="UiEditor_OpenXml" xml:space="preserve"><value>Öppna XML</value></data>
+  <data name="UiEditor_XmlFilter" xml:space="preserve"><value>PangYa UI XML (*.xml)|*.xml|Alla filer (*.*)|*.*</value></data>
+  <data name="UiEditor_Reload" xml:space="preserve"><value>Läs in igen</value></data>
+  <data name="UiEditor_DebugBounds" xml:space="preserve"><value>Felsökningsramar</value></data>
+  <data name="UiEditor_Defines" xml:space="preserve"><value>Definitioner:</value></data>
+  <data name="UiEditor_ConditionalPreview" xml:space="preserve"><value>Villkorlig förhandsvisning (skrivskyddad)</value></data>
+  <data name="UiEditor_ButtonState" xml:space="preserve"><value>Knappstatus:</value></data>
+  <data name="UiEditor_StateNormal" xml:space="preserve"><value>Normal</value></data>
+  <data name="UiEditor_StateHover" xml:space="preserve"><value>Hovring</value></data>
+  <data name="UiEditor_StateSelected" xml:space="preserve"><value>Markerad</value></data>
+  <data name="UiEditor_LoadedFormat" xml:space="preserve"><value>Läste in {0} ({1} element).</value></data>
+  <data name="UiEditor_Saved" xml:space="preserve"><value>Sparad.</value></data>
+  <data name="UiEditor_Ready" xml:space="preserve"><value>Välj en UI XML-fil för att börja.</value></data>
+  <data name="UiEditor_Properties" xml:space="preserve"><value>Elementegenskaper</value></data>
+  <data name="UiEditor_Name" xml:space="preserve"><value>Namn</value></data>
+  <data name="UiEditor_Type" xml:space="preserve"><value>Typ</value></data>
+  <data name="UiEditor_Width" xml:space="preserve"><value>Bredd</value></data>
+  <data name="UiEditor_Height" xml:space="preserve"><value>Höjd</value></data>
+  <data name="UiEditor_Resource" xml:space="preserve"><value>Resurs</value></data>
+  <data name="UiEditor_SelectResource" xml:space="preserve"><value>Välj resurs</value></data>
+  <data name="UiEditor_ResourceMustBeInData" xml:space="preserve"><value>Den valda resursen måste finnas i PangYas datamapp.</value></data>
+  <data name="UiEditor_LoadFailed" xml:space="preserve"><value>Det gick inte att öppna PangYa UI-redigeraren: {0}</value></data>
+  <data name="Menu_FontViewer" xml:space="preserve"><value>WFT-teckensnittsvisare</value></data>
+  <data name="WftViewer_Title" xml:space="preserve"><value>PangYa WFT-teckensnittsvisare</value></data>
+  <data name="WftViewer_Open" xml:space="preserve"><value>Öppna WFT</value></data>
+  <data name="WftViewer_OpenTitle" xml:space="preserve"><value>Öppna ett PangYa WFT-teckensnitt</value></data>
+  <data name="WftViewer_FileFilter" xml:space="preserve"><value>PangYa WFT-teckensnitt (*.wft)|*.wft</value></data>
+  <data name="WftViewer_Jump" xml:space="preserve"><value>Kodpunkt:</value></data>
+  <data name="WftViewer_Go" xml:space="preserve"><value>Gå</value></data>
+  <data name="WftViewer_SampleZoom" xml:space="preserve"><value>Exempelzoom:</value></data>
+  <data name="WftViewer_SampleText" xml:space="preserve"><value>Exempeltext</value></data>
+  <data name="WftViewer_Ready" xml:space="preserve"><value>Öppna eller släpp ett WFT-teckensnitt för att börja.</value></data>
+  <data name="WftViewer_Loading" xml:space="preserve"><value>Läser in WFT-teckensnitt...</value></data>
+  <data name="WftViewer_MetadataFormat" xml:space="preserve"><value>Cell: {0}×{0} px   Täckning: {1} bitar   Glyfer: {2:N0}   Reserverat: 0x{3:X8}</value></data>
+  <data name="WftViewer_LoadedFormat" xml:space="preserve"><value>Läste in {0}.</value></data>
+  <data name="WftViewer_LoadFailed" xml:space="preserve"><value>Det gick inte att öppna WFT-teckensnittet: {0}</value></data>
+  <data name="WftViewer_GlyphFormat" xml:space="preserve"><value>Tecken: {0}   U+{1:X4}   Förflyttning: {2} px</value></data>
+  <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>Ange en hexadecimal kodpunkt som stöds av det inlästa teckensnittet (U+0020 till U+FFFF).</value></data>
+  <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;Den snabba bruna räven.</value></data>
+  <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>Endast PangYa-teckensnitt med filändelsen .wft stöds.</value></data>
 </root>

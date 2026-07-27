@@ -38,8 +38,10 @@ internal sealed class RawRecordColumnDialog : Form
         ClientSize = new Size(760, 560);
 
         _fieldType.DropDownStyle = ComboBoxStyle.DropDownList;
+        _fieldType.FormattingEnabled = true;
         _fieldType.Name = "cboRawFieldType";
         _fieldType.Items.AddRange(Enum.GetValues<IffFieldType>().Cast<object>().ToArray());
+        _fieldType.Format += IffFieldTypeDisplay.FormatComboBoxItem;
         _fieldType.SelectedItem = IffFieldType.Raw;
         _fieldType.SelectedIndexChanged += (_, _) => ReselectFromCurrentStart();
 
@@ -272,6 +274,7 @@ internal sealed class RawRecordColumnDialog : Form
         IffFieldType.UInt16 or IffFieldType.Int16 => 2,
         IffFieldType.UInt32 or IffFieldType.ItemIdReference or IffFieldType.Int32 or
             IffFieldType.Single => 4,
+        IffFieldType.Int64 => 8,
         IffFieldType.DateTime => 16,
         IffFieldType.FixedString or IffFieldType.Icon or IffFieldType.Sound => Math.Max(1, defaultStringSize),
         IffFieldType.LongString => Math.Max(1, defaultLongStringSize),

@@ -1,5 +1,8 @@
 using System.Drawing;
+using System.Reflection;
 using System.Text;
+using System.Windows.Forms;
+using System.Xml;
 using PangYa_Suite_Tools.Shop;
 using PangyaAPI.IFF;
 using PangyaAPI.PAK.Models;
@@ -12,6 +15,615 @@ public sealed class ShopTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "PangYaShopTests", Guid.NewGuid().ToString("N"));
 
     public ShopTests() => Directory.CreateDirectory(_directory);
+
+    [Fact]
+    public async Task UiDocument_LoadEditAndAtomicSave_RoundTripsElementPropertiesAndStates()
+    {
+        string uiDirectory = Path.Combine(_directory, "ui");
+        Directory.CreateDirectory(uiDirectory);
+        string path = Path.Combine(uiDirectory, "shop.xml");
+        await File.WriteAllTextAsync(path, """
+            <?xml version="1.0" encoding="utf-8"?>
+            <resource>
+              <element type="FORM" name="shopmain" size="800 600">
+                <item type="BUTTON" name="buy" rect="10 20 110 60">
+                  <param name="normal" var="buy_normal.tga"/>
+                  <param name="over" var="buy_hover.tga"/>
+                  <param name="selected" var="buy_selected.tga"/>
+                </item>
+              </element>
+            </resource>
+            """, Encoding.UTF8);
+
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        Assert.Equal(new Size(800, 600), document.CanvasSize);
+        PangyaUiNode button = Assert.Single(document.Nodes, node => node.Type == "BUTTON");
+        Assert.Equal(new Rectangle(10, 20, 100, 40), button.Bounds);
+        Assert.Equal("buy_hover.tga", button.GetResource(PangyaUiButtonState.Hover));
+        Assert.Equal("buy_selected.tga", button.GetResource(PangyaUiButtonState.Selected));
+
+        button.SetName("purchase");
+        button.SetBounds(new Rectangle(25, 35, 120, 45));
+        button.SetResource("purchase_normal.tga");
+        await document.SaveAtomicAsync();
+
+        PangyaUiNode saved = Assert.Single(PangyaUiDocument.Load(path).Nodes, node => node.Type == "BUTTON");
+        Assert.Equal("purchase", saved.Name);
+        Assert.Equal(new Rectangle(25, 35, 120, 45), saved.Bounds);
+        Assert.Equal("purchase_normal.tga", saved.GetResource(PangyaUiButtonState.Normal));
+        Assert.Empty(Directory.EnumerateFiles(uiDirectory, "*.tmp"));
+    }
+
+    [Fact]
+    public void UiDocument_RejectsDocumentTypeDefinitions()
+    {
+        string path = Path.Combine(_directory, "unsafe.xml");
+        File.WriteAllText(path, """
+            <!DOCTYPE resource [<!ENTITY payload SYSTEM "file:///does-not-exist">]>
+            <resource><element type="FORM" name="unsafe" size="640 480">&payload;</element></resource>
+            """, Encoding.UTF8);
+
+        Assert.Throws<System.Xml.XmlException>(() => PangyaUiDocument.Load(path));
+    }
+
+    [Fact]
+    public void UiDocument_AcceptsStandardAndLegacyMultilineComments()
+    {
+        string path = Path.Combine(_directory, "comments.xml");
+        File.WriteAllText(path, """
+            <?xml version="1.0" encoding="utf-8"?>
+            <resource>
+              <!--
+                A standards-compliant multiline comment.
+              -->
+              <!--
+                ---------------- UI FORM ----------------
+              -->
+              <element type="FORM" name="commented" size="640 480"/>
+            </resource>
+            """, Encoding.UTF8);
+
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+
+        PangyaUiNode form = Assert.Single(document.Nodes);
+        Assert.Equal("commented", form.Name);
+    }
+
+    [Fact]
+    public void UiDocument_AcceptsLegacyAttributesWithoutWhitespaceSeparator()
+    {
+        string path = Path.Combine(_directory, "adjacent-attributes.xml");
+        File.WriteAllText(path, """
+            <?xml version="1.0" encoding="utf-8"?>
+            <resource>
+              <item type="STATIC" name="tooltip" caption="Legacy tooltip :"pos="326 261" size="120 20"/>
+            </resource>
+            """, Encoding.UTF8);
+
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+
+        PangyaUiNode item = Assert.Single(document.Nodes);
+        Assert.Equal("Legacy tooltip :", item.Element.GetAttribute("caption"));
+        Assert.Equal(new Rectangle(326, 261, 120, 20), item.Bounds);
+    }
+
+    [Fact]
+    public async Task UiDocument_ConditionalElementsAreFilteredAndDirectivesArePreserved()
+    {
+        string path = Path.Combine(_directory, "conditional.xml");
+        await File.WriteAllTextAsync(path, """
+            <?xml version="1.0" encoding="utf-8"?>
+            <resource>
+              <element type="FORM" name="form" size="200 120">
+                <item type="LABEL" name="normal" rect="0 0 20 20"/>
+                <!-- #ifdef _JAPAN_ -->
+                <item type="LABEL" name="marker" rect="20 0 40 20"/>
+                <!-- #ifdef _DETAIL_ -->
+                <item type="LABEL" name="nested" rect="40 0 60 20"/>
+                <!-- #endif -->
+                <!-- #endif -->
+                <!-- #ifdef _JAPAN_
+                <item type="LABEL" name="preview" rect="60 0 80 20"/>
+                #endif -->
+                <!-- #ifdef _JAPAN_
+                <item type="LABEL" name="broken" rect="80 0 100 20">
+                #endif -->
+              </element>
+            </resource>
+            """, Encoding.UTF8);
+
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+        var japan = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "_JAPAN_" };
+        var all = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "_JAPAN_", "_DETAIL_" };
+
+        Assert.Equal(["_DETAIL_", "_JAPAN_"],
+            document.ConditionalSymbols.OrderBy(value => value, StringComparer.OrdinalIgnoreCase));
+        Assert.Equal(["form", "normal"],
+            document.GetNodesForForm(form).Select(node => node.Name));
+        Assert.Equal(["form", "normal", "marker", "preview"],
+            document.GetNodesForForm(form, japan).Select(node => node.Name));
+        Assert.Equal(["form", "normal", "marker", "nested", "preview"],
+            document.GetNodesForForm(form, all).Select(node => node.Name));
+
+        PangyaUiNode marker = Assert.Single(document.Nodes, node => node.Name == "marker");
+        PangyaUiNode preview = Assert.Single(document.Nodes, node => node.Name == "preview");
+        Assert.True(marker.IsEditable);
+        Assert.True(preview.IsPreviewOnly);
+        Assert.Throws<InvalidOperationException>(() => preview.SetName("changed_preview"));
+        Assert.Contains(document.Warnings, warning =>
+            warning.Contains("malformed #ifdef fragment", StringComparison.OrdinalIgnoreCase));
+
+        marker.SetName("changed_marker");
+        await document.SaveAtomicAsync();
+        string savedXml = await File.ReadAllTextAsync(path, Encoding.UTF8);
+        Assert.Contains("#ifdef _JAPAN_", savedXml, StringComparison.Ordinal);
+        Assert.Contains("#endif", savedXml, StringComparison.Ordinal);
+
+        PangyaUiDocument reloaded = PangyaUiDocument.Load(path);
+        Assert.Contains(reloaded.GetNodesForForm(
+                Assert.Single(reloaded.Nodes, node => node.IsForm), japan),
+            node => node.Name == "changed_marker");
+        Assert.Contains(reloaded.Nodes, node => node.Name == "preview" && node.IsPreviewOnly);
+
+        RunSta(() =>
+        {
+            ConstructorInfo constructor = typeof(FrmPangyaUiEditor).GetConstructor(
+                BindingFlags.Instance | BindingFlags.NonPublic, binder: null,
+                [typeof(string), typeof(IReadOnlyList<string>), typeof(ShopAssetResolver)],
+                modifiers: null)!;
+            using var form = (FrmPangyaUiEditor)constructor.Invoke(
+                [_directory, new[] { path }, new ShopAssetResolver(_directory)]);
+            typeof(FrmPangyaUiEditor).GetMethod("ConfigureIfdefControls",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(form, [document]);
+            ToolStrip toolbar = Assert.Single(form.Controls.OfType<ToolStrip>(),
+                control => control.Name == "uiEditorToolbar");
+            CheckBox[] checkBoxes = toolbar.Items.OfType<ToolStripControlHost>()
+                .Select(host => host.Control)
+                .OfType<CheckBox>()
+                .OrderBy(checkBox => checkBox.Text, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            Assert.Equal(["_DETAIL_", "_JAPAN_"], checkBoxes.Select(checkBox => checkBox.Text));
+            Assert.All(checkBoxes, checkBox => Assert.False(checkBox.Checked));
+        });
+    }
+
+    [Fact]
+    public async Task UiDocument_RecoversOnlyCaseInsensitiveClosingTagMatches()
+    {
+        string path = Path.Combine(_directory, "tag-casing.xml");
+        await File.WriteAllTextAsync(path, """
+            <?xml version="1.0" encoding="utf-8"?>
+            <resource>
+              <!-- Preserve <item></ITEM> inside comments. -->
+              <![CDATA[Preserve <item></ITEM> inside CDATA.]]>
+              <item type="LABEL" name="case" caption="&lt;/ITEM&gt;" rect="0 0 20 20">
+                <param name="normal" var="case_image"></PARAM>
+              </ITEM>
+            </resource>
+            """, Encoding.UTF8);
+
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode item = Assert.Single(document.Nodes);
+        Assert.Equal("</ITEM>", item.Element.GetAttribute("caption"));
+        await document.SaveAtomicAsync();
+
+        string savedXml = await File.ReadAllTextAsync(path, Encoding.UTF8);
+        Assert.Contains("Preserve <item></ITEM> inside comments.", savedXml, StringComparison.Ordinal);
+        Assert.Contains("Preserve <item></ITEM> inside CDATA.", savedXml, StringComparison.Ordinal);
+        Assert.Contains("</param>", savedXml, StringComparison.Ordinal);
+        Assert.Contains("</item>", savedXml, StringComparison.Ordinal);
+
+        string invalidPath = Path.Combine(_directory, "different-tags.xml");
+        await File.WriteAllTextAsync(invalidPath,
+            "<resource><item type=\"LABEL\" name=\"bad\"></element></resource>", Encoding.UTF8);
+        Assert.Throws<XmlException>(() => PangyaUiDocument.Load(invalidPath));
+    }
+
+    [Fact]
+    public void UiDocument_FindsXmlFilesOnlyUnderTheUiDirectory()
+    {
+        string uiDirectory = Path.Combine(_directory, "ui");
+        Directory.CreateDirectory(Path.Combine(uiDirectory, "sub"));
+        File.WriteAllText(Path.Combine(uiDirectory, "shop.xml"), "<resource/>");
+        File.WriteAllText(Path.Combine(uiDirectory, "sub", "login.xml"), "<resource/>");
+        File.WriteAllText(Path.Combine(_directory, "outside.xml"), "<resource/>");
+
+        IReadOnlyList<string> files = PangyaUiDocument.FindUiFiles(_directory);
+
+        Assert.Equal(2, files.Count);
+        Assert.All(files, file => Assert.StartsWith(uiDirectory, file, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void UiDocument_GetNodesForForm_ExcludesOtherForms()
+    {
+        string path = Path.Combine(_directory, "forms.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="FORM" name="first" size="640 480">
+                <item type="BUTTON" name="first_button" rect="0 0 20 20"/>
+              </element>
+              <element type="FORM" name="second" size="320 240">
+                <item type="BUTTON" name="second_button" rect="0 0 20 20"/>
+              </element>
+            </resource>
+            """);
+
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode secondForm = Assert.Single(document.Nodes,
+            node => node.IsForm && node.Name == "second");
+
+        IReadOnlyList<PangyaUiNode> visible = document.GetNodesForForm(secondForm);
+
+        Assert.Equal(["second", "second_button"], visible.Select(node => node.Name));
+        Assert.All(visible, node => Assert.Same(secondForm, node.FindContainingForm()));
+    }
+
+    [Fact]
+    public void ImageResources_ExposeAndLoadAllStandardRasterExtensions()
+    {
+        string filter = FileDialogFactory.BuildImageResourceFilter();
+        foreach (string extension in new[] { ".tga", ".png", ".jpg", ".jpeg", ".gif", ".tif", ".tiff", ".ico" })
+        {
+            Assert.Contains(extension, IffPreviewImageLoader.SupportedExtensions, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("*" + extension, filter, StringComparison.OrdinalIgnoreCase);
+        }
+
+        string gifPath = Path.Combine(_directory, "preview.gif");
+        using (var bitmap = new Bitmap(8, 8)) bitmap.Save(gifPath, System.Drawing.Imaging.ImageFormat.Gif);
+        using Image? loaded = IffPreviewImageLoader.Load(gifPath);
+        Assert.NotNull(loaded);
+        Assert.Equal(new Size(8, 8), loaded.Size);
+    }
+
+    [Fact]
+    public void UiCanvas_FillsViewportAndUsesPaddedImageBounds()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "buttons");
+        Directory.CreateDirectory(imageDirectory);
+        using (var bitmap = new Bitmap(8, 6))
+        {
+            using Graphics graphics = Graphics.FromImage(bitmap);
+            graphics.Clear(Color.Black);
+            bitmap.Save(Path.Combine(imageDirectory, "intrinsic.png"));
+        }
+
+        string xmlPath = Path.Combine(_directory, "ui", "canvas.xml");
+        File.WriteAllText(xmlPath, """
+            <resource>
+              <element type="FORM" name="form" size="100 80">
+                <item type="IMAGE" name="explicit" rect="10 12 30 22">
+                  <param name="normal" var="intrinsic.png"/>
+                </item>
+                <item type="IMAGE" name="intrinsic" pos="30 40" size="0 0">
+                  <param name="normal" var="intrinsic.png"/>
+                </item>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(xmlPath);
+        var assets = new ShopAssetResolver(_directory);
+
+        RunSta(() =>
+        {
+            using var canvas = new PangyaUiCanvas(assets);
+            PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+            PangyaUiNode explicitNode = Assert.Single(document.Nodes, node => node.Name == "explicit");
+            PangyaUiNode intrinsicNode = Assert.Single(document.Nodes, node => node.Name == "intrinsic");
+            canvas.LoadDocument(document);
+            canvas.SelectedForm = form;
+            canvas.ViewportSize = new Size(200, 150);
+
+            Assert.Equal(new Size(200, 150), canvas.Size);
+            Assert.Equal(Point.Empty, canvas.LogicalPoint(
+                new Point(PangyaUiCanvas.FormPadding, PangyaUiCanvas.FormPadding)));
+            Assert.Equal(new Rectangle(10, 12, 8, 6), canvas.GetRenderedBounds(explicitNode));
+            Assert.Equal(new Rectangle(30, 40, 8, 6), canvas.GetRenderedBounds(intrinsicNode));
+
+            canvas.Zoom = 2f;
+            Assert.Equal(new Size(264, 224), canvas.Size);
+            canvas.Zoom = 1f;
+            canvas.SelectedNode = intrinsicNode;
+            using var rendered = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(rendered, canvas.ClientRectangle);
+            Color outline = rendered.GetPixel(
+                PangyaUiCanvas.FormPadding + intrinsicNode.Bounds.X,
+                PangyaUiCanvas.FormPadding + intrinsicNode.Bounds.Y);
+            Assert.Equal(Color.Orange.ToArgb(), outline.ToArgb());
+        });
+    }
+
+    [Fact]
+    public void UiDimensions_ParseSafelyAndUseRightBottomCoordinates()
+    {
+        Assert.Equal(new Point(-10, 25), PangyaUiDimensionHelper.ParsePoint("-10 25"));
+        Assert.Equal(new Size(640, 480), PangyaUiDimensionHelper.ParseSize("640, 480"));
+        Assert.Equal(new Rectangle(10, 20, 40, 60),
+            PangyaUiDimensionHelper.ParseRectangle("10 20 50 80"));
+        Assert.Null(PangyaUiDimensionHelper.ParsePoint("10"));
+        Assert.Null(PangyaUiDimensionHelper.ParseSize("10 invalid"));
+        Assert.Null(PangyaUiDimensionHelper.ParseRectangle("10 20 5 15"));
+        Assert.Null(PangyaUiDimensionHelper.ParseRectangle(
+            "999999999999999999999 0 10 10"));
+    }
+
+    [Fact]
+    public void UiCanvas_UsesIntrinsicAreaSizeUnlessStretchIsEnabled()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "images");
+        Directory.CreateDirectory(imageDirectory);
+        SaveSolidImage(Path.Combine(imageDirectory, "red.png"), Color.Red, 4, 3);
+
+        string xmlPath = Path.Combine(_directory, "ui", "stretch.xml");
+        File.WriteAllText(xmlPath, """
+            <resource>
+              <element type="FORM" name="form" size="80 40">
+                <item type="GROUPBOX" name="container" rect="1 1 20 18"/>
+                <item type="AREA" name="natural" rect="5 5 15 15">
+                  <param name="bgimg" var="red.png"/>
+                </item>
+                <item type="AREA" name="stretched" rect="25 5 35 15">
+                  <param name="bgimg" var="red.png"/>
+                  <param name="stretch" var="1"/>
+                </item>
+                <item type="AREA" name="hidden" rect="45 5 55 15">
+                  <param name="bgimg" var="red.png"/>
+                  <param name="visible" var="0"/>
+                </item>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(xmlPath);
+        var assets = new ShopAssetResolver(_directory);
+
+        RunSta(() =>
+        {
+            using var canvas = new PangyaUiCanvas(assets);
+            PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+            PangyaUiNode group = Assert.Single(document.Nodes, node => node.Name == "container");
+            PangyaUiNode natural = Assert.Single(document.Nodes, node => node.Name == "natural");
+            PangyaUiNode stretched = Assert.Single(document.Nodes, node => node.Name == "stretched");
+            PangyaUiNode hidden = Assert.Single(document.Nodes, node => node.Name == "hidden");
+            canvas.LoadDocument(document);
+            canvas.SelectedForm = form;
+
+            Assert.Equal(new Rectangle(5, 5, 4, 3), canvas.GetRenderedBounds(natural));
+            Assert.Equal(new Rectangle(25, 5, 10, 10), canvas.GetRenderedBounds(stretched));
+            Assert.Equal(Rectangle.Empty, canvas.GetRenderedBounds(group));
+            Assert.Equal(Rectangle.Empty, canvas.GetRenderedBounds(hidden));
+
+            using var rendered = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(rendered, canvas.ClientRectangle);
+            int padding = PangyaUiCanvas.FormPadding;
+            Assert.Equal(Color.Red.ToArgb(), rendered.GetPixel(padding + 7, padding + 6).ToArgb());
+            Assert.NotEqual(Color.Red.ToArgb(), rendered.GetPixel(padding + 12, padding + 6).ToArgb());
+            Assert.Equal(Color.Red.ToArgb(), rendered.GetPixel(padding + 33, padding + 13).ToArgb());
+            Assert.NotEqual(Color.Red.ToArgb(), rendered.GetPixel(padding + 47, padding + 6).ToArgb());
+
+            canvas.CanvasMouseDown(canvas, new MouseEventArgs(MouseButtons.Left, 1,
+                padding + 12, padding + 6, 0));
+            Assert.Null(canvas.SelectedNode);
+            canvas.CanvasMouseDown(canvas, new MouseEventArgs(MouseButtons.Left, 1,
+                padding + 7, padding + 6, 0));
+            Assert.Same(natural, canvas.SelectedNode);
+
+            canvas.ShowDebugBounds = true;
+            Assert.Equal(group.Bounds, canvas.GetRenderedBounds(group));
+            using var debugRendered = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(debugRendered, canvas.ClientRectangle);
+            Assert.NotEqual(rendered.GetPixel(padding + 1, padding + 1).ToArgb(),
+                debugRendered.GetPixel(padding + 1, padding + 1).ToArgb());
+        });
+    }
+
+    [Fact]
+    public void UiCanvas_SelectedElementRendersAndHitTestsInFront()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "buttons");
+        Directory.CreateDirectory(imageDirectory);
+        SaveSolidImage(Path.Combine(imageDirectory, "red.png"), Color.Red, 20, 20);
+        SaveSolidImage(Path.Combine(imageDirectory, "blue.png"), Color.Blue, 20, 20);
+        string xmlPath = Path.Combine(_directory, "ui", "front.xml");
+        File.WriteAllText(xmlPath, """
+            <resource>
+              <element type="FORM" name="form" size="80 60">
+                <item type="AREA" name="red" rect="10 10 30 30">
+                  <param name="bgimg" var="red.png"/>
+                </item>
+                <item type="AREA" name="blue" rect="10 10 30 30">
+                  <param name="bgimg" var="blue.png"/>
+                </item>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(xmlPath);
+        var assets = new ShopAssetResolver(_directory);
+
+        RunSta(() =>
+        {
+            using var canvas = new PangyaUiCanvas(assets);
+            PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+            PangyaUiNode red = Assert.Single(document.Nodes, node => node.Name == "red");
+            canvas.LoadDocument(document);
+            canvas.SelectedForm = form;
+            canvas.SelectedNode = red;
+            canvas.ViewportSize = new Size(120, 100);
+
+            Assert.Same(red, canvas.RenderOrderedNodes()[^1]);
+            using var rendered = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(rendered, canvas.ClientRectangle);
+            Assert.Equal(Color.Red.ToArgb(), rendered.GetPixel(
+                PangyaUiCanvas.FormPadding + 20,
+                PangyaUiCanvas.FormPadding + 20).ToArgb());
+
+            canvas.CanvasMouseDown(canvas, new MouseEventArgs(MouseButtons.Left, 1,
+                PangyaUiCanvas.FormPadding + 20, PangyaUiCanvas.FormPadding + 20, 0));
+            Assert.Same(red, canvas.SelectedNode);
+        });
+    }
+
+    [Fact]
+    public void UiCanvas_ResolvesCrossFileMacroAndFrameResources()
+    {
+        string uiDirectory = Path.Combine(_directory, "ui");
+        string imageDirectory = Path.Combine(uiDirectory, "images");
+        Directory.CreateDirectory(imageDirectory);
+        SaveSolidImage(Path.Combine(imageDirectory, "macro_blue.png"), Color.Blue, 8, 8);
+        for (int index = 0; index < 9; index++)
+            SaveSolidImage(Path.Combine(imageDirectory, $"frame{index:00}.png"), Color.Red, 2, 2);
+
+        string definitionsPath = Path.Combine(uiDirectory, "definitions.xml");
+        File.WriteAllText(definitionsPath, """
+            <resource>
+              <element type="FRAME" name="SHARED_FRAME">
+                <bfrm filename="frame"/>
+              </element>
+              <element type="MACROITEM" name="SHARED_MACRO">
+                <item type="AREA" name="macro_part" rect="0 0 8 8">
+                  <param name="bgimg" var="macro_blue.png"/>
+                </item>
+              </element>
+            </resource>
+            """);
+        string viewPath = Path.Combine(uiDirectory, "view.xml");
+        File.WriteAllText(viewPath, """
+            <resource>
+              <element type="FORM" name="form" size="40 30" resource="SHARED_FRAME">
+                <item type="MACROITEM" name="macro_instance" pos="10 12" resource="SHARED_MACRO"/>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(viewPath);
+        PangyaUiResourceCatalog catalog = PangyaUiResourceCatalog.Load(
+            [definitionsPath, viewPath]);
+        var assets = new ShopAssetResolver(_directory);
+
+        RunSta(() =>
+        {
+            using var canvas = new PangyaUiCanvas(assets, catalog);
+            PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+            PangyaUiNode macro = Assert.Single(document.Nodes, node => node.Name == "macro_instance");
+            canvas.LoadDocument(document);
+            canvas.SelectedForm = form;
+            canvas.SelectedNode = form;
+            canvas.ViewportSize = new Size(100, 80);
+
+            Assert.NotNull(catalog.TryResolve("SHARED_FRAME", "FORM",
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+            Assert.NotNull(catalog.TryResolve("SHARED_MACRO", "MACROITEM",
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+            Assert.Equal(new Rectangle(10, 12, 8, 8), canvas.GetRenderedBounds(macro));
+
+            using var rendered = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(rendered, canvas.ClientRectangle);
+            Assert.Equal(Color.Red.ToArgb(), rendered.GetPixel(
+                PangyaUiCanvas.FormPadding + 2,
+                PangyaUiCanvas.FormPadding + 2).ToArgb());
+            Assert.Equal(Color.Blue.ToArgb(), rendered.GetPixel(
+                PangyaUiCanvas.FormPadding + 12,
+                PangyaUiCanvas.FormPadding + 14).ToArgb());
+        });
+    }
+
+    [Fact]
+    public void UiCanvas_DraggingDifferentElementUpdatesItsPropertyCoordinates()
+    {
+        string uiDirectory = Path.Combine(_directory, "ui");
+        Directory.CreateDirectory(uiDirectory);
+        string xmlPath = Path.Combine(uiDirectory, "drag.xml");
+        File.WriteAllText(xmlPath, """
+            <resource>
+              <element type="FORM" name="form" size="100 80">
+                <item type="LABEL" name="first" rect="5 5 15 15"/>
+                <item type="LABEL" name="second" rect="40 30 50 40"/>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(xmlPath);
+        var assets = new ShopAssetResolver(_directory);
+
+        RunSta(() =>
+        {
+            using var canvas = new PangyaUiCanvas(assets);
+            using var properties = new PangyaUiPropertyPanel(assets);
+            PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+            PangyaUiNode first = Assert.Single(document.Nodes, node => node.Name == "first");
+            PangyaUiNode second = Assert.Single(document.Nodes, node => node.Name == "second");
+            canvas.LoadDocument(document);
+            canvas.SelectedForm = form;
+            canvas.SelectedNode = first;
+            canvas.ShowDebugBounds = true;
+            properties.SelectedNode = first;
+            canvas.SelectionChanged += (_, node) =>
+            {
+                canvas.SelectedNode = node;
+                properties.SelectedNode = node;
+            };
+            canvas.ElementChanged += (_, e) => properties.SelectedNode = e.Node;
+
+            var start = new Point(PangyaUiCanvas.FormPadding + 41, PangyaUiCanvas.FormPadding + 31);
+            canvas.CanvasMouseDown(canvas, new MouseEventArgs(MouseButtons.Left, 1, start.X, start.Y, 0));
+            canvas.CanvasMouseMove(canvas,
+                new MouseEventArgs(MouseButtons.Left, 0, start.X + 5, start.Y + 7, 0));
+
+            Assert.Same(second, canvas.SelectedNode);
+            Assert.Same(second, properties.SelectedNode);
+            Assert.Equal(new Point(45, 37), second.Bounds.Location);
+            Assert.Equal(new Point(45, 37), properties.DisplayedLocation);
+
+            canvas.CanvasMouseDown(canvas, new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
+
+            Assert.Same(form, canvas.SelectedForm);
+            Assert.Same(second, canvas.SelectedNode);
+            Assert.Same(second, properties.SelectedNode);
+        });
+    }
+
+    [Fact]
+    public void UiResourcePicker_UsesCurrentDirectoryAndStoresOnlyFilename()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "buttons");
+        Directory.CreateDirectory(imageDirectory);
+        string currentPath = Path.Combine(imageDirectory, "current.tga");
+        string replacementPath = Path.Combine(imageDirectory, "replacement.png");
+        File.WriteAllBytes(currentPath, [1]);
+        File.WriteAllBytes(replacementPath, [2]);
+        string xmlPath = Path.Combine(_directory, "ui", "resource.xml");
+        File.WriteAllText(xmlPath, """
+            <resource>
+              <element type="FORM" name="form" size="100 80">
+                <item type="IMAGE" name="image" rect="0 0 10 10">
+                  <param name="normal" var="current.tga"/>
+                </item>
+              </element>
+            </resource>
+            """);
+        PangyaUiNode image = Assert.Single(PangyaUiDocument.Load(xmlPath).Nodes,
+            node => node.Name == "image");
+        var assets = new ShopAssetResolver(_directory);
+        string outsidePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".png");
+        File.WriteAllBytes(outsidePath, [3]);
+
+        try
+        {
+            RunSta(() =>
+            {
+                using var properties = new PangyaUiPropertyPanel(assets) { SelectedNode = image };
+
+                Assert.Equal(imageDirectory, properties.GetResourceInitialDirectory());
+                Assert.True(properties.TrySetResourceFromPath(replacementPath));
+                Assert.Equal("replacement.png", image.GetResource(PangyaUiButtonState.Normal));
+                Assert.False(properties.TrySetResourceFromPath(outsidePath));
+                Assert.Equal("replacement.png", image.GetResource(PangyaUiButtonState.Normal));
+            });
+        }
+        finally
+        {
+            try { File.Delete(outsidePath); } catch { }
+        }
+    }
 
     [Fact]
     public void LayoutParser_ExpandsMacrosAndPreservesDuplicateNamesAndCoordinates()
@@ -223,6 +835,7 @@ public sealed class ShopTests : IDisposable
         File.WriteAllBytes(other, [2]);
         var resolver = new ShopAssetResolver(_directory);
         Assert.Equal(preferred, resolver.Resolve("button"));
+        Assert.Equal(preferred, resolver.Resolve("button.tga"));
         Assert.Throws<FileNotFoundException>(() => resolver.Resolve("missing"));
     }
 
@@ -554,12 +1167,34 @@ public sealed class ShopTests : IDisposable
         throw new InvalidOperationException("No record was returned.");
     }
 
+    private static void SaveSolidImage(string path, Color color, int width, int height)
+    {
+        using var bitmap = new Bitmap(width, height);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(color);
+        bitmap.Save(path);
+    }
+
     private sealed class StaticIffSchemaProvider(IffSchema schema) : IIffSchemaProvider
     {
         public IffSchemaResolution Resolve(string fileName, string region, int recordSize) =>
             fileName.Equals("Item.iff", StringComparison.OrdinalIgnoreCase)
                 ? new IffSchemaResolution(schema)
                 : new IffSchemaResolution(null);
+    }
+
+    private static void RunSta(Action action)
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try { action(); }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
     }
 
     public void Dispose()

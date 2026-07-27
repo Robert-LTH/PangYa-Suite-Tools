@@ -1,11 +1,14 @@
 using PangYa_Suite_Tools.Localization;
 using PangYa_Suite_Tools.Logging;
+using PangYa_Suite_Tools.Configuration;
 
 using System.ComponentModel;
+using System.Globalization;
 using System.Text; 
 using System.Xml.Linq;
 using PangyaAPI.UpdateList.Flags; 
 using PangyaAPI.UpdateList.Models;
+using PangyaAPI.Utilities.Cryptography;
 
 namespace PangYa_Suite_Tools
 {
@@ -36,8 +39,10 @@ namespace PangYa_Suite_Tools
             InitializeComponent();
             // InitializeLanguageComboBox();
             SetupComponents();
+            RestorePreferences();
             ConfigureToolbars();
             LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
+            FormClosing += FrmUpdateList_FormClosing;
             ApplyLocalization();
             Disposed += (_, _) =>
             {
@@ -52,32 +57,6 @@ namespace PangYa_Suite_Tools
         {
             LocalizationManager.SetCulture(idiomaAtual);
         }
-
-        // private void InitializeLanguageComboBox()
-        // {
-        //     cboLanguage.ComboBox.DisplayMember = "Key";
-        //     cboLanguage.ComboBox.ValueMember = "Value";
-
-        //     cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_PortugueseBrazil, LocalizationManager.PortugueseBrazil));
-        //     cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_EnglishUS, LocalizationManager.English));
-        //     cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_Swedish, LocalizationManager.Swedish));
-        //     cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_Japonese, LocalizationManager.Japonese));
-		// 	cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_French, LocalizationManager.French));
-        //     cboLanguage.SelectedIndex = LocalizationManager.CurrentCultureIndex;
-
-        //     _isInitializingLanguages = false;
-        //     ApplyLocalization();
-        // }
-
-        // private void cboLanguage_SelectedIndexChanged(object sender, EventArgs e)
-        // {
-        //     if (_isInitializingLanguages) return;
-
-        //     if (cboLanguage.SelectedItem is KeyValuePair<string, string> selectedItem)
-        //     {
-        //         LocalizationManager.SetCulture(selectedItem.Value);
-        //     }
-        // }
 
         private void LocalizationManager_CultureChanged(object? sender, EventArgs e) => ApplyLocalization();
 
@@ -108,7 +87,6 @@ namespace PangYa_Suite_Tools
             colPackageName.Text = Strings.UpdateList_ColumnPackageName;
             colPackageSize.Text = Strings.UpdateList_ColumnPackageSize;
             lblLog.Text = Strings.Update_Log;
-            // lblLanguage.Text = Strings.Common_Language;
             UpdatePatchSummary(_currentUpdateListDocument);
 
             // Estados dinâmicos: só atualiza se não houver monitoramento/drop em andamento, para não confundir o usuário no meio de uma operação
@@ -152,6 +130,58 @@ private void SetupComponents()
             txtClientPatchNum.Text = "1";
 
             Log(Strings.UpdateList_InterfaceInitializedInMultiTabMode);
+        }
+
+        private void RestorePreferences()
+        {
+            txtViewerFilePath.Text = PathTextBoxPreferences.LoadPath(PathTextBoxKind.UpdateListViewerFile);
+            txtPangyaPath.Text = PathTextBoxPreferences.LoadPath(PathTextBoxKind.UpdateListSourceFolder);
+            txtUpdatePath.Text = PathTextBoxPreferences.LoadPath(PathTextBoxKind.UpdateListDestinationFolder);
+            txtExistingList.Text = PathTextBoxPreferences.LoadPath(PathTextBoxKind.UpdateListExistingFile);
+
+            UpdateListGeneratorSettings? settings = UpdateListGeneratorPreferences.Load();
+            if (settings is null) return;
+
+            string? keyLabel = settings.KeyLabel?.Trim();
+            if (!string.IsNullOrEmpty(keyLabel))
+            {
+                int selectedIndex = cboFileKey.Items.Cast<object>()
+                    .Select((item, index) => (Label: cboFileKey.GetItemText(item), Index: index))
+                    .FirstOrDefault(item => string.Equals(
+                        item.Label, keyLabel, StringComparison.OrdinalIgnoreCase))
+                    .Index;
+                if (selectedIndex >= 0 &&
+                    string.Equals(cboFileKey.GetItemText(cboFileKey.Items[selectedIndex]),
+                        keyLabel, StringComparison.OrdinalIgnoreCase))
+                {
+                    cboFileKey.SelectedIndex = selectedIndex;
+                }
+            }
+
+            RestoreTextPreference(txtPatchVersion, settings.PatchVersion);
+            RestoreTextPreference(txtUpdateListVer, settings.UpdateListVersion);
+            RestoreTextPreference(txtClientPatchNum, settings.PatchNumber);
+        }
+
+        private static void RestoreTextPreference(TextBox textBox, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value)) textBox.Text = value.Trim();
+        }
+
+        private void FrmUpdateList_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            PathTextBoxPreferences.SavePaths(new Dictionary<PathTextBoxKind, string?>
+            {
+                [PathTextBoxKind.UpdateListViewerFile] = txtViewerFilePath.Text,
+                [PathTextBoxKind.UpdateListSourceFolder] = txtPangyaPath.Text,
+                [PathTextBoxKind.UpdateListDestinationFolder] = txtUpdatePath.Text,
+                [PathTextBoxKind.UpdateListExistingFile] = txtExistingList.Text
+            });
+            UpdateListGeneratorPreferences.Save(new UpdateListGeneratorSettings(
+                cboFileKey.SelectedItem?.ToString(),
+                txtPatchVersion.Text,
+                txtUpdateListVer.Text,
+                txtClientPatchNum.Text));
         }
 
         private void ConfigureToolbars()
@@ -418,7 +448,7 @@ private void SetupComponents()
                     var item = new ListViewItem(file.FileName);
                     item.SubItems.Add(file.Directory);
                     item.SubItems.Add(file.FileSize);
-                    item.SubItems.Add(file.Crc);
+                    item.SubItems.Add(FormatCrcForDisplay(file.Crc));
                     item.SubItems.Add(file.Date);
                     item.SubItems.Add(file.Time);
                     item.SubItems.Add(file.PackageName);
@@ -432,6 +462,13 @@ private void SetupComponents()
             }
 
             AutoSizeUpdateFileColumns();
+        }
+
+        internal static string FormatCrcForDisplay(string value)
+        {
+            return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int crc)
+                ? $"0x{unchecked((uint)crc):X8}"
+                : value;
         }
 
         private void AutoSizeUpdateFileColumns()

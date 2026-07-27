@@ -57,7 +57,9 @@ internal sealed class CustomIffColumnDialog : Form
         _width.Minimum = 1;
         _width.Maximum = recordSize;
         _type.DropDownStyle = ComboBoxStyle.DropDownList;
+        _type.FormattingEnabled = true;
         _type.Items.AddRange(Enum.GetValues<IffFieldType>().Cast<object>().ToArray());
+        _type.Format += IffFieldTypeDisplay.FormatComboBoxItem;
         _referenceTargetFile.DropDownStyle = ComboBoxStyle.DropDown;
         foreach (string fileName in (availableIffFiles ?? []).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name))
             _referenceTargetFile.Items.Add(fileName);
@@ -155,7 +157,7 @@ internal sealed class CustomIffColumnDialog : Form
         AddRow(layout, 12, Strings.IFFManager_ReferenceTargetKeyField, _referenceTargetKeyField);
         AddRow(layout, 13, Strings.IFFManager_ReferenceDisplayField, _referenceDisplayField);
         AddRow(layout, 14, Strings.IFFManager_ReferenceIconField, _referenceIconField);
-        AddRow(layout, 15, Strings.IFFManager_FieldIconPath, _iconPath);
+        AddRow(layout, 15, Strings.IFFManager_FieldImageResourcePath, _iconPath);
         AddRow(layout, 16, Strings.IFFManager_FieldSoundPath, _soundPath);
         _referencePickerEnabled.Text = Strings.IFFManager_ReferencePickerEnabled;
         AddRow(layout, 17, string.Empty, _referencePickerEnabled);
@@ -218,7 +220,7 @@ internal sealed class CustomIffColumnDialog : Form
         bool isString = SelectedType is IffFieldType.FixedString or IffFieldType.LongString or IffFieldType.Icon or IffFieldType.Sound;
         bool isNumeric = SelectedType is IffFieldType.Byte or IffFieldType.UInt16 or IffFieldType.Int16 or
             IffFieldType.UInt32 or IffFieldType.ItemIdReference or IffFieldType.Int32 or IffFieldType.Single or
-            IffFieldType.BitField;
+            IffFieldType.Int64 or IffFieldType.BitField;
         bool isBitField = SelectedType is IffFieldType.BitField or IffFieldType.BooleanBitField;
         bool isReference = SelectedType == IffFieldType.ItemIdReference || !string.IsNullOrWhiteSpace(_referenceTargetFile.Text);
         SetRowVisible(6, isString);

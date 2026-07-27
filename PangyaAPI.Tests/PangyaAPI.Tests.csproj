@@ -19,5 +19,6 @@
     <ProjectReference Include="..\PangyaAPI\PangyaAPI.PAK\PangyaAPI.PAK.csproj" />
     <ProjectReference Include="..\PangyaAPI\PangyaAPI.UpdateList\PangyaAPI.UpdateList.csproj" />
     <ProjectReference Include="..\PangyaAPI\PangyaAPI.Utilities\PangyaAPI.Utilities.csproj" />
+    <ProjectReference Include="..\PangyaAPI\PangyaAPI.WFT\PangyaAPI.WFT.csproj" />
   </ItemGroup>
 </Project>

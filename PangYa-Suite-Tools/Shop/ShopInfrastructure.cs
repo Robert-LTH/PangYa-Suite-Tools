@@ -1,9 +1,9 @@
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using PangyaAPI.Utilities.Cryptography;
 using PangyaAPI.IFF;
 
 namespace PangYa_Suite_Tools.Shop;
@@ -302,10 +302,7 @@ internal sealed class ShopAssetResolver
     {
         DataRoot = Path.GetFullPath(dataRoot);
         _files = Directory.EnumerateFiles(dataRoot, "*", SearchOption.AllDirectories)
-            .Where(path => path.EndsWith(".tga", StringComparison.OrdinalIgnoreCase) ||
-                           path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
-                           path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                           path.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase))
+            .Where(IffPreviewImageLoader.IsSupportedPath)
             .Select(path => (Path: path, Name: Path.GetFileNameWithoutExtension(path)))
             .Where(file => !string.IsNullOrEmpty(file.Name))
             .GroupBy(file => file.Name!, StringComparer.OrdinalIgnoreCase)
@@ -315,7 +312,9 @@ internal sealed class ShopAssetResolver
 
     public string Resolve(string resourceId)
     {
-        if (!_files.TryGetValue(resourceId, out List<string>? matches) || matches.Count == 0)
+        string lookupKey = Path.GetFileNameWithoutExtension(resourceId.Trim());
+        if (string.IsNullOrWhiteSpace(lookupKey) ||
+            !_files.TryGetValue(lookupKey, out List<string>? matches) || matches.Count == 0)
             throw new FileNotFoundException($"The shop image resource '{resourceId}' was not found.");
         if (matches.Count == 1) return matches[0];
         foreach (string segment in PreferredSegments)
@@ -323,7 +322,7 @@ internal sealed class ShopAssetResolver
             List<string> preferred = matches.Where(path => path.Contains(segment, StringComparison.OrdinalIgnoreCase)).ToList();
             if (preferred.Count == 1) return preferred[0];
         }
-        if (matches.Select(path => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))))
+        if (matches.Select(Sha256.ComputeFileHex)
             .Distinct(StringComparer.Ordinal).Count() == 1)
             return matches[0];
         throw new InvalidDataException($"The shop image resource '{resourceId}' is ambiguous: {string.Join(", ", matches)}");
