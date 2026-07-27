@@ -5,14 +5,6 @@
         private System.ComponentModel.IContainer components = null;
         private System.Windows.Forms.StatusStrip statusStrip;
         private System.Windows.Forms.ToolStripStatusLabel lblStatus;
-        private System.Windows.Forms.ToolStripStatusLabel lblLanguage;
-        private System.Windows.Forms.ToolStripComboBox cboLanguage;
-        private System.Windows.Forms.ToolStripStatusLabel lblStringEncoding;
-        private System.Windows.Forms.ToolStripComboBox cboStringEncoding;
-        private System.Windows.Forms.ToolStripStatusLabel lblRegion;
-        private System.Windows.Forms.ToolStripComboBox cboRegion;
-        private System.Windows.Forms.ToolStripStatusLabel lblContainerKey;
-        private System.Windows.Forms.ToolStripComboBox cboContainerKey;
         private System.Windows.Forms.SplitContainer splitContainerMain;
         private System.Windows.Forms.GroupBox grpIffFiles;
         private System.Windows.Forms.ListBox lstIffFiles;
@@ -28,7 +20,7 @@
         private System.Windows.Forms.Button btnAddRow;
         private System.Windows.Forms.Button btnDeleteRows;
         private System.Windows.Forms.Button btnAddColumn;
-        private System.Windows.Forms.Label lblSchemaCoverage;
+        private System.Windows.Forms.ToolStripStatusLabel lblSchemaCoverage;
 
         protected override void Dispose(bool disposing)
         {
@@ -40,14 +32,7 @@
         {
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.lblStatus = new System.Windows.Forms.ToolStripStatusLabel();
-            this.lblLanguage = new System.Windows.Forms.ToolStripStatusLabel();
-            this.cboLanguage = new System.Windows.Forms.ToolStripComboBox();
-            this.lblStringEncoding = new System.Windows.Forms.ToolStripStatusLabel();
-            this.cboStringEncoding = new System.Windows.Forms.ToolStripComboBox();
-            this.lblRegion = new System.Windows.Forms.ToolStripStatusLabel();
-            this.cboRegion = new System.Windows.Forms.ToolStripComboBox();
-            this.lblContainerKey = new System.Windows.Forms.ToolStripStatusLabel();
-            this.cboContainerKey = new System.Windows.Forms.ToolStripComboBox();
+            this.lblSchemaCoverage = new System.Windows.Forms.ToolStripStatusLabel();
             this.splitContainerMain = new System.Windows.Forms.SplitContainer();
             this.grpIffFiles = new System.Windows.Forms.GroupBox();
             this.lstIffFiles = new System.Windows.Forms.ListBox();
@@ -61,7 +46,6 @@
             this.btnAddRow = new System.Windows.Forms.Button();
             this.btnDeleteRows = new System.Windows.Forms.Button();
             this.btnAddColumn = new System.Windows.Forms.Button();
-            this.lblSchemaCoverage = new System.Windows.Forms.Label();
             this.txtIffDirectory = new System.Windows.Forms.TextBox();
             this.lblIffDir = new System.Windows.Forms.Label();
             this.statusStrip.SuspendLayout();
@@ -77,7 +61,7 @@
             //
             // statusStrip
             //
-            this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.lblStatus, this.lblContainerKey, this.cboContainerKey, this.lblRegion, this.cboRegion, this.lblStringEncoding, this.cboStringEncoding, this.lblLanguage, this.cboLanguage });
+            this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.lblStatus, this.lblSchemaCoverage });
             this.statusStrip.Location = new System.Drawing.Point(0, 539);
             this.statusStrip.Name = "statusStrip";
             this.statusStrip.Size = new System.Drawing.Size(984, 22);
@@ -89,55 +73,13 @@
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(230, 17);
             //
-            // lblLanguage
+            // lblSchemaCoverage
             //
-            this.lblLanguage.Margin = new System.Windows.Forms.Padding(20, 3, 0, 2);
-            this.lblLanguage.Name = "lblLanguage";
-            this.lblLanguage.Size = new System.Drawing.Size(47, 17);
-            // 
-            // cboLanguage
-            // 
-            this.cboLanguage.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cboLanguage.Name = "cboLanguage";
-            this.cboLanguage.Size = new System.Drawing.Size(120, 23);
-            this.cboLanguage.SelectedIndexChanged += new System.EventHandler(this.cboLanguage_SelectedIndexChanged);
+            this.lblSchemaCoverage.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Left;
+            this.lblSchemaCoverage.Margin = new System.Windows.Forms.Padding(12, 3, 0, 2);
+            this.lblSchemaCoverage.Name = "lblSchemaCoverage";
+            this.lblSchemaCoverage.Visible = false;
             //
-            // lblStringEncoding
-            //
-            this.lblStringEncoding.Margin = new System.Windows.Forms.Padding(20, 3, 0, 2);
-            this.lblStringEncoding.Name = "lblStringEncoding";
-            //
-            // cboStringEncoding
-            //
-            this.cboStringEncoding.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cboStringEncoding.Name = "cboStringEncoding";
-            this.cboStringEncoding.Size = new System.Drawing.Size(180, 23);
-            this.cboStringEncoding.SelectedIndexChanged += new System.EventHandler(this.cboStringEncoding_SelectedIndexChanged);
-            //
-            // lblRegion
-            //
-            this.lblRegion.Margin = new System.Windows.Forms.Padding(20, 3, 0, 2);
-            this.lblRegion.Name = "lblRegion";
-            //
-            // cboRegion
-            //
-            this.cboRegion.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cboRegion.Name = "cboRegion";
-            this.cboRegion.Size = new System.Drawing.Size(105, 23);
-            this.cboRegion.SelectedIndexChanged += new System.EventHandler(this.cboRegion_SelectedIndexChanged);
-            //
-            // lblContainerKey
-            //
-            this.lblContainerKey.Margin = new System.Windows.Forms.Padding(20, 3, 0, 2);
-            this.lblContainerKey.Name = "lblContainerKey";
-            //
-            // cboContainerKey
-            //
-            this.cboContainerKey.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cboContainerKey.Name = "cboContainerKey";
-            this.cboContainerKey.Size = new System.Drawing.Size(130, 23);
-            this.cboContainerKey.SelectedIndexChanged += new System.EventHandler(this.cboContainerKey_SelectedIndexChanged);
-            // 
             // splitContainerMain
             // 
             this.splitContainerMain.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -224,7 +166,6 @@
             this.pnlTopBar.Controls.Add(this.btnAddRow);
             this.pnlTopBar.Controls.Add(this.btnDeleteRows);
             this.pnlTopBar.Controls.Add(this.btnAddColumn);
-            this.pnlTopBar.Controls.Add(this.lblSchemaCoverage);
             this.pnlTopBar.Controls.Add(this.txtIffDirectory);
             this.pnlTopBar.Controls.Add(this.lblIffDir);
             this.pnlTopBar.Dock = System.Windows.Forms.DockStyle.Top;
@@ -287,13 +228,6 @@
             this.btnAddColumn.Name = "btnAddColumn";
             this.btnAddColumn.Size = new System.Drawing.Size(100, 28);
             this.btnAddColumn.Click += new System.EventHandler(this.btnAddColumn_Click);
-            //
-            // lblSchemaCoverage
-            //
-            this.lblSchemaCoverage.AutoSize = true;
-            this.lblSchemaCoverage.Location = new System.Drawing.Point(12, 63);
-            this.lblSchemaCoverage.Name = "lblSchemaCoverage";
-            this.lblSchemaCoverage.Visible = false;
             //
             // txtIffDirectory
             //

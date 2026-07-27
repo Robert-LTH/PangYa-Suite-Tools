@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using PangYa_Suite_Tools.Localization;
 using PangYa_Suite_Tools.Logging;
+using PangYa_Suite_Tools.Configuration;
 
 namespace PangYa_Suite_Tools
 {
@@ -14,44 +15,33 @@ namespace PangYa_Suite_Tools
         // ── Snapshot state ───────────────────────────────────────────────────
         private PakSnapshot? _snapshotA;
         private PakSnapshot? _snapshotB;
-        private bool _isInitializingLanguages = true;
-
         public FrmPakDiff(string? currentLanguage = null)
         {
             if (!string.IsNullOrWhiteSpace(currentLanguage))
                 LocalizationManager.SetCulture(currentLanguage);
             InitializeComponent();
-            InitializeLanguageComboBox();
-            LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
-            Disposed += (_, _) => LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
-        }
-
-        private void InitializeLanguageComboBox()
-        {
-            cboLanguage.ComboBox.DisplayMember = "Key";
-            cboLanguage.ComboBox.ValueMember = "Value";
-            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_PortugueseBrazil, LocalizationManager.PortugueseBrazil));
-            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_EnglishUS, LocalizationManager.English));
-            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_Swedish, LocalizationManager.Swedish));
-            cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_Japonese, LocalizationManager.Japonese));
-			cboLanguage.Items.Add(new KeyValuePair<string, string>(Strings.Common_French, LocalizationManager.French));
-            cboLanguage.SelectedIndex = LocalizationManager.CurrentCultureIndex;
-            _isInitializingLanguages = false;
+            txtSnapshotAPath.Text = PathTextBoxPreferences.LoadPath(PathTextBoxKind.PakDiffSnapshotA);
+            txtSnapshotBPath.Text = PathTextBoxPreferences.LoadPath(PathTextBoxKind.PakDiffSnapshotB);
+            txtSourceClient.Text = PathTextBoxPreferences.LoadPath(PathTextBoxKind.PakDiffSourceClient);
+            txtCompareClient.Text = PathTextBoxPreferences.LoadPath(PathTextBoxKind.PakDiffCompareClient);
             ApplyLocalization();
-        }
-
-        private void cboLanguage_SelectedIndexChanged(object? sender, EventArgs e)
-        {
-            if (_isInitializingLanguages) return;
-            if (cboLanguage.SelectedItem is KeyValuePair<string, string> selected)
-                LocalizationManager.SetCulture(selected.Value);
+            LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
+            Disposed += (_, _) =>
+            {
+                PathTextBoxPreferences.SavePaths(new Dictionary<PathTextBoxKind, string?>
+                {
+                    [PathTextBoxKind.PakDiffSnapshotA] = txtSnapshotAPath.Text,
+                    [PathTextBoxKind.PakDiffSnapshotB] = txtSnapshotBPath.Text,
+                    [PathTextBoxKind.PakDiffSourceClient] = txtSourceClient.Text,
+                    [PathTextBoxKind.PakDiffCompareClient] = txtCompareClient.Text
+                });
+                LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
+            };
         }
 
         private void LocalizationManager_CultureChanged(object? sender, EventArgs e)
         {
-            _isInitializingLanguages = true;
-            cboLanguage.SelectedIndex = LocalizationManager.CurrentCultureIndex;
-            _isInitializingLanguages = false;
+            if (IsDisposed || Disposing) return;
             ApplyLocalization();
         }
 
@@ -88,7 +78,6 @@ namespace PangYa_Suite_Tools
             colFile.Text = Strings.PakDiff_ColumnFilePath;
             colPak.Text = Strings.PakDiff_ColumnSourcePak;
             btnExtractSelected.Text = Strings.PakDiff_ExtractSelected;
-            lblLanguage.Text = Strings.Common_Language;
         }
 
         // ════════════════════════════════════════════════════════════════════

@@ -66,6 +66,15 @@ public sealed class IffRecord
 
     public void UpdateSchema(IffSchema? schema) => Schema = schema;
 
+    internal void ReplaceBytes(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length != _bytes.Length)
+            throw new ArgumentException("Patched IFF record data must preserve the target record size.", nameof(bytes));
+        if (bytes.SequenceEqual(_bytes)) return;
+        bytes.CopyTo(_bytes);
+        IsDirty = true;
+    }
+
     private IffField Find(string name) => Schema?.Fields.FirstOrDefault(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
         ?? throw new KeyNotFoundException($"The IFF field '{name}' does not exist.");
 }

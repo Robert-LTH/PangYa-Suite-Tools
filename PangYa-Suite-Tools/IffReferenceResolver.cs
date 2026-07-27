@@ -64,8 +64,6 @@ internal interface IIffReferenceResolver
 
 internal sealed class IffReferenceResolver : IIffReferenceResolver
 {
-    private static readonly string[] ImageExtensions = [".tga", ".png", ".jpg", ".bmp"];
-
     private sealed record ReferenceIndex(
         IffFieldReference Reference,
         IReadOnlyDictionary<uint, IffReferenceCatalogItem> Items,
@@ -374,7 +372,8 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
         string extension = Path.GetExtension(fileName);
         string[] candidates = extension.Length > 0
             ? [Path.Combine(folder, fileName)]
-            : ImageExtensions.Select(candidateExtension => Path.Combine(folder, stem + candidateExtension)).ToArray();
+            : IffPreviewImageLoader.SupportedExtensions
+                .Select(candidateExtension => Path.Combine(folder, stem + candidateExtension)).ToArray();
         return candidates.FirstOrDefault(File.Exists);
     }
 
@@ -419,8 +418,9 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
     {
         try
         {
-            string[] directPatterns = ["*.tga", "*.png", "*.jpg", "*.bmp", "*.wav"];
-            if (directPatterns.Any(pattern => Directory.EnumerateFiles(directory, pattern, SearchOption.TopDirectoryOnly).Any()))
+            if (Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                .Any(path => IffPreviewImageLoader.IsSupportedPath(path) ||
+                    path.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)))
                 return true;
             string[] likelyDirectories = ["ui", "sound", "data\\ui", "data\\sound", "pangya\\ui", "pangya\\sound"];
             return likelyDirectories.Any(candidate => Directory.Exists(Path.Combine(directory, candidate)));
@@ -441,6 +441,15 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
 
 internal static class IffPreviewImageLoader
 {
+    public static IReadOnlyList<string> SupportedExtensions { get; } =
+    [
+        ".tga", ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".bmp", ".dib", ".rle",
+        ".gif", ".tif", ".tiff", ".ico", ".wmf", ".emf", ".exif"
+    ];
+
+    public static bool IsSupportedPath(string path) => SupportedExtensions.Contains(
+        Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+
     public static Image? Load(string? path)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;

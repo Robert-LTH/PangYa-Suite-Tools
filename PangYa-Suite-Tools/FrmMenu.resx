@@ -147,10 +147,4 @@
   <data name="btnOpenIffManager_br" xml:space="preserve">
     <value>📝 Editor / Manager IFF</value>
   </data>
-  <data name="lblLanguage_en" xml:space="preserve">
-    <value>Language:</value>
-  </data>
-  <data name="lblLanguage_br" xml:space="preserve">
-    <value>Idioma:</value>
-  </data>
 </root>

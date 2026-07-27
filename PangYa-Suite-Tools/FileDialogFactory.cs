@@ -9,11 +9,13 @@ internal enum FileDialogKind
 {
     Pak,
     Iff,
+    IffExtract,
     Icon,
     PakInject,
     UpdateList,
     ExistingUpdateList,
-    Snapshot
+    Snapshot,
+    UiResource
 }
 
 internal static class FileDialogFactory
@@ -42,12 +44,56 @@ internal static class FileDialogFactory
         defaultExt: "iff",
         fallbackInitialDirectory: null);
 
+    public static OpenFileDialog CreateIffPatchSourceDialog() => CreateOpenDialog(
+        kind: FileDialogKind.Iff,
+        title: Strings.IFFManager_PatchSelectSource,
+        filter: Strings.IFFManager_PatchSourceFilter,
+        defaultExt: "iff",
+        fallbackInitialDirectory: null);
+
+    public static SaveFileDialog CreateIffExtractSaveDialog(string fileName) => new()
+    {
+        Title = Strings.IFFManager_ExtractTitle,
+        Filter = Strings.IFFManager_ExtractFilter,
+        DefaultExt = "iff",
+        AddExtension = true,
+        FileName = fileName,
+        InitialDirectory = GetInitialDirectory(FileDialogKind.IffExtract, null),
+        OverwritePrompt = true,
+        CheckPathExists = true
+    };
+
+    public static FolderBrowserDialog CreateIffExtractFolderDialog(string? sourcePath) => new()
+    {
+        Description = Strings.IFFManager_ExtractAllTitle,
+        UseDescriptionForTitle = true,
+        SelectedPath = GetInitialDirectory(
+            FileDialogKind.IffExtract,
+            string.IsNullOrWhiteSpace(sourcePath) ? null : Path.GetDirectoryName(sourcePath))
+    };
+
     public static OpenFileDialog CreateIconOpenDialog(string? initialDirectory) => CreateOpenDialog(
         kind: FileDialogKind.Icon,
         title: Strings.Shop_SelectIcon,
-        filter: Strings.Shop_IconFilter,
+        filter: BuildImageResourceFilter(),
         defaultExt: "tga",
         fallbackInitialDirectory: initialDirectory);
+
+    public static OpenFileDialog CreateUiResourceOpenDialog(string? initialDirectory) => CreateOpenDialog(
+        kind: FileDialogKind.UiResource,
+        title: Strings.UiEditor_SelectResource,
+        filter: BuildImageResourceFilter(),
+        defaultExt: "tga",
+        fallbackInitialDirectory: initialDirectory);
+
+    internal static string BuildImageResourceFilter()
+    {
+        string[] localizedParts = Strings.Shop_IconFilter.Split('|');
+        string supportedLabel = localizedParts.ElementAtOrDefault(0) ?? "Supported images";
+        string allFilesLabel = localizedParts.ElementAtOrDefault(2) ?? "All files";
+        string patterns = string.Join(';', IffPreviewImageLoader.SupportedExtensions.Select(extension => "*" + extension));
+        return $"{supportedLabel}|{patterns}|{allFilesLabel}|*.*";
+    }
 
     public static OpenFileDialog CreatePakInjectFilesDialog() => CreateOpenDialog(
         kind: FileDialogKind.PakInject,
@@ -89,6 +135,18 @@ internal static class FileDialogFactory
         {
             EnsureDirectoriesLoaded();
             InitialDirectories[kind] = directory;
+            SaveDirectories();
+        }
+    }
+
+    public static void RememberFolder(FileDialogKind kind, string? selectedFolderPath)
+    {
+        if (string.IsNullOrWhiteSpace(selectedFolderPath) || !Directory.Exists(selectedFolderPath)) return;
+
+        lock (DirectoryLock)
+        {
+            EnsureDirectoriesLoaded();
+            InitialDirectories[kind] = Path.GetFullPath(selectedFolderPath);
             SaveDirectories();
         }
     }

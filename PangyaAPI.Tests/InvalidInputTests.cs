@@ -1,6 +1,7 @@
 using PangyaAPI.PAK.Flags;
 using PangyaAPI.PAK.Models;
 using PangyaAPI.UpdateList.Models;
+using PangyaAPI.Utilities.Cryptography;
 
 namespace PangyaAPI.Tests;
 

@@ -420,9 +420,9 @@ internal sealed class IffSchemaManagerDialog : Form
         _list.BeginUpdate();
         _list.Items.Clear();
         foreach (IffFieldDefinition field in _inheritedFields)
-            _list.Items.Add($"[{Strings.IFFManager_BaseField}] {field.Name} — {field.Type}, {field.Offset}, {field.Width} byte(s)");
+            _list.Items.Add($"[{Strings.IFFManager_BaseField}] {field.Name} — {IffFieldTypeDisplay.GetName(field.Type)}, {field.Offset}, {field.Width} byte(s)");
         foreach (IffFieldDefinition field in _fields)
-            _list.Items.Add($"{field.Name} — {field.Type}, {field.Offset}, {field.Width} byte(s)");
+            _list.Items.Add($"{field.Name} — {IffFieldTypeDisplay.GetName(field.Type)}, {field.Offset}, {field.Width} byte(s)");
         _list.EndUpdate();
     }
 

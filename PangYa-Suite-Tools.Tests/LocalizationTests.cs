@@ -8,8 +8,10 @@ using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using PangYa_Suite_Tools.Configuration;
 using PangYa_Suite_Tools.Localization;
+using PangyaAPI.PAK.Flags;
 using PangyaAPI.PAK.Models;
 using PangyaAPI.IFF;
+using PangyaAPI.Utilities.Cryptography;
 using Xunit;
 
 namespace PangYa_Suite_Tools.Tests;
@@ -28,6 +30,10 @@ public sealed class LocalizationTests : IDisposable
             Path.Combine(_tempDirectory, "iff-string-encoding.txt");
         FileDialogFactory.PreferencePathOverride =
             Path.Combine(_tempDirectory, "file-dialog-directories.txt");
+        PathTextBoxPreferences.PreferencePathOverride =
+            Path.Combine(_tempDirectory, "path-textboxes.txt");
+        UpdateListGeneratorPreferences.PreferencePathOverride =
+            Path.Combine(_tempDirectory, "updatelist-generator-settings.json");
         IffSchemaPreferences.SchemaDirectoryOverride = Path.Combine(_tempDirectory, "schemas");
     }
 
@@ -71,26 +77,26 @@ public sealed class LocalizationTests : IDisposable
             try
             {
                 using var form = new FrmIFFManager();
-                var combo = PrivateField<ToolStripComboBox>(form, "cboRegion");
+                var selector = PrivateField<ToolStripDropDownButton>(form, "_toolbarRegion");
                 MethodInfo refresh = typeof(FrmIFFManager).GetMethod("RefreshRegionComboBox",
                     BindingFlags.Instance | BindingFlags.NonPublic)!;
                 PropertyInfo selectedSchema = typeof(FrmIFFManager).GetProperty("SelectedSchemaRegion",
                     BindingFlags.Instance | BindingFlags.NonPublic)!;
 
                 refresh.Invoke(form, [null, "Japan_30312"]);
-                Assert.Equal("Japan_30312", combo.Text);
+                Assert.Contains("Japan_30312", selector.Text);
                 Assert.Null(selectedSchema.GetValue(form));
 
                 refresh.Invoke(form, [null, "Global_57"]);
-                Assert.Equal("Global_57", combo.Text);
+                Assert.Contains("Global_57", selector.Text);
                 Assert.Null(selectedSchema.GetValue(form));
 
                 LocalizationManager.SetCulture(LocalizationManager.Japonese);
-                Assert.Equal("Global_57", combo.Text);
+                Assert.Contains("Global_57", selector.Text);
                 Assert.Null(selectedSchema.GetValue(form));
 
                 refresh.Invoke(form, [null, "Unknown"]);
-                Assert.Equal(Strings.IFFManager_RegionAuto, combo.Text);
+                Assert.Contains(Strings.IFFManager_RegionAuto, selector.Text);
 
                 refresh.Invoke(form, ["JP", null]);
                 Assert.Equal("JP", selectedSchema.GetValue(form));
@@ -164,7 +170,7 @@ public sealed class LocalizationTests : IDisposable
                 Assert.True(Directory.Exists(iff.InitialDirectory));
 
                 using OpenFileDialog icon = FileDialogFactory.CreateIconOpenDialog(iconFallback);
-                Assert.Equal(Strings.Shop_IconFilter, icon.Filter);
+                Assert.Equal(FileDialogFactory.BuildImageResourceFilter(), icon.Filter);
                 Assert.Equal("tga", icon.DefaultExt);
                 Assert.Equal(iconFallback, icon.InitialDirectory);
 
@@ -488,6 +494,334 @@ public sealed class LocalizationTests : IDisposable
     }
 
     [Fact]
+    public void PathTextBoxPreferences_PersistEachPathIndependently()
+    {
+        string pakPath = Path.Combine(_tempDirectory, "client.pak");
+        string iffPath = Path.Combine(_tempDirectory, "data.iff");
+
+        PathTextBoxPreferences.SavePaths(new Dictionary<PathTextBoxKind, string?>
+        {
+            [PathTextBoxKind.PakArchive] = pakPath,
+            [PathTextBoxKind.IffArchiveOrFolder] = iffPath
+        });
+
+        Assert.Equal(pakPath, PathTextBoxPreferences.LoadPath(PathTextBoxKind.PakArchive));
+        Assert.Equal(iffPath, PathTextBoxPreferences.LoadPath(PathTextBoxKind.IffArchiveOrFolder));
+        Assert.Equal(string.Empty, PathTextBoxPreferences.LoadPath(PathTextBoxKind.UpdateListViewerFile));
+
+        PathTextBoxPreferences.SavePath(PathTextBoxKind.PakArchive, "  ");
+
+        Assert.Equal(pakPath, PathTextBoxPreferences.LoadPath(PathTextBoxKind.PakArchive));
+        Assert.Equal(iffPath, PathTextBoxPreferences.LoadPath(PathTextBoxKind.IffArchiveOrFolder));
+    }
+
+    [Fact]
+    public void PathTextBoxes_RestoreTheirOwnRememberedValues()
+    {
+        Dictionary<PathTextBoxKind, string?> paths = Enum.GetValues<PathTextBoxKind>()
+            .ToDictionary(kind => kind, kind => (string?)Path.Combine(_tempDirectory, kind.ToString()));
+        PathTextBoxPreferences.SavePaths(paths);
+
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var pak = new FrmPakMaker();
+                using var update = new FrmUpdateList();
+                using var diff = new FrmPakDiff();
+                using var iff = new FrmIFFManager();
+
+                Assert.Equal(paths[PathTextBoxKind.PakArchive], PrivateField<TextBox>(pak, "txtPakPath").Text);
+                Assert.Equal(paths[PathTextBoxKind.UpdateListViewerFile], PrivateField<TextBox>(update, "txtViewerFilePath").Text);
+                Assert.Equal(paths[PathTextBoxKind.UpdateListSourceFolder], PrivateField<TextBox>(update, "txtPangyaPath").Text);
+                Assert.Equal(paths[PathTextBoxKind.UpdateListDestinationFolder], PrivateField<TextBox>(update, "txtUpdatePath").Text);
+                Assert.Equal(paths[PathTextBoxKind.UpdateListExistingFile], PrivateField<TextBox>(update, "txtExistingList").Text);
+                Assert.Equal(paths[PathTextBoxKind.PakDiffSnapshotA], PrivateField<TextBox>(diff, "txtSnapshotAPath").Text);
+                Assert.Equal(paths[PathTextBoxKind.PakDiffSnapshotB], PrivateField<TextBox>(diff, "txtSnapshotBPath").Text);
+                Assert.Equal(paths[PathTextBoxKind.PakDiffSourceClient], PrivateField<TextBox>(diff, "txtSourceClient").Text);
+                Assert.Equal(paths[PathTextBoxKind.PakDiffCompareClient], PrivateField<TextBox>(diff, "txtCompareClient").Text);
+                Assert.Equal(paths[PathTextBoxKind.IffArchiveOrFolder], PrivateField<TextBox>(iff, "txtIffDirectory").Text);
+                Assert.Equal(paths[PathTextBoxKind.IffDataRoot], PrivateField<string>(iff, "_dataRootOverride"));
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure != null) ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    [Fact]
+    public void UpdateListGeneratorPreferences_RoundTripTrimmedValues()
+    {
+        UpdateListGeneratorPreferences.Save(new UpdateListGeneratorSettings(
+            " Japan ",
+            " JP.R8.1000.00 ",
+            " 2026072601 ",
+            " 42 "));
+
+        UpdateListGeneratorSettings settings = Assert.IsType<UpdateListGeneratorSettings>(
+            UpdateListGeneratorPreferences.Load());
+        Assert.Equal("Japan", settings.KeyLabel);
+        Assert.Equal("JP.R8.1000.00", settings.PatchVersion);
+        Assert.Equal("2026072601", settings.UpdateListVersion);
+        Assert.Equal("42", settings.PatchNumber);
+    }
+
+    [Fact]
+    public void UpdateListForm_ClosePersistsAndRestoresGeneratorConfiguration()
+    {
+        string viewerPath = Path.Combine(_tempDirectory, "viewer.xml");
+        string sourcePath = Path.Combine(_tempDirectory, "source");
+        string destinationPath = Path.Combine(_tempDirectory, "destination");
+        string existingPath = Path.Combine(_tempDirectory, "existing.xml");
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using (var form = new FrmUpdateList())
+                {
+                    PrivateField<TextBox>(form, "txtViewerFilePath").Text = viewerPath;
+                    PrivateField<TextBox>(form, "txtPangyaPath").Text = sourcePath;
+                    PrivateField<TextBox>(form, "txtUpdatePath").Text = destinationPath;
+                    PrivateField<TextBox>(form, "txtExistingList").Text = existingPath;
+                    PrivateField<ComboBox>(form, "cboFileKey").SelectedItem = "Japan";
+                    PrivateField<TextBox>(form, "txtPatchVersion").Text = "JP.R8.1000.00";
+                    PrivateField<TextBox>(form, "txtUpdateListVer").Text = "2026072601";
+                    PrivateField<TextBox>(form, "txtClientPatchNum").Text = "42";
+                    form.Show();
+                    form.Close();
+                }
+
+                using var restored = new FrmUpdateList();
+                Assert.Equal(viewerPath, PrivateField<TextBox>(restored, "txtViewerFilePath").Text);
+                Assert.Equal(sourcePath, PrivateField<TextBox>(restored, "txtPangyaPath").Text);
+                Assert.Equal(destinationPath, PrivateField<TextBox>(restored, "txtUpdatePath").Text);
+                Assert.Equal(existingPath, PrivateField<TextBox>(restored, "txtExistingList").Text);
+                Assert.Equal("Japan", PrivateField<ComboBox>(restored, "cboFileKey").SelectedItem);
+                Assert.Equal("JP.R8.1000.00", PrivateField<TextBox>(restored, "txtPatchVersion").Text);
+                Assert.Equal("2026072601", PrivateField<TextBox>(restored, "txtUpdateListVer").Text);
+                Assert.Equal("42", PrivateField<TextBox>(restored, "txtClientPatchNum").Text);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    [Fact]
+    public void UpdateListForm_InvalidPreferencesRetainDefaults()
+    {
+        UpdateListGeneratorPreferences.Save(new UpdateListGeneratorSettings(
+            "Removed region", " ", null, string.Empty));
+
+        string expectedUpdateListVersion = DateTime.Now.ToString("yyyyMMdd01");
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var form = new FrmUpdateList();
+                Assert.Equal("Global", PrivateField<ComboBox>(form, "cboFileKey").SelectedItem);
+                Assert.Equal("JP.R7.983.00", PrivateField<TextBox>(form, "txtPatchVersion").Text);
+                Assert.Equal(expectedUpdateListVersion, PrivateField<TextBox>(form, "txtUpdateListVer").Text);
+                Assert.Equal("1", PrivateField<TextBox>(form, "txtClientPatchNum").Text);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
+
+        File.WriteAllText(UpdateListGeneratorPreferences.PreferencePathOverride!, "{not json");
+        Assert.Null(UpdateListGeneratorPreferences.Load());
+    }
+
+    [Fact]
+    public void PakFolderTree_IncludesPersistentEmptyDirectoryAndTargetsInjection()
+    {
+        string source = Path.Combine(_tempDirectory, "empty-folder-source");
+        string emptyLeaf = Path.Combine(source, "mods", "empty", "leaf");
+        string pakPath = Path.Combine(_tempDirectory, "empty-folder.pak");
+        string injectionFile = Path.Combine(_tempDirectory, "injection.bin");
+        Directory.CreateDirectory(emptyLeaf);
+        File.WriteAllText(Path.Combine(source, "keep.txt"), "keep");
+        File.WriteAllBytes(injectionFile, [1, 2, 3]);
+        new PakWriter().CreateFromDirectoryContents(source, pakPath);
+
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var form = new FrmPakMaker();
+                MethodInfo loadPak = typeof(FrmPakMaker).GetMethod(
+                    "LoadPak", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                loadPak.Invoke(form, [pakPath, null]);
+
+                TreeView tree = PrivateField<TreeView>(form, "tvFolders");
+                TreeNode leaf = Descendants(tree.Nodes).Single(node =>
+                    NormalizeFolder(node.Tag as string) == "mods/empty/leaf");
+                Assert.Empty(leaf.Nodes.Cast<TreeNode>());
+                Assert.Equal(Strings.PakMaker_CreateFolder,
+                    PrivateField<ToolStripMenuItem>(form, "_menuCreateFolder").Text);
+
+                tree.SelectedNode = leaf;
+                MethodInfo selectedFolder = typeof(FrmPakMaker).GetMethod(
+                    "GetSelectedArchiveFolder", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                Assert.Equal("mods/empty/leaf", selectedFolder.Invoke(form, null));
+
+                MethodInfo builder = typeof(FrmPakMaker).GetMethod(
+                    "BuildPakInjectItems", BindingFlags.Static | BindingFlags.NonPublic)!;
+                var items = (List<PakInjectItem>)builder.Invoke(
+                    null, [new[] { injectionFile }, "mods/empty/leaf"])!;
+                Assert.Equal("mods/empty/leaf", Assert.Single(items).RelativeFolder);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+
+        static IEnumerable<TreeNode> Descendants(TreeNodeCollection nodes)
+        {
+            foreach (TreeNode node in nodes)
+            {
+                yield return node;
+                foreach (TreeNode child in Descendants(node.Nodes)) yield return child;
+            }
+        }
+
+        static string NormalizeFolder(string? path) =>
+            (path ?? string.Empty).Replace('\\', '/').Trim('/');
+    }
+
+    [Fact]
+    public void PakMaker_LoadsEmptyPakWithRootTreeAndLocalizedCreateAction()
+    {
+        string pakPath = Path.Combine(_tempDirectory, "new-empty.pak");
+        new PakWriter
+        {
+            EntryVersion = PakFileEntryVersion.V3,
+            LocationKeys = PakKeys.JP,
+            Author = "Empty UI Test"
+        }.CreateEmpty(pakPath);
+
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var form = new FrmPakMaker();
+                ToolStripButton createEmpty = PrivateField<ToolStripButton>(form, "_toolbarNewPak");
+                Assert.Equal(Strings.Pak_New, createEmpty.Text);
+                Assert.Equal(Strings.Pak_CreateEmpty, createEmpty.ToolTipText);
+                Assert.True(createEmpty.Enabled);
+
+                Assert.Empty(form.Controls.Find("tabControl1", true));
+                Panel readerPanel = PrivateField<Panel>(form, "readerPanel");
+                Assert.Contains(PrivateField<GroupBox>(form, "groupHeader"), readerPanel.Controls.Cast<Control>());
+                Button browsePak = PrivateField<Button>(form, "btnBrowsePak");
+                TextBox pakPathTextBox = PrivateField<TextBox>(form, "txtPakPath");
+                Assert.True(browsePak.Right <= readerPanel.ClientSize.Width - readerPanel.Padding.Right);
+                Assert.True(pakPathTextBox.Right < browsePak.Left);
+
+                ToolStrip toolbar = PrivateField<ToolStrip>(form, "_pakOperationsToolbar");
+                Assert.Same(createEmpty, toolbar.Items[1]);
+
+                MethodInfo beginOperation = typeof(FrmPakMaker).GetMethod(
+                    "BeginOperation", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                MethodInfo endOperation = typeof(FrmPakMaker).GetMethod(
+                    "EndOperation", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                var operation = (CancellationTokenSource)beginOperation.Invoke(form, null)!;
+                Assert.False(createEmpty.Enabled);
+                endOperation.Invoke(form, [operation]);
+                Assert.True(createEmpty.Enabled);
+
+                MethodInfo loadPak = typeof(FrmPakMaker).GetMethod(
+                    "LoadPakWithKeys", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                loadPak.Invoke(form, [pakPath, Encoding.UTF8, PakKeys.JP]);
+
+                PakReader reader = PrivateField<PakReader>(form, "_currentReader");
+                Assert.Empty(reader.Entries);
+                Assert.Equal("Empty UI Test", reader.Header.Author);
+                Assert.Equal(PakKeys.JP, reader.LocationKeys);
+
+                TreeView tree = PrivateField<TreeView>(form, "tvFolders");
+                TreeNode root = Assert.Single(tree.Nodes.Cast<TreeNode>());
+                Assert.Empty(root.Nodes.Cast<TreeNode>());
+                Assert.Same(root, tree.SelectedNode);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void PakCreationOptionsDialog_IsLocalizedAndReturnsSelectedSettings()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var dialog = new PakCreationOptionsDialog(PakCreationOptions.Default);
+                Assert.Equal(Strings.Pak_NewDialogTitle, dialog.Text);
+                Assert.Equal(Strings.Pak_CreateEmpty, dialog.CreateButton.Text);
+                Assert.Equal(Strings.Common_Cancel, dialog.CancelActionButton.Text);
+                Assert.Equal(PakFileEntryVersion.V3, dialog.VersionComboBox.SelectedItem);
+                Assert.Equal(PakFileEntryType.LZ772, dialog.CompressionComboBox.SelectedItem);
+                Assert.Equal(5, dialog.CompressionLevelControl.Value);
+                Assert.Equal("Global", dialog.RegionComboBox.Text);
+
+                dialog.VersionComboBox.SelectedItem = PakFileEntryVersion.Raw;
+                dialog.CompressionComboBox.SelectedItem = PakFileEntryType.Raw;
+                dialog.CompressionLevelControl.Value = 2;
+                dialog.RegionComboBox.SelectedIndex = 2;
+
+                PakCreationOptions selected = dialog.SelectedOptions;
+                Assert.Equal(PakFileEntryVersion.Raw, selected.EntryVersion);
+                Assert.Equal(PakFileEntryType.Raw, selected.EntryType);
+                Assert.Equal(2, selected.CompressLevel);
+                Assert.Equal("Japan", selected.RegionLabel);
+                Assert.Equal(PakKeys.JP, selected.LocationKeys);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(failure);
+    }
+
+    [Fact]
     public void UpdateListXmlParser_ReadsPatchInfoAndFiles()
     {
         const string xml = """
@@ -515,7 +849,55 @@ public sealed class LocalizationTests : IDisposable
         Assert.Equal("bs_notice_popup00.jpg", file.GetType().GetProperty("FileName")!.GetValue(file));
         Assert.Equal(@"\", file.GetType().GetProperty("Directory")!.GetValue(file));
         Assert.Equal("58485", file.GetType().GetProperty("FileSize")!.GetValue(file));
+        Assert.Equal("-19843887", file.GetType().GetProperty("Crc")!.GetValue(file));
         Assert.Equal("bs_notice_popup00.jpg.zip", file.GetType().GetProperty("PackageName")!.GetValue(file));
+    }
+
+    [Theory]
+    [InlineData("-19843887", "0xFED134D1")]
+    [InlineData("0", "0x00000000")]
+    [InlineData("4660", "0x00001234")]
+    [InlineData("not-a-crc", "not-a-crc")]
+    [InlineData("4294967295", "4294967295")]
+    public void UpdateListViewer_FormatsSignedCrcValuesAsHex(string value, string expected)
+    {
+        Assert.Equal(expected, FrmUpdateList.FormatCrcForDisplay(value));
+    }
+
+    [Fact]
+    public void UpdateListViewer_DisplaysFormattedCrcWithoutChangingParsedValue()
+    {
+        const string xml = """
+            <updatefiles count="1">
+                <fileinfo fname="test.bin" fcrc="-19843887" />
+            </updatefiles>
+            """;
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var form = new FrmUpdateList();
+                MethodInfo parser = typeof(FrmUpdateList).GetMethod(
+                    "ParseUpdateListXml", BindingFlags.Static | BindingFlags.NonPublic)!;
+                object document = parser.Invoke(null, [xml])!;
+                MethodInfo populate = typeof(FrmUpdateList).GetMethod(
+                    "PopulateUpdateFileList", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+                populate.Invoke(form, [document]);
+
+                ListView list = PrivateField<ListView>(form, "lstUpdateFiles");
+                Assert.Equal("0xFED134D1", Assert.Single(list.Items.Cast<ListViewItem>()).SubItems[3].Text);
+                var files = (IEnumerable)document.GetType().GetProperty("Files")!.GetValue(document)!;
+                object file = files.Cast<object>().Single();
+                Assert.Equal("-19843887", file.GetType().GetProperty("Crc")!.GetValue(file));
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     [Fact]
@@ -544,25 +926,39 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Equal(Strings.PakDiff_Title, diff.Text);
                 Assert.Equal(Strings.Log_Title, log.Text);
                 Assert.Equal(Strings.Log_ToFile, log.Controls.Find("chkLogToFile", true).Single().Text);
-                Assert.NotEmpty(PrivateField<ToolStripComboBox>(iff, "cboStringEncoding").Items);
-                var regionCombo = PrivateField<ToolStripComboBox>(iff, "cboRegion");
-                Assert.Equal(3, regionCombo.Items.Count);
-                Assert.Contains(Strings.IFFManager_RegionAuto, regionCombo.Items[0]!.ToString());
+                ComboBox optionsLanguage = options.Controls.Find("cboLanguage", true).OfType<ComboBox>().Single();
+                Assert.Equal(LocalizationManager.PortugueseBrazil,
+                    ((KeyValuePair<string, string>)optionsLanguage.SelectedItem!).Value);
+                Assert.Empty(menu.Controls.OfType<StatusStrip>());
+                Assert.Empty(diff.Controls.OfType<StatusStrip>());
+                Assert.DoesNotContain(PrivateField<StatusStrip>(iff, "statusStrip").Items.Cast<ToolStripItem>(),
+                    item => item.Name is "lblLanguage" or "cboLanguage");
+                Assert.DoesNotContain(PrivateField<StatusStrip>(pak, "statusStrip1").Items.Cast<ToolStripItem>(),
+                    item => item.Name is "lblLanguage" or "cboLanguage");
+                var stringEncodingSelector =
+                    PrivateField<ToolStripDropDownButton>(iff, "_toolbarStringEncoding");
+                Assert.NotEmpty(stringEncodingSelector.DropDownItems);
+                Assert.Contains(stringEncodingSelector,
+                    PrivateField<ToolStrip>(iff, "_editorToolbar").Items.Cast<ToolStripItem>());
+                Assert.DoesNotContain(PrivateField<StatusStrip>(iff, "statusStrip").Items.Cast<ToolStripItem>(),
+                    item => item.Name is "lblStringEncoding" or "cboStringEncoding");
+                var regionSelector = PrivateField<ToolStripDropDownButton>(iff, "_toolbarRegion");
+                Assert.Equal(4, regionSelector.DropDownItems.Count);
+                Assert.Contains(Strings.IFFManager_RegionAuto, regionSelector.Text);
+                Assert.Contains(regionSelector.DropDownItems.OfType<ToolStripMenuItem>(),
+                    item => item.Text == Strings.IFFManager_RegionGlobal);
                 Assert.Equal(Strings.IFFManager_AddRow, iff.Controls.Find("btnAddRow", true).Single().Text);
                 Assert.Equal(Strings.IFFManager_DeleteRows, iff.Controls.Find("btnDeleteRows", true).Single().Text);
                 Assert.Equal(Strings.IFFManager_ManageColumns, iff.Controls.Find("btnAddColumn", true).Single().Text);
                 Assert.Empty(iff.Controls.Find("chkShowRawRecord", true));
-                Assert.Equal(Strings.IFFManager_ContainerKey,
-                    PrivateField<ToolStripStatusLabel>(iff, "lblContainerKey").Text);
+                Assert.Contains(Strings.IFFManager_KeyNone,
+                    PrivateField<ToolStripDropDownButton>(iff, "_toolbarContainerKey").Text);
                 Assert.Equal(Strings.Common_OK, options.Controls.Find("btnOK", true).Single().Text);
                 Assert.True(options.Controls.Find("chkRegisterFile", true).Single().Enabled);
                 Assert.True(options.Controls.Find("chkShellContext", true).Single().Enabled);
                 Assert.False(options.Controls.Find("lblAdminWarning", true).Single().Visible);
-                Assert.Equal(Strings.PakMaker_Author, pak.Controls.Find("label1", true).Single().Text);
-                Assert.Equal(Strings.PakMaker_Author, pak.Controls.Find("label2", true).Single().Text);
-                Assert.Equal(Strings.Pak_SecurityPak, pak.Controls.Find("ckSecurityPak", true).Single().Text);
-                Assert.Equal(LocalizationManager.PortugueseBrazil,
-                    ((KeyValuePair<string, string>)PrivateField<ToolStripComboBox>(diff, "cboLanguage").SelectedItem!).Value);
+                Assert.Equal(Strings.Pak_New,
+                    PrivateField<ToolStripButton>(pak, "_toolbarNewPak").Text);
                 Assert.Contains("*.pak", Strings.Pak_OpenFileFilter);
                 Assert.Contains("*.pak", Strings.Pak_SaveFileFilter);
                 var encodingCombo = PrivateField<ToolStripComboBox>(pak, "cboFilenameEncoding");
@@ -578,7 +974,8 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Equal(Strings.Menu_Shop, menu.Controls.Find("btnOpenShop", true).Single().Text);
                 Assert.Equal(Strings.Pak_Title, pak.Text);
                 Assert.Equal(Strings.Common_OK, options.Controls.Find("btnOK", true).Single().Text);
-                Assert.Equal(Strings.Pak_SecurityPak, pak.Controls.Find("ckSecurityPak", true).Single().Text);
+                Assert.Equal(Strings.Pak_New,
+                    PrivateField<ToolStripButton>(pak, "_toolbarNewPak").Text);
 
                 LocalizationManager.SetCulture(LocalizationManager.Swedish);
                 Assert.Equal(Strings.Menu_Title, menu.Text);
@@ -590,7 +987,7 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Equal(Strings.PakDiff_Title, diff.Text);
                 Assert.Equal(Strings.Log_Title, log.Text);
                 Assert.Equal(LocalizationManager.Swedish,
-                    ((KeyValuePair<string, string>)PrivateField<ToolStripComboBox>(diff, "cboLanguage").SelectedItem!).Value);
+                    ((KeyValuePair<string, string>)optionsLanguage.SelectedItem!).Value);
 
                 LocalizationManager.SetCulture(LocalizationManager.Japonese);
                 Assert.Equal(Strings.Menu_Title, menu.Text);
@@ -601,7 +998,7 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Equal(Strings.Options_Title, options.Text);
                 Assert.Equal(Strings.PakDiff_Title, diff.Text);
                 Assert.Equal(LocalizationManager.Japonese,
-                    ((KeyValuePair<string, string>)PrivateField<ToolStripComboBox>(diff, "cboLanguage").SelectedItem!).Value);
+                    ((KeyValuePair<string, string>)optionsLanguage.SelectedItem!).Value);
 
                 LocalizationManager.SetCulture(LocalizationManager.French);
                 Assert.Equal(Strings.Menu_Title, menu.Text);
@@ -611,7 +1008,7 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Equal(Strings.Options_Title, options.Text);
                 Assert.Equal(Strings.PakDiff_Title, diff.Text);
                 Assert.Equal(LocalizationManager.French,
-                    ((KeyValuePair<string, string>)PrivateField<ToolStripComboBox>(diff, "cboLanguage").SelectedItem!).Value);
+                    ((KeyValuePair<string, string>)optionsLanguage.SelectedItem!).Value);
             }
             catch (Exception ex) { failure = ex; }
         });
@@ -648,6 +1045,8 @@ public sealed class LocalizationTests : IDisposable
                     ComboBox encodingCombo = PrivateField<ComboBox>(dialog, "_encoding");
                     Assert.Equal(type, typeCombo.SelectedItem);
                     Assert.Equal(Enum.GetValues<IffFieldType>().Length, typeCombo.Items.Count);
+                    Assert.Equal(Strings.IFFManager_FieldTypeImageResource,
+                        typeCombo.GetItemText(IffFieldType.Icon));
                     Assert.Equal(type is IffFieldType.FixedString or IffFieldType.LongString or IffFieldType.Icon or IffFieldType.Sound, encodingCombo.Enabled);
                     Assert.NotEmpty(encodingCombo.Items);
                     Assert.Equal(field.IsVisible ?? true, PrivateField<CheckBox>(dialog, "_visible").Checked);
@@ -659,6 +1058,23 @@ public sealed class LocalizationTests : IDisposable
         thread.Start();
         thread.Join();
         Assert.Null(failure);
+    }
+
+    [Fact]
+    public void IconFieldType_IsPresentedAsImageResourceWithoutChangingItsFieldName()
+    {
+        var provider = new EmbeddedIffSchemaProvider();
+        IffSchemaDefinition definition = Assert.IsType<IffSchemaDefinition>(
+            provider.ReadSavedSource("Item.iff", ["TH"])!.Definition);
+        IffFieldDefinition definedField = Assert.Single(definition.Fields,
+            candidate => candidate.Type == IffFieldType.Icon);
+        IffSchema schema = Assert.IsType<IffSchema>(
+            provider.Resolve("Item.iff", "TH", definition.MinimumRecordSize).Schema);
+        IffField field = Assert.Single(schema.LocalFields!, candidate =>
+            candidate.Offset == definedField.Offset && candidate.Width == definedField.Width);
+
+        Assert.Equal(Strings.IFFManager_FieldTypeImageResource, IffFieldTypeDisplay.GetName(field.Type));
+        Assert.Equal(definedField.Name, field.Name);
     }
 
     [Fact]
@@ -902,13 +1318,15 @@ public sealed class LocalizationTests : IDisposable
                     .Invoke(form, null);
 
                 var grid = PrivateField<DataGridView>(form, "gridRecords");
-                var coverage = PrivateField<Label>(form, "lblSchemaCoverage");
+                var coverage = PrivateField<ToolStripStatusLabel>(form, "lblSchemaCoverage");
+                var statusStrip = PrivateField<StatusStrip>(form, "statusStrip");
                 Assert.Equal(3, grid.Columns.Count);
                 Assert.Equal("Known @0 [1 B]", grid.Columns[1].HeaderText);
                 Assert.Equal("Custom raw @1 [2 B]", grid.Columns[2].HeaderText);
                 Assert.DoesNotContain(grid.Columns.Cast<DataGridViewColumn>(),
                     column => column.HeaderText.StartsWith("Raw record", StringComparison.Ordinal));
                 Assert.Contains("1 / 4", coverage.Text);
+                Assert.Contains(coverage, statusStrip.Items.Cast<ToolStripItem>());
             }
             catch (Exception ex) { failure = ex; }
         });
@@ -1588,7 +2006,7 @@ public sealed class LocalizationTests : IDisposable
     }
 
     [Fact]
-    public void IffManager_SchemaUpdateCheckRunsOnceAutomaticallyAndToolbarStaysManual()
+    public void IffManager_SchemaUpdateCheckRunsOnceAutomaticallyAndToolbarReflectsAvailability()
     {
         Exception? failure = null;
         var thread = new Thread(() =>
@@ -1603,6 +2021,12 @@ public sealed class LocalizationTests : IDisposable
                 Assert.True(form.BeginSchemaUpdateCheck(manualRequest: true));
                 Assert.True(form.BeginSchemaUpdateCheck(manualRequest: true));
                 Assert.Equal(Strings.IFFManager_SchemaUpdates, button.Text);
+                Assert.True(button.Enabled);
+                Assert.Equal(new Size(32, 32), button.Image!.Size);
+
+                form.SetSchemaUpdatesAvailable(false);
+                Assert.False(button.Enabled);
+                form.SetSchemaUpdatesAvailable(true);
                 Assert.True(button.Enabled);
             }
             catch (Exception ex) { failure = ex; }
@@ -1971,6 +2395,8 @@ public sealed class LocalizationTests : IDisposable
                     stringEncoding: Encoding.ASCII);
                 ComboBox type = dialog.Controls.Find("cboRawFieldType", true).OfType<ComboBox>().Single();
                 TextBox value = dialog.Controls.Find("txtSelectedRawValue", true).OfType<TextBox>().Single();
+                Assert.Equal(Strings.IFFManager_FieldTypeImageResource,
+                    type.GetItemText(IffFieldType.Icon));
                 MethodInfo select = typeof(RawRecordColumnDialog).GetMethod("SelectByteRange",
                     BindingFlags.Instance | BindingFlags.NonPublic)!;
 
@@ -2121,6 +2547,8 @@ public sealed class LocalizationTests : IDisposable
         LocalizationManager.PreferencePathOverride = null;
         PakFilenameEncodingPreferences.PreferencePathOverride = null;
         IffStringEncodingPreferences.PreferencePathOverride = null;
+        PathTextBoxPreferences.PreferencePathOverride = null;
+        UpdateListGeneratorPreferences.PreferencePathOverride = null;
         FileDialogFactory.PreferencePathOverride = null;
         FileDialogFactory.ClearRememberedDirectories();
         IffSchemaPreferences.SchemaDirectoryOverride = null;

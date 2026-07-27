@@ -381,13 +381,14 @@ public sealed class IffStreamingTests
             provider.ReadSavedSource(fileName, ["JP"]));
         IffSchemaDefinition thailand = Assert.IsType<IffSchemaDefinition>(thailandSource.Definition);
         IffSchemaDefinition japan = Assert.IsType<IffSchemaDefinition>(japanSource.Definition);
-        IffFieldDefinition[] expected = thailand.Fields
+        var expectedLayout = thailand.Fields
             .Where(field => field.Offset >= 144 && !IsFullRecordRaw(field, thailand.MinimumRecordSize))
-            .Select(field => field with { Offset = field.Offset + 48 })
+            .Select(field => (field.Name, Offset: field.Offset + 48, field.Width))
             .ToArray();
         IffFieldDefinition[] actual = japan.Fields
             .Where(field => !IsFullRecordRaw(field, japan.MinimumRecordSize))
             .ToArray();
+        var actualLayout = actual.Select(field => (field.Name, field.Offset, field.Width)).ToArray();
 
         Assert.Equal(2, japan.SchemaVersion);
         Assert.Equal(new IffSchemaBaseReference("Common"), japan.Base);
@@ -395,14 +396,20 @@ public sealed class IffStreamingTests
         Assert.Equal(thailand.MinimumRecordSize + 48, japan.MinimumRecordSize);
         Assert.Equal(64, japan.DefaultStringSize);
         Assert.NotEmpty(actual);
-        Assert.Equal(expected, actual);
+        Assert.Equal(expectedLayout, actualLayout);
         Assert.Contains(japan.Fields, field => IsFullRecordRaw(field, recordSize));
 
         IffSchemaResolution resolution = provider.Resolve(fileName, "JP", recordSize);
         IffSchema schema = Assert.IsType<IffSchema>(resolution.Schema);
         Assert.Contains(schema.Fields, field => field.IsInherited && field.Name == "Name" && field.Width == 64);
-        Assert.All(actual, definition => Assert.Contains(schema.LocalFields!, field =>
-            field.Name == definition.Name && field.Offset == definition.Offset && field.Width == definition.Width));
+        IffFieldDefinition[] resolvedLocalFields = schema.LocalFields!
+            .Where(field => !IffSchemaCoverage.IsCatchAllRawRecord(field, recordSize))
+            .Select(IffSchemaJson.FromField)
+            .ToArray();
+        IffFieldDefinition[] expectedLocalFields = actual
+            .Select(field => field with { IsVisible = field.IsVisible ?? true })
+            .ToArray();
+        Assert.Equal(expectedLocalFields, resolvedLocalFields);
         Assert.All(schema.Fields, field => Assert.True(field.Offset + field.Width <= recordSize, field.Name));
     }
 

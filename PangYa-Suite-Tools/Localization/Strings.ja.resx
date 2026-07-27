@@ -109,6 +109,13 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="PakMaker_RenameThisPAK" xml:space="preserve">
     <value>✏️ フォルダ/ファイル名を変更 (F2)</value>
   </data>
+  <data name="PakMaker_CreateFolder" xml:space="preserve"><value>📁 新しいフォルダー...</value></data>
+  <data name="PakMaker_NewFolderDefaultName" xml:space="preserve"><value>新しいフォルダー</value></data>
+  <data name="PakMaker_CreatingFolder" xml:space="preserve"><value>フォルダーを作成して PAK を再構築しています...</value></data>
+  <data name="PakMaker_FolderCreated" xml:space="preserve"><value>フォルダーを作成しました。</value></data>
+  <data name="PakMaker_CreateFolderFailed" xml:space="preserve"><value>フォルダーを作成できませんでした。</value></data>
+  <data name="PakMaker_FolderAlreadyExists" xml:space="preserve"><value>選択したパスには同じ名前のフォルダーが既に存在します。</value></data>
+  <data name="PakMaker_InvalidFolderName" xml:space="preserve"><value>パス区切り文字を含まない有効なフォルダー名を入力してください。</value></data>
   <data name="PakMaker_RenameProcess" xml:space="preserve">
     <value>新しいパスを処理し、PAK ファイルを更新しています...</value>
   </data>
@@ -147,9 +154,6 @@ IFFファイルのディレクトリを選択してください。</value>
   </data>
   <data name="PakMaker_NoValidFilesOrFoldersWere" xml:space="preserve">
     <value>インジェクション用の有効なファイルまたはフォルダが見つかりませんでした。</value>
-  </data>
-  <data name="PakMaker_PleaseDragAValidFolderTo" xml:space="preserve">
-    <value>新しい PAK をコンパイルするには、有効なフォルダをドラッグしてください。</value>
   </data>
   <data name="PakMaker_Author" xml:space="preserve">
     <value>作成者:</value>
@@ -334,21 +338,6 @@ IFFファイルのディレクトリを選択してください。</value>
   </data>
   <data name="PakMaker_TheSelectedItemsWereRemovedSuccessfully" xml:space="preserve">
     <value>選択した項目が正常に削除され、PAK ファイルが再構築されました！</value>
-  </data>
-  <data name="PakMaker_SelectAValidSourceDirectory" xml:space="preserve">
-    <value>有効なソースディレクトリを選択してください。</value>
-  </data>
-  <data name="PakMaker_SaveNewPAK" xml:space="preserve">
-    <value>新しい PAK を保存</value>
-  </data>
-  <data name="PakMaker_CompilingPAK" xml:space="preserve">
-    <value>PAK をコンパイル中...</value>
-  </data>
-  <data name="PakMaker_PakFileGeneratedSuccessfully" xml:space="preserve">
-    <value>.pak ファイルが正常に生成されました！</value>
-  </data>
-  <data name="PakMaker_PleaseSelectAValidRegionBefore" xml:space="preserve">
-    <value>続行する前に、有効なリージョンを選択してください。</value>
   </data>
   <data name="PakMaker_ErrorCreatingPAK" xml:space="preserve">
     <value>PAK 作成エラー</value>
@@ -559,9 +548,6 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="Pak_Title" xml:space="preserve">
     <value>PangYa Studio - PAK マネージャー</value>
   </data>
-  <data name="Pak_TabExtract" xml:space="preserve">
-    <value>リーダー ＆ 変更</value>
-  </data>
   <data name="Pak_Browse" xml:space="preserve">
     <value>参照...</value>
   </data>
@@ -628,15 +614,8 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="Pak_ShowToolbarText" xml:space="preserve">
     <value>ツールバーアイコンの下にテキストを表示</value>
   </data>
-  <data name="Pak_TabCreate" xml:space="preserve">
-    <value>新しい PAK を作成</value>
-  </data>
-  <data name="Pak_SourceHint" xml:space="preserve">
-    <value>ここにフォルダをドラッグしてください...</value>
-  </data>
-  <data name="Pak_SelectFolder" xml:space="preserve">
-    <value>選択...</value>
-  </data>
+  <data name="Pak_New" xml:space="preserve"><value>新規</value></data>
+  <data name="Pak_NewDialogTitle" xml:space="preserve"><value>新しい PAK を作成</value></data>
   <data name="Pak_EntryVersion" xml:space="preserve">
     <value>エントリバージョン:</value>
   </data>
@@ -649,9 +628,10 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="Pak_Region" xml:space="preserve">
     <value>リージョン / キー (XTEA):</value>
   </data>
-  <data name="Pak_Create" xml:space="preserve">
-    <value>📦 .PAK ファイルを生成</value>
-  </data>
+  <data name="Pak_CreateEmpty" xml:space="preserve"><value>📄 空の .PAK ファイルを作成</value></data>
+  <data name="Pak_SaveEmptyFileTitle" xml:space="preserve"><value>空の PAK を保存</value></data>
+  <data name="Pak_CreatingEmpty" xml:space="preserve"><value>空の PAK を作成しています...</value></data>
+  <data name="Pak_EmptyCreated" xml:space="preserve"><value>空の PAK を作成して開きました。フォルダーまたはファイルを追加してください。</value></data>
   <data name="Pak_Ready" xml:space="preserve">
     <value>準備完了</value>
   </data>
@@ -724,6 +704,7 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="Common_OK" xml:space="preserve">
     <value>OK</value>
   </data>
+  <data name="Common_Cancel" xml:space="preserve"><value>キャンセル</value></data>
   <data name="Pak_OpenFileTitle" xml:space="preserve">
     <value>PAK アーカイブを開く</value>
   </data>
@@ -732,9 +713,6 @@ IFFファイルのディレクトリを選択してください。</value>
   </data>
   <data name="Pak_SaveFileFilter" xml:space="preserve">
     <value>Pangya PAK (*.pak)|*.pak</value>
-  </data>
-  <data name="Pak_SecurityPak" xml:space="preserve">
-    <value>セキュリティ PAK</value>
   </data>
   <data name="Pak_FilenameEncoding" xml:space="preserve">
     <value>ファイル名:</value>
@@ -820,7 +798,7 @@ IFFファイルのディレクトリを選択してください。</value>
 はい: 現在の構成を維持します（出力先\PAK 名\ファイル）。
 いいえ: 内部パスを使用して、すべてのファイルを出力先へ直接書き込みます。後の PAK のファイルが先のファイルを上書きする場合があります。
 キャンセル: 展開を中止します。</value></data>
-  <data name="Menu_Shop" xml:space="preserve"><value>PangYa ショップ</value></data>
+  <data name="Menu_Shop" xml:space="preserve"><value>PangYa UI エディター</value></data>
   <data name="Shop_Title" xml:space="preserve"><value>PangYa ショップ・モックアップ</value></data>
   <data name="Shop_SelectDataFolder" xml:space="preserve"><value>展開済み PangYa の data フォルダーを選択してください。</value></data>
   <data name="Shop_MissingRequiredFile" xml:space="preserve"><value>必要なショップファイルが見つかりません。</value></data>
@@ -867,6 +845,18 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="Shop_FlagUnknown" xml:space="preserve"><value>不明 (0x{0:X2})</value></data>
   <data name="PakDiff_ColumnSourcePak" xml:space="preserve"><value>ソース PAK</value></data>
   <data name="IFFManager_OpenArchive" xml:space="preserve"><value>アーカイブを開く</value></data>
+  <data name="IFFManager_Extract" xml:space="preserve"><value>IFF を抽出</value></data>
+  <data name="IFFManager_ExtractAll" xml:space="preserve"><value>すべての IFF を抽出</value></data>
+  <data name="IFFManager_ExtractAllTitle" xml:space="preserve"><value>すべての IFF ファイルの抽出先フォルダーを選択</value></data>
+  <data name="IFFManager_ExtractTitle" xml:space="preserve"><value>選択した IFF を抽出</value></data>
+  <data name="IFFManager_ExtractFilter" xml:space="preserve"><value>IFF ファイル (*.iff)|*.iff|すべてのファイル (*.*)|*.*</value></data>
+  <data name="IFFManager_ExtractedFormat" xml:space="preserve"><value>{0} を抽出しました。</value></data>
+  <data name="IFFManager_ExtractedAllFormat" xml:space="preserve"><value>{0} 個の IFF ファイルを {1} に抽出しました。</value></data>
+  <data name="IFFManager_ExtractCancelled" xml:space="preserve"><value>IFF の抽出をキャンセルしました。</value></data>
+  <data name="IFFManager_ExtractSourceConflict" xml:space="preserve"><value>選択した保存先は元の IFF またはコンテナーです。別のファイルを選択してください。</value></data>
+  <data name="IFFManager_ExtractAllNameCollisionFormat" xml:space="preserve"><value>複数のアーカイブエントリが {0} として抽出されます。エントリ名を変更するか、個別に抽出してください。</value></data>
+  <data name="IFFManager_ExtractAllInvalidNameFormat" xml:space="preserve"><value>アーカイブエントリ {0} は有効な Windows ファイル名ではありません。</value></data>
+  <data name="IFFManager_ExtractAllFailedFormat" xml:space="preserve"><value>すべての IFF ファイルを抽出できませんでした: {0}</value></data>
   <data name="IFFManager_OpenArchiveFilter" xml:space="preserve"><value>PangYa IFF アーカイブ (*.iff;*.zip)|*.iff;*.zip|すべてのファイル (*.*)|*.*</value></data>
   <data name="IFFManager_Save" xml:space="preserve"><value>保存</value></data>
   <data name="IFFManager_Saved" xml:space="preserve"><value>IFF が正常に保存されました。バックアップが作成されました。</value></data>
@@ -930,6 +920,35 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="IFFManager_RegionAuto" xml:space="preserve"><value>自動検出</value></data>
   <data name="IFFManager_RegionThailand" xml:space="preserve"><value>タイ</value></data>
   <data name="IFFManager_RegionJapan" xml:space="preserve"><value>日本</value></data>
+  <data name="IFFManager_RegionGlobal" xml:space="preserve"><value>グローバル</value></data>
+  <data name="IFFManager_UnknownRegionTitle" xml:space="preserve"><value>不明な IFF リージョン</value></data>
+  <data name="IFFManager_UnknownRegionDescription" xml:space="preserve"><value>ヘッダーは既知のリージョンと一致しません。内容を確認し、使用するスキーマリージョンを選択してください。</value></data>
+  <data name="IFFManager_UnknownRegionHeaderFormat" xml:space="preserve"><value>レコード数: {0}&#xD;&#xA;リビジョン: {1}&#xD;&#xA;マジック: {2}&#xD;&#xA;予約値: {3}&#xD;&#xA;レコードサイズ: {4} バイト</value></data>
+  <data name="IFFManager_UnknownRegionSelect" xml:space="preserve"><value>スキーマリージョン:</value></data>
+  <data name="IFFManager_UnknownRegionOpen" xml:space="preserve"><value>開く</value></data>
+  <data name="IFFManager_Patch" xml:space="preserve"><value>IFF をパッチ</value></data>
+  <data name="IFFManager_PatchSelectSource" xml:space="preserve"><value>パッチ元 IFF を選択</value></data>
+  <data name="IFFManager_PatchSourceFilter" xml:space="preserve"><value>IFF ファイル (*.iff)|*.iff|すべてのファイル (*.*)|*.*</value></data>
+  <data name="IFFManager_PatchNameMismatch" xml:space="preserve"><value>{0}.iff という名前の元ファイルを選択してください。</value></data>
+  <data name="IFFManager_PatchSourceOptions" xml:space="preserve"><value>パッチファイルの文字コード</value></data>
+  <data name="IFFManager_PatchSourceEncoding" xml:space="preserve"><value>パッチファイルの文字コード:</value></data>
+  <data name="IFFManager_PatchEncodingDescriptionFormat" xml:space="preserve"><value>パッチファイルで使用されている文字コードを選択してください: {0}</value></data>
+  <data name="IFFManager_PatchNext" xml:space="preserve"><value>次へ</value></data>
+  <data name="IFFManager_PatchNoSharedItems" xml:space="preserve"><value>元ファイルと対象ファイルに共通のアイテム ID がありません。</value></data>
+  <data name="IFFManager_PatchSelectItems" xml:space="preserve"><value>パッチするアイテムを選択</value></data>
+  <data name="IFFManager_PatchSelectionDescription" xml:space="preserve"><value>互換性のある値で対象を置き換えるアイテム ID を選択してください。</value></data>
+  <data name="IFFManager_PatchItemFormat" xml:space="preserve"><value>ID {0} — 変更フィールド {1}{2}</value></data>
+  <data name="IFFManager_PatchSelectAll" xml:space="preserve"><value>すべて選択</value></data>
+  <data name="IFFManager_PatchClearAll" xml:space="preserve"><value>すべて解除</value></data>
+  <data name="IFFManager_PatchReview" xml:space="preserve"><value>パッチを確認</value></data>
+  <data name="IFFManager_PatchNoItemsSelected" xml:space="preserve"><value>アイテム ID が選択されていません。</value></data>
+  <data name="IFFManager_PatchNoCompatibleFields" xml:space="preserve"><value>元ファイルと対象ファイルにパッチ可能な互換フィールドがありません。</value></data>
+  <data name="IFFManager_PatchSelectFields" xml:space="preserve"><value>パッチするフィールドを選択</value></data>
+  <data name="IFFManager_PatchFieldSelectionDescription" xml:space="preserve"><value>選択した各アイテム ID に対して、パッチファイルからコピーするフィールドを選択してください。</value></data>
+  <data name="IFFManager_PatchNoFieldsSelected" xml:space="preserve"><value>フィールドが選択されていません。</value></data>
+  <data name="IFFManager_PatchNoChangesSelected" xml:space="preserve"><value>選択したアイテムとフィールドには適用する変更がありません。</value></data>
+  <data name="IFFManager_PatchSummaryFormat" xml:space="preserve"><value>このパッチを適用しますか？&#xD;&#xA;&#xD;&#xA;選択アイテム: {0}&#xD;&#xA;変更フィールド: {1}&#xD;&#xA;スキップしたフィールド: {2}&#xD;&#xA;切り詰めた文字列: {3}&#xD;&#xA;元ファイルのみ: {4}&#xD;&#xA;対象のみ: {5}</value></data>
+  <data name="IFFManager_PatchAppliedFormat" xml:space="preserve"><value>{0} 件のレコードにパッチを適用しました。変更を保持するには IFF を保存してください。</value></data>
   <data name="IFFManager_RegionAppliesNextLoad" xml:space="preserve"><value>選択されたリージョンは、次回 IFF がロードされるときに使用されます。</value></data>
   <data name="IFFManager_FieldType" xml:space="preserve"><value>フィールドの種類:</value></data>
   <data name="IFFManager_FieldEditable" xml:space="preserve"><value>フィールドは編集可能です</value></data>
@@ -957,6 +976,9 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="IFFManager_MoveDown" xml:space="preserve"><value>下へ</value></data>
   <data name="IFFManager_DefaultStringSize" xml:space="preserve"><value>デフォルトの文字列サイズ:</value></data>
   <data name="IFFManager_ContainerKey" xml:space="preserve"><value>IFF キー:</value></data>
+  <data name="IFFManager_ToolbarRegionFormat" xml:space="preserve"><value>地域: {0}</value></data>
+  <data name="IFFManager_ToolbarKeyFormat" xml:space="preserve"><value>IFF キー: {0}</value></data>
+  <data name="IFFManager_ToolbarStringEncodingFormat" xml:space="preserve"><value>文字列エンコーディング: {0}</value></data>
   <data name="IFFManager_KeyNone" xml:space="preserve"><value>なし</value></data>
   <data name="IFFManager_KeyPlainZip" xml:space="preserve"><value>プレーン ZIP</value></data>
   <data name="IFFManager_SelectTemplate" xml:space="preserve"><value>フィールドテンプレートを選択</value></data>
@@ -1018,4 +1040,31 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="IFFManager_BaseAuto" xml:space="preserve"><value>自動 — Common.{0}</value></data>
   <data name="IFFManager_BaseField" xml:space="preserve"><value>基本</value></data>
   <data name="IFFManager_RegionUnknown" xml:space="preserve"><value>不明</value></data>
+  <data name="IFFManager_FieldTypeImageResource" xml:space="preserve"><value>&#x753B;&#x50CF;&#x30EA;&#x30BD;&#x30FC;&#x30B9;</value></data>
+  <data name="IFFManager_FieldImageResourcePath" xml:space="preserve"><value>&#x753B;&#x50CF;&#x30EA;&#x30BD;&#x30FC;&#x30B9; &#x30D1;&#x30B9;:</value></data>
+  <data name="UiEditor_Title" xml:space="preserve"><value>PangYa UI エディター</value></data>
+  <data name="UiEditor_SelectDataFolder" xml:space="preserve"><value>ui ディレクトリを含む展開済み PangYa データフォルダーを選択してください。</value></data>
+  <data name="UiEditor_NoXmlFiles" xml:space="preserve"><value>ui ディレクトリに PangYa UI XML ファイルが見つかりませんでした。</value></data>
+  <data name="UiEditor_OpenXml" xml:space="preserve"><value>XML を開く</value></data>
+  <data name="UiEditor_XmlFilter" xml:space="preserve"><value>PangYa UI XML (*.xml)|*.xml|すべてのファイル (*.*)|*.*</value></data>
+  <data name="UiEditor_Reload" xml:space="preserve"><value>再読み込み</value></data>
+  <data name="UiEditor_DebugBounds" xml:space="preserve"><value>境界を表示</value></data>
+  <data name="UiEditor_Defines" xml:space="preserve"><value>定義:</value></data>
+  <data name="UiEditor_ConditionalPreview" xml:space="preserve"><value>条件付きプレビュー (読み取り専用)</value></data>
+  <data name="UiEditor_ButtonState" xml:space="preserve"><value>ボタン状態:</value></data>
+  <data name="UiEditor_StateNormal" xml:space="preserve"><value>通常</value></data>
+  <data name="UiEditor_StateHover" xml:space="preserve"><value>ホバー</value></data>
+  <data name="UiEditor_StateSelected" xml:space="preserve"><value>選択</value></data>
+  <data name="UiEditor_LoadedFormat" xml:space="preserve"><value>{0} を読み込みました（{1} 要素）。</value></data>
+  <data name="UiEditor_Saved" xml:space="preserve"><value>保存しました。</value></data>
+  <data name="UiEditor_Ready" xml:space="preserve"><value>開始する UI XML ファイルを選択してください。</value></data>
+  <data name="UiEditor_Properties" xml:space="preserve"><value>要素のプロパティ</value></data>
+  <data name="UiEditor_Name" xml:space="preserve"><value>名前</value></data>
+  <data name="UiEditor_Type" xml:space="preserve"><value>種類</value></data>
+  <data name="UiEditor_Width" xml:space="preserve"><value>幅</value></data>
+  <data name="UiEditor_Height" xml:space="preserve"><value>高さ</value></data>
+  <data name="UiEditor_Resource" xml:space="preserve"><value>リソース</value></data>
+  <data name="UiEditor_SelectResource" xml:space="preserve"><value>リソースを選択</value></data>
+  <data name="UiEditor_ResourceMustBeInData" xml:space="preserve"><value>選択したリソースは PangYa データフォルダー内にある必要があります。</value></data>
+  <data name="UiEditor_LoadFailed" xml:space="preserve"><value>PangYa UI エディターを開けませんでした: {0}</value></data>
 </root>

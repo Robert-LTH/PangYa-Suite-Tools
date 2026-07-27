@@ -75,6 +75,93 @@ public static class PakManager
                     options, defaultRelativeFolder, log, onProgress);
     }
 
+    /// <summary>
+    /// Creates a persistent directory entry, including any missing parent directory entries.
+    /// </summary>
+    public static bool CreateDirectory(string pakPath, PakReader reader, string directoryPath,
+                                       PakRebuildOptions options, Action<string>? log = null,
+                                       Action<int, int>? onProgress = null, bool SaveBck = false) =>
+        CreateDirectory(pakPath, reader, directoryPath, options, log, onProgress,
+            SaveBck, CancellationToken.None);
+
+    /// <summary>
+    /// Creates a persistent directory entry, including any missing parent directory entries.
+    /// </summary>
+    public static bool CreateDirectory(string pakPath, PakReader reader, string directoryPath,
+                                       PakRebuildOptions options, Action<string>? log,
+                                       Action<int, int>? onProgress, bool SaveBck,
+                                       CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string targetPath = ValidateDirectoryPath(directoryPath, options);
+        string targetPrefix = targetPath + "/";
+        string[] components = targetPath.Split('/');
+        string componentPath = string.Empty;
+        foreach (string component in components)
+        {
+            componentPath = CombineArchivePath(componentPath, component);
+            if (reader.Entries.Any(entry =>
+                entry.Type != PakFileEntryType.Directory &&
+                Normalize(entry.Name).Equals(componentPath, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidDataException($"A file already exists at the directory path: {componentPath}");
+        }
+
+        bool alreadyExists = reader.Entries.Any(entry =>
+        {
+            string path = Normalize(entry.Name).TrimEnd('/');
+            return (entry.Type == PakFileEntryType.Directory &&
+                       path.Equals(targetPath, StringComparison.OrdinalIgnoreCase)) ||
+                   path.StartsWith(targetPrefix, StringComparison.OrdinalIgnoreCase);
+        });
+        if (alreadyExists) return false;
+
+        List<PakWriter.BuildItem> items = ExistingBuildItems(reader).ToList();
+        items.Add(new PakWriter.BuildItem(true, targetPath, 0, null));
+        items = AddMissingDirectoryEntries(items);
+
+        log?.Invoke($"Creating directory '{targetPath}'.");
+        Rebuild(pakPath, reader, items, options, log, onProgress, SaveBck,
+            cancellationToken, preserveExistingPayloadTypes: true);
+        return true;
+    }
+
+    /// <summary>
+    /// Removes a directory entry and every file or directory below it.
+    /// </summary>
+    public static bool RemoveDirectory(string pakPath, PakReader reader, string directoryPath,
+                                       PakRebuildOptions options, Action<string>? log = null,
+                                       Action<int, int>? onProgress = null, bool SaveBck = false) =>
+        RemoveDirectory(pakPath, reader, directoryPath, options, log, onProgress,
+            SaveBck, CancellationToken.None);
+
+    /// <summary>
+    /// Removes a directory entry and every file or directory below it.
+    /// </summary>
+    public static bool RemoveDirectory(string pakPath, PakReader reader, string directoryPath,
+                                       PakRebuildOptions options, Action<string>? log,
+                                       Action<int, int>? onProgress, bool SaveBck,
+                                       CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string targetPath = ValidateDirectoryPath(directoryPath, options);
+        string targetPrefix = targetPath + "/";
+        List<PakWriter.BuildItem> items = ExistingBuildItems(reader)
+            .Where(item =>
+                !item.ArchivePath.Equals(targetPath, StringComparison.OrdinalIgnoreCase) &&
+                !item.ArchivePath.StartsWith(targetPrefix, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (items.Count == reader.Entries.Count) return false;
+
+        log?.Invoke($"Removing directory '{targetPath}' and its contents.");
+        Rebuild(pakPath, reader, items, options, log, onProgress, SaveBck,
+            cancellationToken, preserveExistingPayloadTypes: true);
+        return true;
+    }
+
     public static void ChangeEncryptionKey(string pakPath, PakReader reader, PakRebuildOptions newOptions,
                                            Action<string>? log = null, Action<int, int>? onProgress = null,
                                            bool SaveBck = false) =>
@@ -174,19 +261,16 @@ public static class PakManager
 
         foreach (PakWriter.BuildItem item in items)
         {
-            if (!item.IsDirectory)
+            string? directory = Path.GetDirectoryName(item.ArchivePath.Replace('/', '\\'));
+            var missing = new Stack<string>();
+            while (!string.IsNullOrEmpty(directory))
             {
-                string? directory = Path.GetDirectoryName(item.ArchivePath.Replace('/', '\\'));
-                var missing = new Stack<string>();
-                while (!string.IsNullOrEmpty(directory))
-                {
-                    string normalized = Normalize(directory);
-                    if (knownDirectories.Add(normalized)) missing.Push(normalized);
-                    directory = Path.GetDirectoryName(directory);
-                }
-                while (missing.TryPop(out string? path))
-                    result.Add(new PakWriter.BuildItem(true, path, 0, null));
+                string normalized = Normalize(directory);
+                if (knownDirectories.Add(normalized)) missing.Push(normalized);
+                directory = Path.GetDirectoryName(directory);
             }
+            while (missing.TryPop(out string? path))
+                result.Add(new PakWriter.BuildItem(true, path, 0, null));
             result.Add(item);
         }
         return result;
@@ -320,6 +404,22 @@ public static class PakManager
         int length = options.EntryVersion == PakFileEntryVersion.V3 ? ((bytes.Length + 7) / 8) * 8 : bytes.Length + 1;
         if (length > byte.MaxValue)
             throw new InvalidDataException($"Entry name is too long for the PAK format: {archivePath}");
+    }
+
+    private static string ValidateDirectoryPath(string directoryPath, PakRebuildOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath))
+            throw new ArgumentException("The directory path cannot be empty.", nameof(directoryPath));
+        if (!string.Equals(directoryPath, directoryPath.Trim(), StringComparison.Ordinal))
+            throw new ArgumentException("The directory path cannot start or end with whitespace.", nameof(directoryPath));
+
+        string normalized = directoryPath.Replace('\\', '/');
+        if (normalized.StartsWith('/') || normalized.EndsWith('/') || normalized.Contains("//", StringComparison.Ordinal))
+            throw new ArgumentException("The directory path must be a relative archive path.", nameof(directoryPath));
+
+        foreach (string segment in normalized.Split('/')) ValidateNewEntryName(segment);
+        ValidateArchivePathLength(normalized, options);
+        return normalized;
     }
 
     private static string CombineArchivePath(string folder, string fileName) =>

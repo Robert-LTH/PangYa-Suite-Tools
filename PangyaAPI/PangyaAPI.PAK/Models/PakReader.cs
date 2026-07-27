@@ -106,7 +106,7 @@ namespace PangyaAPI.PAK.Models
                 {
                     xorKey = 0x71;
                     sz ^= xorKey; 
-                    DecryptXor(nameRaw, nameLen);
+                    XOR.Cipher(nameRaw.AsSpan(0, nameLen), Convert.ToByte(xorKey));
                 }
                 else if (version == PakFileEntryVersion.V3)
                 {
@@ -125,17 +125,11 @@ namespace PangyaAPI.PAK.Models
                         sz = (uint)(packed >> 32);
                         offset = (uint)(packed & 0xFFFFFFFF);
 
-                        for (int k = 0; k < nameLen; k += 8)
-                        {
-                            ulong block = BitConverter.ToUInt64(nameRaw, k);
-                            block = Xtea.Decrypt(LocationKeys!, block);
-                            var bytes = BitConverter.GetBytes(block);
-                            Array.Copy(bytes, 0, nameRaw, k, Math.Min(8, nameRaw.Length - k));
-                        }
+                        nameRaw = Xtea.DecryptBlocks(nameRaw, LocationKeys!);
                     }
                     else
                     {
-                        DecryptXor(nameRaw, nameLen);
+                        XOR.Cipher(nameRaw.AsSpan(0, nameLen), Convert.ToByte(xorKey));
                     }
                 }
               
@@ -157,28 +151,22 @@ namespace PangyaAPI.PAK.Models
             Header.Author = ReadAuthor();
         }
 
-        private void DecryptXor(byte[] nameRaw, int nameLen)
-        {
-            for (int k = 0; k < nameLen; k++)
-                nameRaw[k] ^= Convert.ToByte(xorKey);
-        }
-
         private string ReadAuthor()
         {
-            if (Entries.Count == 0) return "Desconhecido";
-
-            var last = Entries[^1];
-            int restAuthor = (int)(Header.OffsetFileEntry - (last.Offset + last.CompressSize));
+            long payloadEnd = Entries.Count == 0
+                ? 0
+                : (long)Entries[^1].Offset + Entries[^1].CompressSize;
+            long restAuthor = Header.OffsetFileEntry - payloadEnd;
 
             if (restAuthor <= 2) return "Desconhecido";
 
             _reader.BaseStream.Seek(Header.OffsetFileEntry - 2, SeekOrigin.Begin);
-            short authorLenLE = _reader.ReadInt16();
+            ushort authorLenLE = _reader.ReadUInt16();
             // big endian → inverte bytes
-            short authorLen = (short)(((authorLenLE >> 8) & 0xFF) | ((authorLenLE << 8) & 0xFF00));
+            int authorLen = ((authorLenLE >> 8) & 0xFF) | ((authorLenLE << 8) & 0xFF00);
 
             if (authorLen == 0) return "Desconhecido";
-            if (authorLen < 0 || authorLen > (restAuthor - 2)) return "Desconhecido";
+            if (authorLen > restAuthor - 2) return "Desconhecido";
 
             _reader.BaseStream.Seek(Header.OffsetFileEntry - 2 - authorLen, SeekOrigin.Begin);
             return Encoding.ASCII.GetString(_reader.ReadBytes(authorLen));

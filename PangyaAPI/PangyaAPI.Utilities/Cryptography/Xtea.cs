@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Buffers.Binary;
 namespace PangyaAPI.Utilities.Cryptography
 {  
     public static class Xtea
@@ -35,6 +36,112 @@ namespace PangyaAPI.Utilities.Cryptography
                 v1 = unchecked(v1 + ((((v0 >> 5) ^ (v0 << 4)) + v0) ^ (d + keys[(d >> 11) & 3])));
             }
             return ((ulong)v1 << 32) | v0;
+        }
+
+        public static byte[] DecryptBlocks(ReadOnlySpan<byte> source, uint[] keys)
+            => TransformBlocks(source, keys, decrypt: true);
+
+        public static byte[] EncryptBlocks(ReadOnlySpan<byte> source, uint[] keys)
+            => TransformBlocks(source, keys, decrypt: false);
+
+        public static bool TryDecryptBlocks(ReadOnlySpan<byte> source,
+            IReadOnlyList<(string Label, uint[] Keys)> candidates, ReadOnlySpan<byte> expectedPrefix,
+            out string? matchedLabel, out uint[]? matchedKeys, out byte[]? decrypted)
+        {
+            ArgumentNullException.ThrowIfNull(candidates);
+            if (expectedPrefix.IsEmpty)
+                throw new ArgumentException("An expected plaintext prefix is required.", nameof(expectedPrefix));
+
+            foreach ((string label, uint[] keys) in candidates)
+            {
+                byte[] candidate = DecryptBlocks(source, keys);
+                if (!candidate.AsSpan().StartsWith(expectedPrefix)) continue;
+
+                matchedLabel = label;
+                matchedKeys = keys;
+                decrypted = candidate;
+                return true;
+            }
+
+            matchedLabel = null;
+            matchedKeys = null;
+            decrypted = null;
+            return false;
+        }
+
+        private static byte[] TransformBlocks(ReadOnlySpan<byte> source, uint[] keys, bool decrypt)
+        {
+            ArgumentNullException.ThrowIfNull(keys);
+            if (keys.Length != 4)
+                throw new ArgumentException("An XTEA key must contain exactly four words.", nameof(keys));
+            if (source.Length % 8 != 0)
+                throw new InvalidDataException("XTEA data must be aligned to an eight-byte block.");
+
+            byte[] result = source.ToArray();
+            for (int offset = 0; offset < result.Length; offset += 8)
+            {
+                ulong block = BinaryPrimitives.ReadUInt64LittleEndian(result.AsSpan(offset, 8));
+                ulong transformed = decrypt ? Decrypt(keys, block) : Encrypt(keys, block);
+                BinaryPrimitives.WriteUInt64LittleEndian(result.AsSpan(offset, 8), transformed);
+            }
+            return result;
+        }
+
+        public static async Task TransformFileAsync(string inputPath, string outputPath, uint[] keys, bool decrypt,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+            ArgumentNullException.ThrowIfNull(keys);
+            if (keys.Length != 4)
+                throw new ArgumentException("An XTEA key must contain exactly four words.", nameof(keys));
+
+            await using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            await using var output = new FileStream(outputPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            await TransformAsync(input, output, keys, decrypt, cancellationToken).ConfigureAwait(false);
+        }
+
+        public static async Task TransformAsync(Stream input, Stream output, uint[] keys, bool decrypt,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(input);
+            ArgumentNullException.ThrowIfNull(output);
+            ArgumentNullException.ThrowIfNull(keys);
+            if (keys.Length != 4)
+                throw new ArgumentException("An XTEA key must contain exactly four words.", nameof(keys));
+
+            byte[] buffer = new byte[64 * 1024];
+            int buffered = 0;
+            while (true)
+            {
+                int read = await input.ReadAsync(buffer.AsMemory(buffered), cancellationToken).ConfigureAwait(false);
+                if (read == 0) break;
+
+                buffered += read;
+                int completeLength = buffered & ~7;
+                for (int offset = 0; offset < completeLength; offset += 8)
+                {
+                    ulong source = BinaryPrimitives.ReadUInt64LittleEndian(buffer.AsSpan(offset, 8));
+                    ulong transformed = decrypt ? Decrypt(keys, source) : Encrypt(keys, source);
+                    BinaryPrimitives.WriteUInt64LittleEndian(buffer.AsSpan(offset, 8), transformed);
+                }
+                await output.WriteAsync(buffer.AsMemory(0, completeLength), cancellationToken).ConfigureAwait(false);
+
+                buffered -= completeLength;
+                if (buffered != 0)
+                    buffer.AsSpan(completeLength, buffered).CopyTo(buffer);
+            }
+
+            if (buffered == 0) return;
+            if (decrypt)
+                throw new InvalidDataException("XTEA ciphertext must be aligned to an eight-byte block.");
+
+            Array.Clear(buffer, buffered, 8 - buffered);
+            ulong finalSource = BinaryPrimitives.ReadUInt64LittleEndian(buffer.AsSpan(0, 8));
+            BinaryPrimitives.WriteUInt64LittleEndian(buffer.AsSpan(0, 8), Encrypt(keys, finalSource));
+            await output.WriteAsync(buffer.AsMemory(0, 8), cancellationToken).ConfigureAwait(false);
         }
 
         #region OLD AND CODEHARD
