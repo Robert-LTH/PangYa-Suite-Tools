@@ -12,6 +12,44 @@ internal enum PangyaUiButtonState
     Selected
 }
 
+internal static class PangyaUiDimensionHelper
+{
+    public static Point? ParsePoint(string? text)
+    {
+        int[]? values = ParseNumbers(text, 2);
+        return values is null ? null : new Point(values[0], values[1]);
+    }
+
+    public static Size? ParseSize(string? text)
+    {
+        int[]? values = ParseNumbers(text, 2);
+        return values is null ? null : new Size(values[0], values[1]);
+    }
+
+    public static Rectangle? ParseRectangle(string? text)
+    {
+        int[]? values = ParseNumbers(text, 4);
+        if (values is null || values[2] < values[0] || values[3] < values[1])
+            return null;
+        return Rectangle.FromLTRB(values[0], values[1], values[2], values[3]);
+    }
+
+    private static int[]? ParseNumbers(string? text, int count)
+    {
+        MatchCollection matches = Regex.Matches(text ?? string.Empty, @"-?\d+");
+        if (matches.Count != count) return null;
+
+        var values = new int[count];
+        for (int index = 0; index < count; index++)
+        {
+            if (!int.TryParse(matches[index].Value, NumberStyles.Integer,
+                    CultureInfo.InvariantCulture, out values[index]))
+                return null;
+        }
+        return values;
+    }
+}
+
 internal sealed class PangyaUiNode
 {
     private static readonly string[] ImageParameterNames =
@@ -63,6 +101,14 @@ internal sealed class PangyaUiNode
 
     public bool IsVisible(IReadOnlySet<string> enabledSymbols) =>
         RequiredSymbols.All(enabledSymbols.Contains);
+
+    public bool IsRenderVisible =>
+        !Parameters.TryGetValue("visible", out string? value) ||
+        !value.Trim().Equals("0", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsExplicitlyStretched =>
+        Parameters.TryGetValue("stretch", out string? value) &&
+        value.Trim().Equals("1", StringComparison.OrdinalIgnoreCase);
 
     public void SetName(string value)
     {
@@ -169,22 +215,22 @@ internal sealed class PangyaUiNode
     internal static Rectangle ParseBounds(XmlElement element)
     {
         string rect = FirstAttribute(element, "rect", "bounds");
-        if (TryNumbers(rect, 4, out int[]? rectangle) && rectangle is not null)
-            return Rectangle.FromLTRB(rectangle[0], rectangle[1], rectangle[2], rectangle[3]);
+        if (PangyaUiDimensionHelper.ParseRectangle(rect) is Rectangle rectangle)
+            return rectangle;
 
         string pos = FirstAttribute(element, "pos", "position");
-        TryNumbers(pos, 2, out int[]? point);
+        Point point = PangyaUiDimensionHelper.ParsePoint(pos) ?? Point.Empty;
         string size = FirstAttribute(element, "size");
-        TryNumbers(size, 2, out int[]? dimensions);
+        Size? dimensions = PangyaUiDimensionHelper.ParseSize(size);
         if (dimensions is null)
         {
             string width = FirstAttribute(element, "width", "w", "cx");
             string height = FirstAttribute(element, "height", "h", "cy");
             if (int.TryParse(width, out int parsedWidth) && int.TryParse(height, out int parsedHeight))
-                dimensions = [parsedWidth, parsedHeight];
+                dimensions = new Size(parsedWidth, parsedHeight);
         }
-        return new Rectangle(point?[0] ?? 0, point?[1] ?? 0,
-            Math.Max(0, dimensions?[0] ?? 0), Math.Max(0, dimensions?[1] ?? 0));
+        return new Rectangle(point,
+            new Size(Math.Max(0, dimensions?.Width ?? 0), Math.Max(0, dimensions?.Height ?? 0)));
     }
 
     private static string FirstAttribute(XmlElement element, params string[] names)
@@ -199,26 +245,6 @@ internal sealed class PangyaUiNode
         return string.Empty;
     }
 
-    private static bool TryNumbers(string value, int count, out int[]? numbers)
-    {
-        MatchCollection matches = Regex.Matches(value ?? string.Empty, @"-?\d+");
-        if (matches.Count != count)
-        {
-            numbers = null;
-            return false;
-        }
-        numbers = new int[count];
-        for (int index = 0; index < count; index++)
-        {
-            if (!int.TryParse(matches[index].Value, NumberStyles.Integer, CultureInfo.InvariantCulture,
-                    out numbers[index]))
-            {
-                numbers = null;
-                return false;
-            }
-        }
-        return true;
-    }
 }
 
 internal sealed class PangyaUiDocument

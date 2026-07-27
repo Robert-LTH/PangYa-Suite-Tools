@@ -18,7 +18,8 @@ The project is built on top of a high-performance API (`PangyaAPI`) and a rich *
 - [x] **PangyaAPI.PAK Sync (`FrmPakDiff.cs`)**: Cross-client Multi-PAK structural synchronization tool to compare and isolate missing, modified, or identical files between different clients.
 - [x] **PangyaAPI.IFF**: Structured parser and editor for game data tables (`Character.iff`, `Item.iff`, etc.), enabling complete customization of server attributes and item mechanics.
 - [x] **PangyaAPI.UpdateList**: Utility for generating and signing encrypted XML patch lists for the game Launcher/Updater.
-- [x] **PangYa UI Editor**: Opens extracted `ui/*.xml` layouts in an element tree, renders image assets and reusable frame/macro definitions referenced across XML files on a zoomable canvas, previews button states, debug bounds, and checkbox-selected `#ifdef` elements, tolerates common legacy XML defects, and atomically edits source-backed element properties. Its workflow is inspired by [Saeroun](https://github.com/retreev/Saeroun).
+- [x] **PangYa UI Editor**: Opens extracted `ui/*.xml` layouts in an element tree, renders image assets and reusable frame/macro definitions referenced across XML files on a zoomable canvas, preserves intrinsic image dimensions unless `stretch=1` is declared, previews button states, debug bounds, and checkbox-selected `#ifdef` elements, tolerates common legacy XML defects, and atomically edits source-backed element properties. Its layout behavior is compatible with [Saeroun](https://github.com/retreev/Saeroun).
+- [x] **PangYa WFT Font Viewer**: Safely reads `WFNT` bitmap fonts, browses their full BMP glyph range in a virtualized grid, inspects advances and coverage, and renders zoomable sample text without loading the entire font into memory.
 
 ### 🚀 Advanced Features
 - **Application Log Viewer:** A shared logging interface retains tool activity for the current session and exposes it from the main menu; PAK audit activity is also written to `activity_log.txt`.
@@ -95,7 +96,8 @@ O projeto é estruturado sobre uma API de alto desempenho (`PangyaAPI`) e uma in
 - [x] **PangyaAPI.PAK Sync (`FrmPakDiff.cs`)**: Ferramenta de sincronização estrutural Multi-PAK entre clientes para comparar e isolar arquivos ausentes, modificados ou idênticos.
 - [x] **PangyaAPI.IFF**: Parser e editor estruturado para tabelas de dados do jogo (`Character.iff`, `Item.iff`, etc.), permitindo a customização completa de atributos, itens e mecânicas internas do servidor.
 - [x] **PangyaAPI.UpdateList**: Utilitário para geração e assinatura de listas criptografadas em XML para o Launcher/Updater do jogo.
-- [x] **Editor de UI PangYa**: Abre layouts `ui/*.xml` extraídos em uma árvore de elementos, renderiza os recursos em uma tela com zoom, visualiza estados de botões e limites de depuração e edita propriedades de forma atômica. O fluxo é inspirado no [Saeroun](https://github.com/retreev/Saeroun).
+- [x] **Editor de UI PangYa**: Abre layouts `ui/*.xml` extraídos em uma árvore de elementos, renderiza os recursos em uma tela com zoom preservando o tamanho original das imagens salvo quando `stretch=1`, visualiza estados de botões e limites de depuração e edita propriedades de forma atômica. O comportamento do layout é compatível com o [Saeroun](https://github.com/retreev/Saeroun).
+- [x] **Visualizador de fontes WFT do PangYa**: Lê fontes bitmap `WFNT` com segurança, navega por todos os glifos BMP em uma grade virtualizada, inspeciona avanços e cobertura e renderiza texto de amostra com zoom sem carregar toda a fonte na memória.
 
 ### 🚀 Recursos Avançados
 - **Visualizador de Log do Aplicativo:** Uma interface de log compartilhada mantém a atividade das ferramentas durante a sessão e pode ser aberta pelo menu principal; a auditoria de PAK também é gravada em `activity_log.txt`.

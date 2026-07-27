@@ -1067,4 +1067,22 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="UiEditor_SelectResource" xml:space="preserve"><value>リソースを選択</value></data>
   <data name="UiEditor_ResourceMustBeInData" xml:space="preserve"><value>選択したリソースは PangYa データフォルダー内にある必要があります。</value></data>
   <data name="UiEditor_LoadFailed" xml:space="preserve"><value>PangYa UI エディターを開けませんでした: {0}</value></data>
+  <data name="Menu_FontViewer" xml:space="preserve"><value>WFT フォントビューアー</value></data>
+  <data name="WftViewer_Title" xml:space="preserve"><value>PangYa WFT フォントビューアー</value></data>
+  <data name="WftViewer_Open" xml:space="preserve"><value>WFT を開く</value></data>
+  <data name="WftViewer_OpenTitle" xml:space="preserve"><value>PangYa WFT フォントを開く</value></data>
+  <data name="WftViewer_FileFilter" xml:space="preserve"><value>PangYa WFT フォント (*.wft)|*.wft</value></data>
+  <data name="WftViewer_Jump" xml:space="preserve"><value>コードポイント:</value></data>
+  <data name="WftViewer_Go" xml:space="preserve"><value>移動</value></data>
+  <data name="WftViewer_SampleZoom" xml:space="preserve"><value>サンプル倍率:</value></data>
+  <data name="WftViewer_SampleText" xml:space="preserve"><value>サンプルテキスト</value></data>
+  <data name="WftViewer_Ready" xml:space="preserve"><value>WFT フォントを開くかドロップしてください。</value></data>
+  <data name="WftViewer_Loading" xml:space="preserve"><value>WFT フォントを読み込んでいます...</value></data>
+  <data name="WftViewer_MetadataFormat" xml:space="preserve"><value>セル: {0}×{0} px   カバレッジ: {1} ビット   グリフ: {2:N0}   予約値: 0x{3:X8}</value></data>
+  <data name="WftViewer_LoadedFormat" xml:space="preserve"><value>{0} を読み込みました。</value></data>
+  <data name="WftViewer_LoadFailed" xml:space="preserve"><value>WFT フォントを開けませんでした: {0}</value></data>
+  <data name="WftViewer_GlyphFormat" xml:space="preserve"><value>文字: {0}   U+{1:X4}   送り幅: {2} px</value></data>
+  <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>読み込んだフォントでサポートされている16進コードポイント（U+0020～U+FFFF）を入力してください。</value></data>
+  <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;素早い茶色の狐。</value></data>
+  <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>PangYa の .wft フォントファイルのみ対応しています。</value></data>
 </root>

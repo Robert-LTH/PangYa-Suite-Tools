@@ -16,6 +16,7 @@ using Xunit;
 
 namespace PangYa_Suite_Tools.Tests;
 
+[Collection("Localization")]
 public sealed class LocalizationTests : IDisposable
 {
     private readonly string _tempDirectory = Path.Combine(Path.GetTempPath(), "PangYaLocalizationTests", Guid.NewGuid().ToString("N"));
@@ -2290,14 +2291,17 @@ public sealed class LocalizationTests : IDisposable
     [Fact]
     public void SchemaManager_RemovesLegacyCatchAllRawRecordOnOpen()
     {
-        using var dialog = new IffSchemaManagerDialog(32,
-        [
-            new IffFieldDefinition("Value", 0, 4, IffFieldType.UInt32),
-            new IffFieldDefinition("Raw record", 0, 32, IffFieldType.Raw, false, IsVisible: false),
-            new IffFieldDefinition("Custom raw", 4, 2, IffFieldType.Raw)
-        ]);
+        RunSta(() =>
+        {
+            using var dialog = new IffSchemaManagerDialog(32,
+            [
+                new IffFieldDefinition("Value", 0, 4, IffFieldType.UInt32),
+                new IffFieldDefinition("Raw record", 0, 32, IffFieldType.Raw, false, IsVisible: false),
+                new IffFieldDefinition("Custom raw", 4, 2, IffFieldType.Raw)
+            ]);
 
-        Assert.Equal(["Value", "Custom raw"], dialog.Fields.Select(field => field.Name));
+            Assert.Equal(["Value", "Custom raw"], dialog.Fields.Select(field => field.Name));
+        });
     }
 
     [Fact]
@@ -2501,6 +2505,20 @@ public sealed class LocalizationTests : IDisposable
         var task = (Task)instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(instance, [CancellationToken.None])!;
         task.GetAwaiter().GetResult();
+    }
+
+    private static void RunSta(Action action)
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try { action(); }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     private sealed class FakeReferenceResolver : IIffReferenceResolver

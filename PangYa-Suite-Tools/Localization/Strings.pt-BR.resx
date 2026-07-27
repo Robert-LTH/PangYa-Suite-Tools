@@ -1092,4 +1092,22 @@ Cancelar: Interromper a extração.</value></data>
   <data name="UiEditor_SelectResource" xml:space="preserve"><value>Selecionar recurso</value></data>
   <data name="UiEditor_ResourceMustBeInData" xml:space="preserve"><value>O recurso selecionado deve estar dentro da pasta de dados do PangYa.</value></data>
   <data name="UiEditor_LoadFailed" xml:space="preserve"><value>Falha ao abrir o editor de UI PangYa: {0}</value></data>
+  <data name="Menu_FontViewer" xml:space="preserve"><value>Visualizador de fontes WFT</value></data>
+  <data name="WftViewer_Title" xml:space="preserve"><value>Visualizador de fontes WFT do PangYa</value></data>
+  <data name="WftViewer_Open" xml:space="preserve"><value>Abrir WFT</value></data>
+  <data name="WftViewer_OpenTitle" xml:space="preserve"><value>Abrir uma fonte WFT do PangYa</value></data>
+  <data name="WftViewer_FileFilter" xml:space="preserve"><value>Fontes WFT do PangYa (*.wft)|*.wft</value></data>
+  <data name="WftViewer_Jump" xml:space="preserve"><value>Ponto de código:</value></data>
+  <data name="WftViewer_Go" xml:space="preserve"><value>Ir</value></data>
+  <data name="WftViewer_SampleZoom" xml:space="preserve"><value>Zoom da amostra:</value></data>
+  <data name="WftViewer_SampleText" xml:space="preserve"><value>Texto de amostra</value></data>
+  <data name="WftViewer_Ready" xml:space="preserve"><value>Abra ou solte uma fonte WFT para começar.</value></data>
+  <data name="WftViewer_Loading" xml:space="preserve"><value>Carregando fonte WFT...</value></data>
+  <data name="WftViewer_MetadataFormat" xml:space="preserve"><value>Célula: {0}×{0} px   Cobertura: {1} bits   Glifos: {2:N0}   Reservado: 0x{3:X8}</value></data>
+  <data name="WftViewer_LoadedFormat" xml:space="preserve"><value>{0} carregado.</value></data>
+  <data name="WftViewer_LoadFailed" xml:space="preserve"><value>Falha ao abrir a fonte WFT: {0}</value></data>
+  <data name="WftViewer_GlyphFormat" xml:space="preserve"><value>Caractere: {0}   U+{1:X4}   Avanço: {2} px</value></data>
+  <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>Digite um ponto de código hexadecimal compatível com a fonte carregada (U+0020 a U+FFFF).</value></data>
+  <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;A rápida raposa marrom.</value></data>
+  <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>Somente arquivos de fonte .wft do PangYa são compatíveis.</value></data>
 </root>

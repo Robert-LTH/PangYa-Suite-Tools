@@ -1089,4 +1089,22 @@ Avbryt: Stoppa extraheringen.</value></data>
   <data name="UiEditor_SelectResource" xml:space="preserve"><value>Välj resurs</value></data>
   <data name="UiEditor_ResourceMustBeInData" xml:space="preserve"><value>Den valda resursen måste finnas i PangYas datamapp.</value></data>
   <data name="UiEditor_LoadFailed" xml:space="preserve"><value>Det gick inte att öppna PangYa UI-redigeraren: {0}</value></data>
+  <data name="Menu_FontViewer" xml:space="preserve"><value>WFT-teckensnittsvisare</value></data>
+  <data name="WftViewer_Title" xml:space="preserve"><value>PangYa WFT-teckensnittsvisare</value></data>
+  <data name="WftViewer_Open" xml:space="preserve"><value>Öppna WFT</value></data>
+  <data name="WftViewer_OpenTitle" xml:space="preserve"><value>Öppna ett PangYa WFT-teckensnitt</value></data>
+  <data name="WftViewer_FileFilter" xml:space="preserve"><value>PangYa WFT-teckensnitt (*.wft)|*.wft</value></data>
+  <data name="WftViewer_Jump" xml:space="preserve"><value>Kodpunkt:</value></data>
+  <data name="WftViewer_Go" xml:space="preserve"><value>Gå</value></data>
+  <data name="WftViewer_SampleZoom" xml:space="preserve"><value>Exempelzoom:</value></data>
+  <data name="WftViewer_SampleText" xml:space="preserve"><value>Exempeltext</value></data>
+  <data name="WftViewer_Ready" xml:space="preserve"><value>Öppna eller släpp ett WFT-teckensnitt för att börja.</value></data>
+  <data name="WftViewer_Loading" xml:space="preserve"><value>Läser in WFT-teckensnitt...</value></data>
+  <data name="WftViewer_MetadataFormat" xml:space="preserve"><value>Cell: {0}×{0} px   Täckning: {1} bitar   Glyfer: {2:N0}   Reserverat: 0x{3:X8}</value></data>
+  <data name="WftViewer_LoadedFormat" xml:space="preserve"><value>Läste in {0}.</value></data>
+  <data name="WftViewer_LoadFailed" xml:space="preserve"><value>Det gick inte att öppna WFT-teckensnittet: {0}</value></data>
+  <data name="WftViewer_GlyphFormat" xml:space="preserve"><value>Tecken: {0}   U+{1:X4}   Förflyttning: {2} px</value></data>
+  <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>Ange en hexadecimal kodpunkt som stöds av det inlästa teckensnittet (U+0020 till U+FFFF).</value></data>
+  <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;Den snabba bruna räven.</value></data>
+  <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>Endast PangYa-teckensnitt med filändelsen .wft stöds.</value></data>
 </root>

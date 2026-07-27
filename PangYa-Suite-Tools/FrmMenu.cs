@@ -38,6 +38,7 @@ namespace PangYa_Suite_Tools
             btnOpenPakDiff.Text = Strings.Menu_PakDiff;
             btnOpenLog.Text = Strings.Menu_Log;
             btnOpenShop.Text = Strings.Menu_Shop;
+            btnOpenFontViewer.Text = Strings.Menu_FontViewer;
         }
 
         private void ConfigureUiEditorButtonIcon()
@@ -139,6 +140,11 @@ namespace PangYa_Suite_Tools
             finally { btnOpenShop.Enabled = true; }
         }
 
+        private void btnOpenFontViewer_Click(object? sender, EventArgs e)
+        {
+            OpenToolWindow(new FrmWftViewer(), hideMenu: true);
+        }
+
         private sealed class CenteredImageButton : Button
         {
             private bool _isMouseDown;
@@ -211,7 +217,5 @@ namespace PangYa_Suite_Tools
                 }
             }
         }
-
-        
     }
 }

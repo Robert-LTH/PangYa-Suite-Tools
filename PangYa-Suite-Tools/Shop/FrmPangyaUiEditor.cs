@@ -636,15 +636,22 @@ internal sealed class PangyaUiCanvas : Control
         foreach (PangyaUiNode node in RenderOrderedNodes())
         {
             DrawNode(e.Graphics, node, Point.Empty, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-            if (ShowDebugBounds) DrawOutline(e.Graphics, node.Bounds, Color.FromArgb(100, Color.DeepSkyBlue), 1f);
+            if (ShowDebugBounds) DrawDebugBounds(e.Graphics, node);
         }
-        if (SelectedNode is not null && TryGetNodeImage(SelectedNode) is Image)
-            DrawOutline(e.Graphics, GetRenderedBounds(SelectedNode), Color.Orange, 2f / Zoom);
+        if (SelectedNode is not null)
+        {
+            Rectangle selectedBounds = GetRenderedBounds(SelectedNode);
+            if (selectedBounds.Width <= 0 || selectedBounds.Height <= 0)
+                selectedBounds = SelectedNode.Bounds;
+            DrawOutline(e.Graphics, selectedBounds, Color.Orange, 2f / Zoom);
+        }
     }
 
     private void DrawNode(Graphics graphics, PangyaUiNode node, Point offset,
         HashSet<string> resourceChain)
     {
+        if (!node.IsRenderVisible || IsTransparentInCurrentState(node)) return;
+
         Rectangle nodeBounds = node.Bounds;
         nodeBounds.Offset(offset);
         string resource = node.GetResource(ButtonState);
@@ -668,24 +675,19 @@ internal sealed class PangyaUiCanvas : Control
         }
 
         Image? image = string.IsNullOrWhiteSpace(resource) ? null : TryGetImage(resource);
-        Rectangle bounds = GetRenderedBounds(nodeBounds, image);
         if (image is not null)
         {
+            Rectangle bounds = GetRenderedBounds(node, nodeBounds, image);
             graphics.DrawImage(image, bounds);
-            return;
         }
-        if (bounds.Width <= 0 || bounds.Height <= 0) return;
-        using var fill = new SolidBrush(Color.FromArgb(28, 110, 120, 130));
-        graphics.FillRectangle(fill, bounds);
-        DrawOutline(graphics, bounds, Color.FromArgb(90, Color.White), 1f);
-        using var font = new Font(Font.FontFamily, 8f / Zoom);
-        using var brush = new SolidBrush(Color.Gainsboro);
-        graphics.DrawString(node.DisplayName, font, brush, bounds);
     }
 
     internal Rectangle GetRenderedBounds(PangyaUiNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
+        if (!node.IsRenderVisible || IsTransparentInCurrentState(node))
+            return ShowDebugBounds ? node.Bounds : Rectangle.Empty;
+
         string resource = node.GetResource(ButtonState);
         PangyaUiNode? definition = _resourceCatalog.TryResolve(resource, node.Type, _enabledSymbols);
         if (definition is not null)
@@ -697,15 +699,16 @@ internal sealed class PangyaUiCanvas : Control
             referencedBounds.Offset(bounds.Location);
             return referencedBounds;
         }
-        return GetRenderedBounds(node.Bounds, TryGetNodeImage(node));
+        Image? image = TryGetNodeImage(node);
+        if (image is null) return ShowDebugBounds ? node.Bounds : Rectangle.Empty;
+        return GetRenderedBounds(node, node.Bounds, image);
     }
 
-    private static Rectangle GetRenderedBounds(Rectangle bounds, Image? image)
+    private static Rectangle GetRenderedBounds(PangyaUiNode node, Rectangle bounds, Image image)
     {
-        if (image is null) return bounds;
-        int width = bounds.Width > 0 ? bounds.Width : image.Width;
-        int height = bounds.Height > 0 ? bounds.Height : image.Height;
-        return new Rectangle(bounds.Location, new Size(width, height));
+        if (node.IsExplicitlyStretched && bounds.Width > 0 && bounds.Height > 0)
+            return bounds;
+        return new Rectangle(bounds.Location, image.Size);
     }
 
     private Image? TryGetNodeImage(PangyaUiNode node)
@@ -787,7 +790,8 @@ internal sealed class PangyaUiCanvas : Control
         else
         {
             Image? image = string.IsNullOrWhiteSpace(resource) ? null : TryGetImage(resource);
-            IncludeBounds(ref result, GetRenderedBounds(node.Bounds, image));
+            if (image is not null && node.IsRenderVisible && !IsTransparentInCurrentState(node))
+                IncludeBounds(ref result, GetRenderedBounds(node, node.Bounds, image));
         }
 
         foreach (PangyaUiNode child in node.Children.Where(child => child.IsVisible(_enabledSymbols)))
@@ -839,7 +843,11 @@ internal sealed class PangyaUiCanvas : Control
         if (_document is null || e.Button != MouseButtons.Left) return;
         Point logical = LogicalPoint(e.Location);
         PangyaUiNode? hit = RenderOrderedNodes()
-            .LastOrDefault(node => GetRenderedBounds(node).Contains(logical));
+            .LastOrDefault(node =>
+            {
+                Rectangle bounds = GetRenderedBounds(node);
+                return bounds.Width > 0 && bounds.Height > 0 && bounds.Contains(logical);
+            });
         _draggedNode = null;
         _dragStart = null;
         Capture = false;
@@ -910,6 +918,29 @@ internal sealed class PangyaUiCanvas : Control
         if (bounds.Width <= 0 || bounds.Height <= 0) return;
         using var pen = new Pen(color, width);
         graphics.DrawRectangle(pen, bounds);
+    }
+
+    private bool IsTransparentInCurrentState(PangyaUiNode node)
+    {
+        if (node.Type.Equals("TABBUTTON", StringComparison.OrdinalIgnoreCase))
+            return ButtonState == PangyaUiButtonState.Normal;
+        return node.Type.Equals("GROUPBOX", StringComparison.OrdinalIgnoreCase) ||
+               node.Type.Equals("LISTBOX", StringComparison.OrdinalIgnoreCase) ||
+               (node.IsForm && string.IsNullOrWhiteSpace(node.GetResource(ButtonState)));
+    }
+
+    private void DrawDebugBounds(Graphics graphics, PangyaUiNode node)
+    {
+        Rectangle bounds = node.Bounds;
+        if (bounds.Width <= 0 || bounds.Height <= 0) return;
+        DrawOutline(graphics, bounds, Color.FromArgb(150, Color.DeepSkyBlue), 1f / Zoom);
+        using var font = new Font(Font.FontFamily, 8f / Zoom);
+        SizeF labelSize = graphics.MeasureString(node.DisplayName, font);
+        var labelBounds = new RectangleF(bounds.X, bounds.Y, labelSize.Width, labelSize.Height);
+        using var background = new SolidBrush(Color.FromArgb(180, 35, 75, 95));
+        using var foreground = new SolidBrush(Color.White);
+        graphics.FillRectangle(background, labelBounds);
+        graphics.DrawString(node.DisplayName, font, foreground, labelBounds.Location);
     }
 
     protected override void Dispose(bool disposing)

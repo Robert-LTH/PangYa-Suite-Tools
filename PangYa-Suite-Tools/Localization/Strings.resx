@@ -1092,4 +1092,22 @@ Cancel: Stop the extraction.</value></data>
   <data name="UiEditor_SelectResource" xml:space="preserve"><value>Select resource</value></data>
   <data name="UiEditor_ResourceMustBeInData" xml:space="preserve"><value>The selected resource must be inside the PangYa data folder.</value></data>
   <data name="UiEditor_LoadFailed" xml:space="preserve"><value>Failed to open the PangYa UI editor: {0}</value></data>
+  <data name="Menu_FontViewer" xml:space="preserve"><value>WFT Font Viewer</value></data>
+  <data name="WftViewer_Title" xml:space="preserve"><value>PangYa WFT Font Viewer</value></data>
+  <data name="WftViewer_Open" xml:space="preserve"><value>Open WFT</value></data>
+  <data name="WftViewer_OpenTitle" xml:space="preserve"><value>Open a PangYa WFT font</value></data>
+  <data name="WftViewer_FileFilter" xml:space="preserve"><value>PangYa WFT fonts (*.wft)|*.wft</value></data>
+  <data name="WftViewer_Jump" xml:space="preserve"><value>Code point:</value></data>
+  <data name="WftViewer_Go" xml:space="preserve"><value>Go</value></data>
+  <data name="WftViewer_SampleZoom" xml:space="preserve"><value>Sample zoom:</value></data>
+  <data name="WftViewer_SampleText" xml:space="preserve"><value>Sample text</value></data>
+  <data name="WftViewer_Ready" xml:space="preserve"><value>Open or drop a WFT font to begin.</value></data>
+  <data name="WftViewer_Loading" xml:space="preserve"><value>Loading WFT font...</value></data>
+  <data name="WftViewer_MetadataFormat" xml:space="preserve"><value>Cell: {0}×{0} px   Coverage: {1}-bit   Glyphs: {2:N0}   Reserved: 0x{3:X8}</value></data>
+  <data name="WftViewer_LoadedFormat" xml:space="preserve"><value>Loaded {0}.</value></data>
+  <data name="WftViewer_LoadFailed" xml:space="preserve"><value>Failed to open WFT font: {0}</value></data>
+  <data name="WftViewer_GlyphFormat" xml:space="preserve"><value>Character: {0}   U+{1:X4}   Advance: {2} px</value></data>
+  <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>Enter a hexadecimal code point supported by the loaded font (U+0020 through U+FFFF).</value></data>
+  <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;The quick brown fox.</value></data>
+  <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>Only PangYa .wft font files are supported.</value></data>
 </root>

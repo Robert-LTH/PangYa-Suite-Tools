@@ -618,5 +618,23 @@ internal static class Strings
     public static string UiEditor_SelectResource => ResourceManager.GetString(nameof(UiEditor_SelectResource), Culture) ?? "";
     public static string UiEditor_ResourceMustBeInData => ResourceManager.GetString(nameof(UiEditor_ResourceMustBeInData), Culture) ?? "";
     public static string UiEditor_LoadFailed => ResourceManager.GetString(nameof(UiEditor_LoadFailed), Culture) ?? "";
+    public static string Menu_FontViewer => ResourceManager.GetString(nameof(Menu_FontViewer), Culture) ?? "";
+    public static string WftViewer_Title => ResourceManager.GetString(nameof(WftViewer_Title), Culture) ?? "";
+    public static string WftViewer_Open => ResourceManager.GetString(nameof(WftViewer_Open), Culture) ?? "";
+    public static string WftViewer_OpenTitle => ResourceManager.GetString(nameof(WftViewer_OpenTitle), Culture) ?? "";
+    public static string WftViewer_FileFilter => ResourceManager.GetString(nameof(WftViewer_FileFilter), Culture) ?? "";
+    public static string WftViewer_Jump => ResourceManager.GetString(nameof(WftViewer_Jump), Culture) ?? "";
+    public static string WftViewer_Go => ResourceManager.GetString(nameof(WftViewer_Go), Culture) ?? "";
+    public static string WftViewer_SampleZoom => ResourceManager.GetString(nameof(WftViewer_SampleZoom), Culture) ?? "";
+    public static string WftViewer_SampleText => ResourceManager.GetString(nameof(WftViewer_SampleText), Culture) ?? "";
+    public static string WftViewer_Ready => ResourceManager.GetString(nameof(WftViewer_Ready), Culture) ?? "";
+    public static string WftViewer_Loading => ResourceManager.GetString(nameof(WftViewer_Loading), Culture) ?? "";
+    public static string WftViewer_MetadataFormat => ResourceManager.GetString(nameof(WftViewer_MetadataFormat), Culture) ?? "";
+    public static string WftViewer_LoadedFormat => ResourceManager.GetString(nameof(WftViewer_LoadedFormat), Culture) ?? "";
+    public static string WftViewer_LoadFailed => ResourceManager.GetString(nameof(WftViewer_LoadFailed), Culture) ?? "";
+    public static string WftViewer_GlyphFormat => ResourceManager.GetString(nameof(WftViewer_GlyphFormat), Culture) ?? "";
+    public static string WftViewer_InvalidCodePoint => ResourceManager.GetString(nameof(WftViewer_InvalidCodePoint), Culture) ?? "";
+    public static string WftViewer_DefaultSample => ResourceManager.GetString(nameof(WftViewer_DefaultSample), Culture) ?? "";
+    public static string WftViewer_InvalidExtension => ResourceManager.GetString(nameof(WftViewer_InvalidExtension), Culture) ?? "";
 }
 

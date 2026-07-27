@@ -319,7 +319,7 @@ public sealed class ShopTests : IDisposable
             Assert.Equal(new Size(200, 150), canvas.Size);
             Assert.Equal(Point.Empty, canvas.LogicalPoint(
                 new Point(PangyaUiCanvas.FormPadding, PangyaUiCanvas.FormPadding)));
-            Assert.Equal(new Rectangle(10, 12, 20, 10), canvas.GetRenderedBounds(explicitNode));
+            Assert.Equal(new Rectangle(10, 12, 8, 6), canvas.GetRenderedBounds(explicitNode));
             Assert.Equal(new Rectangle(30, 40, 8, 6), canvas.GetRenderedBounds(intrinsicNode));
 
             canvas.Zoom = 2f;
@@ -332,6 +332,89 @@ public sealed class ShopTests : IDisposable
                 PangyaUiCanvas.FormPadding + intrinsicNode.Bounds.X,
                 PangyaUiCanvas.FormPadding + intrinsicNode.Bounds.Y);
             Assert.Equal(Color.Orange.ToArgb(), outline.ToArgb());
+        });
+    }
+
+    [Fact]
+    public void UiDimensions_ParseSafelyAndUseRightBottomCoordinates()
+    {
+        Assert.Equal(new Point(-10, 25), PangyaUiDimensionHelper.ParsePoint("-10 25"));
+        Assert.Equal(new Size(640, 480), PangyaUiDimensionHelper.ParseSize("640, 480"));
+        Assert.Equal(new Rectangle(10, 20, 40, 60),
+            PangyaUiDimensionHelper.ParseRectangle("10 20 50 80"));
+        Assert.Null(PangyaUiDimensionHelper.ParsePoint("10"));
+        Assert.Null(PangyaUiDimensionHelper.ParseSize("10 invalid"));
+        Assert.Null(PangyaUiDimensionHelper.ParseRectangle("10 20 5 15"));
+        Assert.Null(PangyaUiDimensionHelper.ParseRectangle(
+            "999999999999999999999 0 10 10"));
+    }
+
+    [Fact]
+    public void UiCanvas_UsesIntrinsicAreaSizeUnlessStretchIsEnabled()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "images");
+        Directory.CreateDirectory(imageDirectory);
+        SaveSolidImage(Path.Combine(imageDirectory, "red.png"), Color.Red, 4, 3);
+
+        string xmlPath = Path.Combine(_directory, "ui", "stretch.xml");
+        File.WriteAllText(xmlPath, """
+            <resource>
+              <element type="FORM" name="form" size="80 40">
+                <item type="GROUPBOX" name="container" rect="1 1 20 18"/>
+                <item type="AREA" name="natural" rect="5 5 15 15">
+                  <param name="bgimg" var="red.png"/>
+                </item>
+                <item type="AREA" name="stretched" rect="25 5 35 15">
+                  <param name="bgimg" var="red.png"/>
+                  <param name="stretch" var="1"/>
+                </item>
+                <item type="AREA" name="hidden" rect="45 5 55 15">
+                  <param name="bgimg" var="red.png"/>
+                  <param name="visible" var="0"/>
+                </item>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(xmlPath);
+        var assets = new ShopAssetResolver(_directory);
+
+        RunSta(() =>
+        {
+            using var canvas = new PangyaUiCanvas(assets);
+            PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+            PangyaUiNode group = Assert.Single(document.Nodes, node => node.Name == "container");
+            PangyaUiNode natural = Assert.Single(document.Nodes, node => node.Name == "natural");
+            PangyaUiNode stretched = Assert.Single(document.Nodes, node => node.Name == "stretched");
+            PangyaUiNode hidden = Assert.Single(document.Nodes, node => node.Name == "hidden");
+            canvas.LoadDocument(document);
+            canvas.SelectedForm = form;
+
+            Assert.Equal(new Rectangle(5, 5, 4, 3), canvas.GetRenderedBounds(natural));
+            Assert.Equal(new Rectangle(25, 5, 10, 10), canvas.GetRenderedBounds(stretched));
+            Assert.Equal(Rectangle.Empty, canvas.GetRenderedBounds(group));
+            Assert.Equal(Rectangle.Empty, canvas.GetRenderedBounds(hidden));
+
+            using var rendered = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(rendered, canvas.ClientRectangle);
+            int padding = PangyaUiCanvas.FormPadding;
+            Assert.Equal(Color.Red.ToArgb(), rendered.GetPixel(padding + 7, padding + 6).ToArgb());
+            Assert.NotEqual(Color.Red.ToArgb(), rendered.GetPixel(padding + 12, padding + 6).ToArgb());
+            Assert.Equal(Color.Red.ToArgb(), rendered.GetPixel(padding + 33, padding + 13).ToArgb());
+            Assert.NotEqual(Color.Red.ToArgb(), rendered.GetPixel(padding + 47, padding + 6).ToArgb());
+
+            canvas.CanvasMouseDown(canvas, new MouseEventArgs(MouseButtons.Left, 1,
+                padding + 12, padding + 6, 0));
+            Assert.Null(canvas.SelectedNode);
+            canvas.CanvasMouseDown(canvas, new MouseEventArgs(MouseButtons.Left, 1,
+                padding + 7, padding + 6, 0));
+            Assert.Same(natural, canvas.SelectedNode);
+
+            canvas.ShowDebugBounds = true;
+            Assert.Equal(group.Bounds, canvas.GetRenderedBounds(group));
+            using var debugRendered = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(debugRendered, canvas.ClientRectangle);
+            Assert.NotEqual(rendered.GetPixel(padding + 1, padding + 1).ToArgb(),
+                debugRendered.GetPixel(padding + 1, padding + 1).ToArgb());
         });
     }
 
@@ -471,6 +554,7 @@ public sealed class ShopTests : IDisposable
             canvas.LoadDocument(document);
             canvas.SelectedForm = form;
             canvas.SelectedNode = first;
+            canvas.ShowDebugBounds = true;
             properties.SelectedNode = first;
             canvas.SelectionChanged += (_, node) =>
             {

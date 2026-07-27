@@ -1013,4 +1013,22 @@ Déclencheur :</value>
   <data name="UiEditor_SelectResource" xml:space="preserve"><value>Sélectionner une ressource</value></data>
   <data name="UiEditor_ResourceMustBeInData" xml:space="preserve"><value>La ressource sélectionnée doit se trouver dans le dossier de données PangYa.</value></data>
   <data name="UiEditor_LoadFailed" xml:space="preserve"><value>Impossible d’ouvrir l’éditeur d’interface PangYa : {0}</value></data>
+  <data name="Menu_FontViewer" xml:space="preserve"><value>Visionneuse de polices WFT</value></data>
+  <data name="WftViewer_Title" xml:space="preserve"><value>Visionneuse de polices WFT PangYa</value></data>
+  <data name="WftViewer_Open" xml:space="preserve"><value>Ouvrir WFT</value></data>
+  <data name="WftViewer_OpenTitle" xml:space="preserve"><value>Ouvrir une police WFT PangYa</value></data>
+  <data name="WftViewer_FileFilter" xml:space="preserve"><value>Polices WFT PangYa (*.wft)|*.wft</value></data>
+  <data name="WftViewer_Jump" xml:space="preserve"><value>Point de code :</value></data>
+  <data name="WftViewer_Go" xml:space="preserve"><value>Aller</value></data>
+  <data name="WftViewer_SampleZoom" xml:space="preserve"><value>Zoom de l’exemple :</value></data>
+  <data name="WftViewer_SampleText" xml:space="preserve"><value>Texte d’exemple</value></data>
+  <data name="WftViewer_Ready" xml:space="preserve"><value>Ouvrez ou déposez une police WFT pour commencer.</value></data>
+  <data name="WftViewer_Loading" xml:space="preserve"><value>Chargement de la police WFT...</value></data>
+  <data name="WftViewer_MetadataFormat" xml:space="preserve"><value>Cellule : {0}×{0} px   Couverture : {1} bits   Glyphes : {2:N0}   Réservé : 0x{3:X8}</value></data>
+  <data name="WftViewer_LoadedFormat" xml:space="preserve"><value>{0} chargé.</value></data>
+  <data name="WftViewer_LoadFailed" xml:space="preserve"><value>Impossible d’ouvrir la police WFT : {0}</value></data>
+  <data name="WftViewer_GlyphFormat" xml:space="preserve"><value>Caractère : {0}   U+{1:X4}   Avance : {2} px</value></data>
+  <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>Entrez un point de code hexadécimal pris en charge par la police chargée (U+0020 à U+FFFF).</value></data>
+  <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;Le rapide renard brun.</value></data>
+  <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>Seuls les fichiers de police PangYa .wft sont pris en charge.</value></data>
 </root>

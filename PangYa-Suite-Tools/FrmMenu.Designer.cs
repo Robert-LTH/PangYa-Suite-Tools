@@ -11,6 +11,7 @@
         private System.Windows.Forms.Button btnOpenPakDiff;
         private System.Windows.Forms.Button btnOpenLog;
         private System.Windows.Forms.Button btnOpenShop;
+        private System.Windows.Forms.Button btnOpenFontViewer;
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null)) components.Dispose();
@@ -26,6 +27,7 @@
             btnOpenOptions = new Button();
             btnOpenLog = new Button();
             btnOpenShop = new CenteredImageButton();
+            btnOpenFontViewer = new Button();
             lblTitle = new Label();
             SuspendLayout();
             // 
@@ -72,20 +74,20 @@
             // 
             // btnOpenOptions
             // 
-            btnOpenOptions.Location = new Point(103, 395);
+            btnOpenOptions.Location = new Point(103, 460);
             btnOpenOptions.Name = "btnOpenOptions";
             btnOpenOptions.Size = new Size(180, 35);
-            btnOpenOptions.TabIndex = 6;
+            btnOpenOptions.TabIndex = 7;
             btnOpenOptions.Text = "Options";
             btnOpenOptions.UseVisualStyleBackColor = true;
             btnOpenOptions.Click += btnOpenOptions_Click;
             //
             // btnOpenLog
             //
-            btnOpenLog.Location = new Point(103, 440);
+            btnOpenLog.Location = new Point(103, 505);
             btnOpenLog.Name = "btnOpenLog";
             btnOpenLog.Size = new Size(180, 35);
-            btnOpenLog.TabIndex = 7;
+            btnOpenLog.TabIndex = 8;
             btnOpenLog.UseVisualStyleBackColor = true;
             btnOpenLog.Click += btnOpenLog_Click;
             //
@@ -98,6 +100,16 @@
             btnOpenShop.TabIndex = 5;
             btnOpenShop.UseVisualStyleBackColor = true;
             btnOpenShop.Click += btnOpenShop_Click;
+            //
+            // btnOpenFontViewer
+            //
+            btnOpenFontViewer.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnOpenFontViewer.Location = new Point(42, 395);
+            btnOpenFontViewer.Name = "btnOpenFontViewer";
+            btnOpenFontViewer.Size = new Size(300, 50);
+            btnOpenFontViewer.TabIndex = 6;
+            btnOpenFontViewer.UseVisualStyleBackColor = true;
+            btnOpenFontViewer.Click += btnOpenFontViewer_Click;
             // 
             // lblTitle
             // 
@@ -112,7 +124,8 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(402, 520);
+            ClientSize = new Size(402, 585);
+            Controls.Add(btnOpenFontViewer);
             Controls.Add(btnOpenShop);
             Controls.Add(btnOpenLog);
             Controls.Add(btnOpenOptions);
