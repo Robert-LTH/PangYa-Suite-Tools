@@ -1,4 +1,5 @@
 using PangyaAPI.Utilities.Cryptography;
+using PangyaAPI.UpdateList.Localization;
 using System.Text;
 using System.Xml;
 
@@ -21,11 +22,14 @@ namespace PangyaAPI.UpdateList.Models
         public (UpdateHeader Header, List<UpdateEntry> Entries) ReadUpdateList(string filePath)
         {
             if (!File.Exists(filePath))
-                throw new FileNotFoundException($"Arquivo de update não encontrado: {filePath}");
+                throw new FileNotFoundException(UpdateListStrings.Format(
+                    UpdateListStrings.UpdateReaderFileNotFound,
+                    filePath));
 
             long encryptedLength = new FileInfo(filePath).Length;
             if (encryptedLength == 0 || encryptedLength % 8 != 0)
-                throw new InvalidDataException("A UpdateList criptografada está vazia ou truncada.");
+                throw new InvalidDataException(
+                    UpdateListStrings.UpdateReaderEncryptedListEmptyOrTruncated);
 
             var entries = new List<UpdateEntry>();
             var header = new UpdateHeader();
@@ -34,18 +38,19 @@ namespace PangyaAPI.UpdateList.Models
             if (document == null || document.Length == 0)
                 return (header, entries);
 
-            // Remove padding de zeros inserido pelo XTEA
+            // Remove the zero padding inserted by XTEA.
             int nullIndex = Array.IndexOf(document, (byte)0);
             if (nullIndex == -1) nullIndex = document.Length;
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             string text = Encoding.GetEncoding("euc-kr").GetString(document, 0, nullIndex);
 
-            // Isola o trecho XML válido
+            // Isolate the valid XML segment.
             int startIdx = text.IndexOf("<patchVer");
             int closingIdx = text.LastIndexOf("</updatefiles>", StringComparison.Ordinal);
             if (startIdx < 0 || closingIdx < startIdx)
-                throw new InvalidDataException("A UpdateList descriptografada não contém um XML completo.");
+                throw new InvalidDataException(
+                    UpdateListStrings.UpdateReaderDecryptedListMissingCompleteXml);
 
             int endIdx = closingIdx + "</updatefiles>".Length;
             text = text.Substring(startIdx, endIdx - startIdx);
@@ -76,8 +81,8 @@ namespace PangyaAPI.UpdateList.Models
         }
 
         /// <summary>
-        /// Popula um UpdateEntry a partir de um nó &lt;fileinfo&gt; iterando sobre
-        /// UpdateEntryFieldMap.Fields — espelha exatamente o que UpdateWriter escreve.
+        /// Populates an UpdateEntry from a &lt;fileinfo&gt; node by iterating over
+        /// UpdateEntryFieldMap.Fields, exactly mirroring what UpdateWriter writes.
         /// </summary>
         private static UpdateEntry ParseFileInfo(XmlNode node)
         {

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Crc32InputStreamMustNotBeNull" xml:space="preserve">
+    <value>The input stream must not be null.</value>
+  </data>
+  <data name="Crc32DataBufferMustNotBeNull" xml:space="preserve">
+    <value>The data buffer must not be null.</value>
+  </data>
+  <data name="UpdateMakerTargetDirectoryNotFound" xml:space="preserve">
+    <value>Target directory does not exist: {0}</value>
+  </data>
+  <data name="UpdateMakerOutputPathMustIncludeDirectory" xml:space="preserve">
+    <value>The output path must include a directory.</value>
+  </data>
+  <data name="UpdateMakerInvalidZipPackageName" xml:space="preserve">
+    <value>The file '{0}' does not produce a valid simple ZIP package name.</value>
+  </data>
+  <data name="UpdateMakerZipPackageCollision" xml:space="preserve">
+    <value>The files '{0}' and '{1}' produce the same package '{2}', but have different contents. A single ZIP package cannot represent both.</value>
+  </data>
+  <data name="UpdateReaderFileNotFound" xml:space="preserve">
+    <value>Update file not found: {0}</value>
+  </data>
+  <data name="UpdateReaderEncryptedListEmptyOrTruncated" xml:space="preserve">
+    <value>The encrypted UpdateList is empty or truncated.</value>
+  </data>
+  <data name="UpdateReaderDecryptedListMissingCompleteXml" xml:space="preserve">
+    <value>The decrypted UpdateList does not contain complete XML.</value>
+  </data>
+  <data name="UpdateWriterNoChangesToSave" xml:space="preserve">
+    <value>No changes to save.</value>
+  </data>
+  <data name="UpdateWriterGeneratedSuccessfully" xml:space="preserve">
+    <value>UpdateList generated successfully at: {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorKeyDetected" xml:space="preserve">
+    <value>[Success] Key detected successfully: Region {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorNoKnownKey" xml:space="preserve">
+    <value>[Warning] None of the known keys could decrypt the file.</value>
+  </data>
+  <data name="UpdateKeyDetectorPlainTextReadyToEncrypt" xml:space="preserve">
+    <value>[Info] File opened as plain text. Ready to encrypt ({0}{1})</value>
+  </data>
+</root>

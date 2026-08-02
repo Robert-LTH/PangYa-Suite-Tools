@@ -1,0 +1,4 @@
+{
+  "schemaVersion": 2, "defaultRevision": 1, "fileName": "ClubSetWorkShopLevelUpProb.iff", "region": "JP", "minimumRecordSize": 24, "isEditable": true,
+  "fields": [ { "name": "Type", "offset": 0, "width": 4, "type": "UInt32" }, { "name": "Probabilities", "offset": 4, "width": 20, "type": "Raw" } ]
+}

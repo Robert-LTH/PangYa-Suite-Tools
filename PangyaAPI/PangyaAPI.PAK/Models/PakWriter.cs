@@ -23,6 +23,7 @@ public class PakWriter
     /// <summary>Zero selects one eighth of available managed memory, clamped to 64-512 MiB.</summary>
     public long MaxBufferedBytes { get; set; }
     internal bool PreserveExistingPayloadTypes { get; set; }
+    internal bool ReuseExistingCompressedPayloads { get; set; } = true;
 
     internal readonly record struct BuildItem(
         bool IsDirectory,
@@ -199,7 +200,8 @@ public class PakWriter
             type = item.ExistingType.Value;
         else if (item.ExistingSize == 0 && item.ExistingType == PakFileEntryType.Raw)
             type = PakFileEntryType.Raw;
-        if (item.ReadCompressedData != null && item.ExistingType == type)
+        if (ReuseExistingCompressedPayloads &&
+            item.ReadCompressedData != null && item.ExistingType == type)
         {
             byte[] compressed = item.ReadCompressedData(cancellationToken);
             return new(false, item.ArchivePath, nameField, type, compressed, item.ExistingSize);
@@ -267,6 +269,8 @@ public class PakWriter
 
     private void WriteTableAndFooter(BinaryWriter writer, IReadOnlyList<PakFileEntry> entries)
     {
+        if (Author.Any(character => character > 0x7F))
+            throw new InvalidDataException("PAK author must contain ASCII characters only.");
         byte[] authorBytes = Encoding.ASCII.GetBytes(Author);
         if (authorBytes.Length > ushort.MaxValue) throw new InvalidDataException("PAK author is too long.");
         writer.Write(authorBytes);

@@ -988,6 +988,54 @@ Déclencheur :</value>
   <data name="IFFManager_BaseField" xml:space="preserve"><value>Base</value></data>
   <data name="IFFManager_RegionUnknown" xml:space="preserve"><value>Inconnue</value></data>
   <data name="Menu_Shop" xml:space="preserve"><value>Éditeur d’interface PangYa</value></data>
+  <data name="Menu_UiEditor" xml:space="preserve"><value>Éditeur d’interface PangYa</value></data>
+  <data name="Menu_ShopEditor" xml:space="preserve"><value>Éditeur de boutique PangYa</value></data>
+  <data name="Shop_Title" xml:space="preserve"><value>Éditeur de boutique PangYa</value></data>
+  <data name="Shop_EditItem" xml:space="preserve"><value>Modifier l’article de la boutique</value></data>
+  <data name="Shop_ItemId" xml:space="preserve"><value>ID de l’article</value></data>
+  <data name="Shop_ItemName" xml:space="preserve"><value>Nom</value></data>
+  <data name="Shop_Category" xml:space="preserve"><value>Catégorie</value></data>
+  <data name="Shop_SourceEntry" xml:space="preserve"><value>Entrée IFF source</value></data>
+  <data name="Shop_ChangeIcon" xml:space="preserve"><value>Modifier...</value></data>
+  <data name="Shop_InvalidIcon" xml:space="preserve"><value>L’icône sélectionnée n’a pas pu être décodée.</value></data>
+  <data name="Shop_EditHint" xml:space="preserve"><value>Cliquez sur un article pour modifier ses paramètres de boutique.</value></data>
+  <data name="Shop_SelectDataFolder" xml:space="preserve"><value>Sélectionnez le dossier de données PangYa extrait.</value></data>
+  <data name="Shop_MissingRequiredFile" xml:space="preserve"><value>Un fichier requis de la boutique est manquant.</value></data>
+  <data name="Shop_LoadFailed" xml:space="preserve"><value>Impossible de charger la boutique : {0}</value></data>
+  <data name="Shop_NoItems" xml:space="preserve"><value>Aucun enregistrement comportant des champs de boutique pris en charge n’a été trouvé dans l’archive IFF.</value></data>
+  <data name="Shop_Filter" xml:space="preserve"><value>Recherche : {0}</value></data>
+  <data name="Shop_Search" xml:space="preserve"><value>Rechercher des articles</value></data>
+  <data name="Shop_MissingIconsSkipped" xml:space="preserve"><value>{0} enregistrement(s) du catalogue ont une icône introuvable et utiliseront un espace réservé.</value></data>
+  <data name="Shop_MissingSkinResourceSkipped" xml:space="preserve"><value>La ressource d’habillage de la boutique « {0} » est introuvable et a été ignorée.</value></data>
+  <data name="Shop_EditPrices" xml:space="preserve"><value>Modifier les prix de l’article</value></data>
+  <data name="Shop_Price" xml:space="preserve"><value>Prix</value></data>
+  <data name="Shop_DiscountPrice" xml:space="preserve"><value>Prix réduit</value></data>
+  <data name="Shop_RentalPrice" xml:space="preserve"><value>Prix de location</value></data>
+  <data name="Shop_EditSaved" xml:space="preserve"><value>L’article IFF a été enregistré.</value></data>
+  <data name="Shop_EditFailed" xml:space="preserve"><value>Impossible d’enregistrer l’article IFF : {0}</value></data>
+  <data name="Shop_IconFilter" xml:space="preserve"><value>Images prises en charge|*.tga;*.png;*.jpg;*.jpeg;*.jpe;*.jfif;*.bmp;*.dib;*.rle;*.gif;*.tif;*.tiff;*.ico;*.wmf;*.emf;*.exif|Tous les fichiers|*.*</value></data>
+  <data name="Shop_SelectIcon" xml:space="preserve"><value>Sélectionner une icône dans le dossier de données extrait</value></data>
+  <data name="Shop_IconMustBeInData" xml:space="preserve"><value>L’icône sélectionnée doit se trouver dans le dossier de données extrait afin que le jeu puisse la résoudre.</value></data>
+  <data name="Shop_ShopFlags" xml:space="preserve"><value>Indicateurs de boutique (hex)</value></data>
+  <data name="Shop_MoneyFlags" xml:space="preserve"><value>Indicateurs monétaires (hex)</value></data>
+  <data name="Shop_TimeFlag" xml:space="preserve"><value>Indicateur temporel (hex)</value></data>
+  <data name="Shop_Time" xml:space="preserve"><value>Valeur temporelle (hex)</value></data>
+  <data name="Shop_StartDate" xml:space="preserve"><value>Date de début</value></data>
+  <data name="Shop_EndDate" xml:space="preserve"><value>Date de fin</value></data>
+  <data name="Shop_FlagIsCash" xml:space="preserve"><value>Article Cash</value></data>
+  <data name="Shop_FlagCanSendMailAndPersonalShop" xml:space="preserve"><value>Courrier / boutique personnelle</value></data>
+  <data name="Shop_FlagCanDuplicate" xml:space="preserve"><value>Peut être dupliqué</value></data>
+  <data name="Shop_FlagShopSpecial" xml:space="preserve"><value>Spécial boutique</value></data>
+  <data name="Shop_FlagBlockMailAndPersonalShop" xml:space="preserve"><value>Bloquer courrier / boutique</value></data>
+  <data name="Shop_FlagIsSaleable" xml:space="preserve"><value>Vendable</value></data>
+  <data name="Shop_FlagIsGift" xml:space="preserve"><value>Article cadeau</value></data>
+  <data name="Shop_FlagOnlyDisplay" xml:space="preserve"><value>Affichage uniquement</value></data>
+  <data name="Shop_FlagInStock" xml:space="preserve"><value>En stock</value></data>
+  <data name="Shop_FlagShowNew" xml:space="preserve"><value>Afficher Nouveau</value></data>
+  <data name="Shop_FlagDisplayOnly" xml:space="preserve"><value>Affichage uniquement</value></data>
+  <data name="Shop_FlagShowHot" xml:space="preserve"><value>Afficher Populaire</value></data>
+  <data name="Shop_FlagShowSpecial" xml:space="preserve"><value>Afficher Spécial</value></data>
+  <data name="Shop_FlagUnknown" xml:space="preserve"><value>Inconnu (0x{0:X2})</value></data>
   <data name="UiEditor_Title" xml:space="preserve"><value>Éditeur d’interface PangYa</value></data>
   <data name="UiEditor_SelectDataFolder" xml:space="preserve"><value>Sélectionnez le dossier de données PangYa extrait contenant le répertoire ui.</value></data>
   <data name="UiEditor_NoXmlFiles" xml:space="preserve"><value>Aucun fichier XML d’interface PangYa n’a été trouvé dans le répertoire ui.</value></data>
@@ -1031,4 +1079,27 @@ Déclencheur :</value>
   <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>Entrez un point de code hexadécimal pris en charge par la police chargée (U+0020 à U+FFFF).</value></data>
   <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;Le rapide renard brun.</value></data>
   <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>Seuls les fichiers de police PangYa .wft sont pris en charge.</value></data>
+  <data name="UpdateList_CreateZipPackages" xml:space="preserve"><value>Créer les paquets ZIP</value></data>
+  <data name="UpdateList_PackagingFiles" xml:space="preserve"><value>Création des paquets des fichiers client...</value></data>
+  <data name="UpdateList_PackagingProgressFormat" xml:space="preserve"><value>Création des paquets ZIP : {0}/{1}</value></data>
+  <data name="UpdateList_PackagingSummaryFormat" xml:space="preserve"><value>Création des ZIP terminée : {0} paquets prêts.</value></data>
+  <data name="UpdateList_ProcessingFileFormat" xml:space="preserve"><value>Traitement du fichier : {0}</value></data>
+  <data name="Common_Apply" xml:space="preserve"><value>Appliquer</value></data>
+  <data name="Pak_NoKey" xml:space="preserve"><value>Aucune (Raw)</value></data>
+  <data name="Pak_Settings" xml:space="preserve"><value>Paramètres</value></data>
+  <data name="Pak_SettingsTitle" xml:space="preserve"><value>Modifier les paramètres PAK</value></data>
+  <data name="Pak_HeaderVersion" xml:space="preserve"><value>Version d’en-tête PAK (hex. ; standard 12)</value></data>
+  <data name="Pak_RecompressEntries" xml:space="preserve"><value>Recompresser toutes les entrées normales</value></data>
+  <data name="Pak_CompressionLevelUnknownHint" xml:space="preserve"><value>Le niveau actuel n’est pas stocké dans le PAK. Le niveau choisi est utilisé uniquement lors de la recompression.</value></data>
+  <data name="Pak_AuthorAsciiOnly" xml:space="preserve"><value>L’auteur du PAK doit contenir uniquement des caractères ASCII.</value></data>
+  <data name="Pak_ConfirmSettingsUpdate" xml:space="preserve"><value>Appliquer ces paramètres et reconstruire le PAK ? Une copie .bak de l’archive actuelle sera créée.</value></data>
+  <data name="Pak_ConfirmRecompression" xml:space="preserve"><value>Toutes les entrées normales seront décompressées puis recompressées. Cette opération peut prendre du temps.</value></data>
+  <data name="Pak_UpdatingSettings" xml:space="preserve"><value>Mise à jour des paramètres PAK...</value></data>
+  <data name="Pak_SettingsUpdated" xml:space="preserve"><value>Les paramètres PAK ont été mis à jour.</value></data>
+  <data name="Pak_SettingsUpdateFailed" xml:space="preserve"><value>Impossible de mettre à jour les paramètres PAK :</value></data>
+  <data name="Pak_NoSettingsChanges" xml:space="preserve"><value>Aucun paramètre PAK n’a été modifié.</value></data>
+  <data name="Pak_UnusualNamesTitle" xml:space="preserve"><value>Noms d’entrées PAK inhabituels</value></data>
+  <data name="Pak_UnusualNamesSummary" xml:space="preserve"><value>{0} nom(s) d’entrée inhabituel(s) détecté(s). Vérifiez l’encodage avant l’extraction ou la modification. Les entrées concernées sont surlignées et les détails figurent dans le journal.</value></data>
+  <data name="Pak_CompressionLevelUnknown" xml:space="preserve"><value>Inconnu (non stocké dans le PAK)</value></data>
+  <data name="Pak_CompressionLevelSummaryFormat" xml:space="preserve"><value>Niveau de compression : {0}</value></data>
 </root>

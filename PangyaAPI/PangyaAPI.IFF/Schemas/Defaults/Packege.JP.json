@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 2, "defaultRevision": 1, "fileName": "Packege.iff", "region": "JP", "minimumRecordSize": 64, "isEditable": true,
+  "fields": [
+    { "name": "Total", "offset": 0, "width": 4, "type": "UInt32" }, { "name": "ItemTypeIds", "offset": 4, "width": 40, "type": "Raw" },
+    { "name": "ItemQuantities", "offset": 44, "width": 20, "type": "Raw" }
+  ]
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="EngineRequired" xml:space="preserve"><value>Database.Engine krävs.</value></data>
+  <data name="ConnectionRequired" xml:space="preserve"><value>ConnectionStrings:Pangya krävs.</value></data>
+  <data name="ServerAndDatabaseRequired" xml:space="preserve"><value>ConnectionStrings:Pangya måste ange en server och databas.</value></data>
+  <data name="CredentialsRequired" xml:space="preserve"><value>ConnectionStrings:Pangya måste innehålla inloggningsuppgifter när integrerad säkerhet är inaktiverad.</value></data>
+  <data name="ConnectionInvalid" xml:space="preserve"><value>ConnectionStrings:Pangya är ogiltig för den konfigurerade databasmotorn.</value></data>
+  <data name="EngineUnsupported" xml:space="preserve"><value>Databasmotorn '{0}' stöds inte.</value></data>
+  <data name="EngineUnsupportedEf" xml:space="preserve"><value>Databasmotorn '{0}' stöds inte av Entity Framework.</value></data>
+  <data name="ContextRequired" xml:space="preserve"><value>Databaskontext och databasmotor krävs.</value></data>
+  <data name="QueryRequired" xml:space="preserve"><value>En fråga eller ett procedurnamn krävs.</value></data>
+  <data name="QueryTimeout" xml:space="preserve"><value>Tidsgränsen överskreds i väntan på att databasfrågan skulle slutföras.</value></data>
+</root>

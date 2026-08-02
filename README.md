@@ -11,14 +11,20 @@ Advanced PangYa File Suite Editor written in C#
 
 **Pangya Suite Tools** (or *Pangya Studio Tools*) is an integrated ecosystem for advanced reverse engineering and modification, developed entirely in **C# (.NET 10)**. This solution centralizes reading, editing, converting, and compiling multiple native file formats used by both the client and server of the game **PangYa** (such as `.PAK` structures, `.IFF` tables, and patch lists).
 
+### Server database configuration
+
+The server data layer uses Entity Framework Core while retaining the existing PangYa stored procedures. Select SQL Server, MySQL, or PostgreSQL with `Database:Engine` in `PangyaAPI/PangyaAPI.Network/appsettings.json` and provide the connection through `ConnectionStrings:Pangya`. Prefer the `ConnectionStrings__Pangya` environment variable for credentials. Database migrations are never applied during server startup; SQL Server baseline generation and adoption instructions are in `PangyaAPI/PangyaAPI.Migrations.SqlServer/README.md`.
+
 The project is built on top of a high-performance API (`PangyaAPI`) and a rich **Windows Forms** graphical interface, utilizing modern asynchronous Task-based operations to ensure heavy disk I/O and cryptographic tasks run smoothly in the background, keeping the UI fully responsive.
 
 ### 🗺️ Module Overview
 - [x] **PangyaAPI.PAK (`FrmPakMaker.cs`)**: Surgical data package manipulation. Individual or batch extraction, dynamic file injection/merging, and full multi-region XTEA algorithm support.
 - [x] **PangyaAPI.PAK Sync (`FrmPakDiff.cs`)**: Cross-client Multi-PAK structural synchronization tool to compare and isolate missing, modified, or identical files between different clients.
-- [x] **PangyaAPI.IFF**: Structured parser and editor for game data tables (`Character.iff`, `Item.iff`, etc.), enabling complete customization of server attributes and item mechanics.
-- [x] **PangyaAPI.UpdateList**: Utility for generating and signing encrypted XML patch lists for the game Launcher/Updater.
+- [x] **PangyaAPI.IFF**: Multi-region, schema-driven parser, indexed catalog, and editor for game data tables (`Character.iff`, `Item.iff`, etc.). The former JP-only marshalled model package has been replaced by validated `IffRecord` schemas.
+- [x] **PangyaAPI.UpdateList**: Utility for generating and signing encrypted XML patch lists for the game Launcher/Updater. The generator can optionally create optimal-compression packages beside `updatelist`, flattening client-relative paths with underscores and appending each file's deterministic 1-based scan order (for example, the second file `GameGuard/GameGuard.des` becomes `GameGuard_GameGuard.des_2.zip`). The Package column records that exact ZIP filename. Unchanged packages are retained by SHA-256 comparison, changed packages are replaced atomically, and the preference also applies to monitored regenerations.
+- [x] **PangyaAPI.UI**: Reusable PangYa UI and shop XML document models, atomic editing, resource resolution, image decoding, rendering, geometry, and hit-testing.
 - [x] **PangYa UI Editor**: Opens extracted `ui/*.xml` layouts in an element tree, renders image assets and reusable frame/macro definitions referenced across XML files on a zoomable canvas, preserves intrinsic image dimensions unless `stretch=1` is declared, previews button states, debug bounds, and checkbox-selected `#ifdef` elements, tolerates common legacy XML defects, and atomically edits source-backed element properties. Its layout behavior is compatible with [Saeroun](https://github.com/retreev/Saeroun).
+- [x] **PangYa Shop Editor**: Renders the live shop skin and catalog records only from IFF tables that inherit the `Common` base, including disabled, non-saleable, zero-price, and missing-icon items. Category and side-tab controls use the image resources declared by `shop.xml`/`predefined.xml`; unresolved skin resources are skipped and reported once in the shared Log Viewer instead of preventing the shop from opening. Administrators can navigate visually and edit each item’s icon, prices, flags, duration, and availability dates directly in the discovered `pangya_*.iff`; loading, warnings, and saves appear in the shared Log Viewer. It uses the extraction `pakpath.json` sidecar to recover the original data root and requires `ui/shop.xml`, `ui/predefined.xml`, and exactly one matching PangYa IFF archive. The shop uses delimited TH, JP, GB/Global filename hints or known IFF headers to select its schema and asks for the region when neither source is conclusive.
 - [x] **PangYa WFT Font Viewer**: Safely reads `WFNT` bitmap fonts, browses their full BMP glyph range in a virtualized grid, inspects advances and coverage, and renders zoomable sample text without loading the entire font into memory.
 
 ### 🚀 Advanced Features
@@ -26,6 +32,34 @@ The project is built on top of a high-performance API (`PangyaAPI`) and a rich *
 - **Multi-Region XTEA Cryptography:** Full support for official and custom header encryptions: Global (GB), Thailand (TH), Japan (JP), Korea (KR), Indonesia (ID), Europe (EU), and Super SS Dev (Custom).
 - **Advanced Tree View Interaction:** Create persistent empty folders from the right-click menu, select them as file-injection targets, and use keyboard shortcuts or context actions for rename, extraction, and subtree removal.
 - **From-Scratch PAK Creation:** Use **New** in the PAK operations toolbar to configure, create, and immediately open a valid empty PAK, then build its archive layout by adding persistent folders and injecting files from the manager.
+- **PAK Settings and Diagnostics:** Use **Settings** on a loaded PAK to update its header version and ASCII author or optionally recompress all regular entries with a selected format and level. Updates are validated and applied atomically with a `.bak` backup. The manager also displays the detected key, keeps entry-list scrolling available, and highlights unsafe or incorrectly decoded entry names so the filename encoding can be corrected before editing or extraction.
+
+### 📦 NuGet Packages
+
+The PangyaAPI libraries are published as independent .NET 10 packages:
+
+| Package | Target | Package dependencies |
+| --- | --- | --- |
+| `PangyaAPI.Utilities` | `net10.0` | None |
+| `PangyaAPI.PAK` | `net10.0` | `PangyaAPI.Utilities` |
+| `PangyaAPI.IFF` | `net10.0` | `PangyaAPI.PAK`, `PangyaAPI.Utilities` |
+| `PangyaAPI.UpdateList` | `net10.0` | `PangyaAPI.Utilities` |
+| `PangyaAPI.WFT` | `net10.0` | None |
+| `PangyaAPI.UI` | `net10.0-windows` | `System.Drawing.Common` |
+
+Install only the modules your application needs:
+
+```powershell
+dotnet add package PangyaAPI.PAK
+dotnet add package PangyaAPI.IFF
+dotnet add package PangyaAPI.UpdateList
+dotnet add package PangyaAPI.WFT
+dotnet add package PangyaAPI.UI
+```
+
+Repository builds retain project references for source-level development. Run `.\build-local-nugets.ps1` to build the PangyaAPI solution and create packages and symbols in the shared `D:\devtest\.nuget-local` directory. Each invocation assigns the entire package set one sortable UTC timestamp version such as `1.0.0-local.20260802010130123`, so rebuilt packages do not reuse a previous version and their PangyaAPI dependency versions remain synchronized. Add the directory as a package source in the server repository with `dotnet nuget add source D:\devtest\.nuget-local --name PangyaAPI-local`.
+
+Tags in the form `vX.Y.Z` or `vX.Y.Z-prerelease` build matching package versions, attach the packages and symbols to the GitHub release, and publish them to NuGet.org using the repository's `NUGET_API_KEY` secret. Branch and pull-request builds produce uniquely versioned CI package artifacts without publishing them.
 
 ### 🛠️ Technical Snippet (PAK Compilation Example)
 To code with this API to compile a folder using Japanese specification (V3):
@@ -59,9 +93,11 @@ The editor provides two complementary views:
 
 Use the toolbar to add, copy, or delete records; save changes; extract one original IFF or every entry in a container; and patch the current table from a same-named loose IFF. The patch workflow matches records by item ID, lets you choose records and compatible fields, previews the changes, and converts values for the target region and string widths.
 
-For the safest workflow, select **Auto** region detection first and choose the string encoding before loading a file. The editor recognizes known TH, JP, and Global headers and uses filename or container hints when available; if the region is still ambiguous, it displays the header details and asks which schema to use. Back up game data before editing. **Extract IFF** and **Extract all IFFs** export the original stored bytes, so unsaved edits are not included.
+For the safest workflow, select **Auto** region detection first and choose the string encoding before loading a file. The editor recognizes known TH, JP, and Global headers and uses filename or container hints when available; if the region is still ambiguous, it displays the header details and asks which schema to use. PangYa UI XML loading also tolerates legacy bare ampersands in text and attribute values while preserving valid XML entities and writing standards-compliant XML when saved. Back up game data before editing. **Extract IFF** and **Extract all IFFs** export the original stored bytes, so unsaved edits are not included.
 
 ### JSON IFF schemas
+
+`PangyaAPI.IFF` is the single IFF package. Use `IffCatalog.LoadAsync` to load and index a loose table or PangYa IFF container with JP, TH, or Global schemas. The removed `PangyaAPI.IFF.JP` package and its `IFFFile<T>`/`sIff` APIs have no compatibility layer; consumers should query `IffTable` and `IffRecord` fields instead.
 
 IFF editor layouts are defined by versioned JSON files in
 `%LocalAppData%\PangYa-Suite-Tools\schemas`. Default TH, JP, and Global schemas are copied there on first use without overwriting existing files. Schema files are matched by IFF filename and region (for example, `Item.TH.json`), with `.default.json` as the optional fallback. Version 2 schemas can inherit a `Common` base selected from the IFF header's revision and magic; version 1 flat custom schemas remain supported. The editor's **Schema columns** dialog shows inherited base fields as read-only schema definitions and saves local column changes back to the matching JSON file.
@@ -94,9 +130,11 @@ O projeto é estruturado sobre uma API de alto desempenho (`PangyaAPI`) e uma in
 ### 🗺️ Visão Geral dos Módulos
 - [x] **PangyaAPI.PAK (`FrmPakMaker.cs`)**: Manipulação cirúrgica de pacotes de dados. Extração individual ou em lote, injeção/mesclagem dinâmica de arquivos e suporte total ao algoritmo XTEA multiregião.
 - [x] **PangyaAPI.PAK Sync (`FrmPakDiff.cs`)**: Ferramenta de sincronização estrutural Multi-PAK entre clientes para comparar e isolar arquivos ausentes, modificados ou idênticos.
-- [x] **PangyaAPI.IFF**: Parser e editor estruturado para tabelas de dados do jogo (`Character.iff`, `Item.iff`, etc.), permitindo a customização completa de atributos, itens e mecânicas internas do servidor.
-- [x] **PangyaAPI.UpdateList**: Utilitário para geração e assinatura de listas criptografadas em XML para o Launcher/Updater do jogo.
+- [x] **PangyaAPI.IFF**: Parser, catálogo indexado e editor multirregional orientado por esquemas para tabelas do jogo (`Character.iff`, `Item.iff`, etc.). O antigo pacote de modelos JP foi substituído por esquemas validados e registros `IffRecord`.
+- [x] **PangyaAPI.UpdateList**: Utilitário para geração e assinatura de listas criptografadas em XML para o Launcher/Updater do jogo. Opcionalmente, o gerador cria pacotes com compressão ótima ao lado de `updatelist`, achatando caminhos relativos com sublinhados e acrescentando a ordem determinística de varredura, iniciada em 1 (por exemplo, o segundo arquivo `GameGuard/GameGuard.des` se torna `GameGuard_GameGuard.des_2.zip`). A coluna Pacote registra exatamente esse nome ZIP. Pacotes inalterados são preservados por comparação SHA-256, pacotes alterados são substituídos atomicamente e a preferência também vale para regenerações monitoradas.
+- [x] **PangyaAPI.UI**: Modelos reutilizáveis de documentos XML da interface e loja do PangYa, edição atômica, resolução de recursos, decodificação de imagens, renderização, geometria e detecção de elementos.
 - [x] **Editor de UI PangYa**: Abre layouts `ui/*.xml` extraídos em uma árvore de elementos, renderiza os recursos em uma tela com zoom preservando o tamanho original das imagens salvo quando `stretch=1`, visualiza estados de botões e limites de depuração e edita propriedades de forma atômica. O comportamento do layout é compatível com o [Saeroun](https://github.com/retreev/Saeroun).
+- [x] **Editor da Loja PangYa**: Renderiza a interface real e todos os registros de catálogo compatíveis de uma pasta `data` extraída, incluindo itens desativados, não vendáveis, sem preço e sem ícone. Administradores podem navegar visualmente e editar ícone, preços, flags, duração e datas diretamente no arquivo `pangya_*.iff`; carregamentos, avisos e salvamentos aparecem no Visualizador de Log compartilhado. Usa `pakpath.json` para recuperar a raiz original e requer `ui/shop.xml`, `ui/predefined.xml` e exatamente um arquivo IFF PangYa correspondente.
 - [x] **Visualizador de fontes WFT do PangYa**: Lê fontes bitmap `WFNT` com segurança, navega por todos os glifos BMP em uma grade virtualizada, inspeciona avanços e cobertura e renderiza texto de amostra com zoom sem carregar toda a fonte na memória.
 
 ### 🚀 Recursos Avançados
@@ -104,6 +142,7 @@ O projeto é estruturado sobre uma API de alto desempenho (`PangyaAPI`) e uma in
 - **Criptografia por Região (XTEA):** Suporte completo ao algoritmo XTEA para criptografia de cabeçalhos utilizando chaves oficiais e customizadas: Global (GB), Tailândia (TH), Japão (JP), Coreia (KR), Indonésia (ID), Europa (EU) e Super SS Dev (Custom).
 - **Interação Avançada em Árvore:** Crie pastas vazias persistentes pelo menu de contexto, selecione-as como destino para injeção de arquivos e use atalhos ou ações de contexto para renomear, extrair e remover subárvores.
 - **Criação de PAK do Zero:** Crie e abra imediatamente um PAK vazio válido e monte sua estrutura adicionando pastas persistentes e injetando arquivos pelo gerenciador.
+- **Configurações e Diagnóstico de PAK:** Use **Configurações** em um PAK carregado para alterar a versão do cabeçalho e o autor ASCII ou, opcionalmente, recomprimir todas as entradas normais com o formato e nível selecionados. As alterações são validadas e aplicadas de forma atômica com backup `.bak`. O gerenciador também exibe a chave detectada, mantém a rolagem da lista e destaca nomes inseguros ou decodificados incorretamente para que a codificação seja corrigida antes da edição ou extração.
 
 ### Editor / Gerenciador de IFF
 

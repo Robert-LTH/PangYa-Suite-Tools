@@ -54,6 +54,7 @@ namespace PangYa_Suite_Tools
             txtUpdateListVer = new TextBox();
             lblClientPatchNum = new Label();
             txtClientPatchNum = new TextBox();
+            chkCreateZipPackages = new CheckBox();
             btnGenerateNow = new ToolStripButton();
             btnToggleWatch = new ToolStripButton();
             lblWatchStatus = new ToolStripLabel();
@@ -218,12 +219,23 @@ namespace PangYa_Suite_Tools
             grpConfig.Controls.Add(txtUpdateListVer);
             grpConfig.Controls.Add(lblClientPatchNum);
             grpConfig.Controls.Add(txtClientPatchNum);
+            grpConfig.Controls.Add(chkCreateZipPackages);
             grpConfig.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpConfig.Location = new Point(8, 78);
             grpConfig.Name = "grpConfig";
             grpConfig.Size = new Size(760, 235);   // +50 pra nova linha
             grpConfig.TabIndex = 1;
             grpConfig.TabStop = false;
+            //
+            // chkCreateZipPackages
+            //
+            chkCreateZipPackages.AutoSize = true;
+            chkCreateZipPackages.Font = new Font("Segoe UI", 9F);
+            chkCreateZipPackages.Location = new Point(15, 190);
+            chkCreateZipPackages.Name = "chkCreateZipPackages";
+            chkCreateZipPackages.Size = new Size(137, 19);
+            chkCreateZipPackages.TabIndex = 14;
+            chkCreateZipPackages.UseVisualStyleBackColor = true;
             // 
             // txtClientPatchNum
             // 
@@ -507,6 +519,7 @@ namespace PangYa_Suite_Tools
         private TextBox txtUpdateListVer;
         private Label lblClientPatchNum;
         private TextBox txtClientPatchNum;
+        private CheckBox chkCreateZipPackages;
 
         // botões de ação
         private ToolStripButton btnGenerateNow;

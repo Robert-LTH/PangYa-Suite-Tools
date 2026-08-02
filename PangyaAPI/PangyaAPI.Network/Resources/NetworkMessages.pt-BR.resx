@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="InvalidMenuSelection" xml:space="preserve"><value>Seleção inválida. Digite o número de uma opção do menu.</value></data>
+  <data name="MenuTitle" xml:space="preserve"><value>=== Menu do {0} ===</value></data>
+  <data name="MenuDescription" xml:space="preserve"><value> - {0}</value></data>
+  <data name="MenuEntry" xml:space="preserve"><value>{0}. {1}</value></data>
+  <data name="RedisplayMenu" xml:space="preserve"><value>Exibir o menu novamente</value></data>
+  <data name="ClearConsole" xml:space="preserve"><value>Limpar o console</value></data>
+  <data name="StopServer" xml:space="preserve"><value>Parar o servidor</value></data>
+  <data name="SelectOption" xml:space="preserve"><value>Selecione uma opção:</value></data>
+  <data name="CommandCancelled" xml:space="preserve"><value>Comando cancelado.</value></data>
+  <data name="CommandFailed" xml:space="preserve"><value>Falha no comando: {0}</value></data>
+  <data name="ChoiceCancelPrompt" xml:space="preserve"><value>Digite um número ou pressione Enter para cancelar:</value></data>
+  <data name="InvalidChoice" xml:space="preserve"><value>Seleção inválida. Digite um dos números listados.</value></data>
+  <data name="RangePrompt" xml:space="preserve"><value>{0} ({1}-{2}) ou pressione Enter para cancelar:</value></data>
+  <data name="InvalidRangeValue" xml:space="preserve"><value>Valor inválido. Digite um número dentro do intervalo exibido.</value></data>
+  <data name="ConsoleClearFailed" xml:space="preserve"><value>Não foi possível limpar o console: {0}</value></data>
+  <data name="ConfigurationFileMissing" xml:space="preserve"><value>O arquivo de configuração obrigatório appsettings.json não foi encontrado.</value></data>
+  <data name="ServerVersionsRequired" xml:space="preserve"><value>As versões do servidor e do cliente são obrigatórias.</value></data>
+  <data name="ServerValuesInvalid" xml:space="preserve"><value>O UID, a porta e o número máximo de usuários do servidor devem ser valores positivos válidos.</value></data>
+  <data name="AuthEndpointRequired" xml:space="preserve"><value>O host e a porta do AuthServer são obrigatórios.</value></data>
+  <data name="AntiDdosLimitsInvalid" xml:space="preserve"><value>Os limites e intervalos do AntiDdos devem ser positivos.</value></data>
+  <data name="AntiDdosOrderInvalid" xml:space="preserve"><value>AntiDdos.Order deve ser deny,allow, allow,deny ou mutual-failure.</value></data>
+  <data name="CommandNameRequired" xml:space="preserve"><value>O nome do comando é obrigatório.</value></data>
+  <data name="CommandTokenRequired" xml:space="preserve"><value>É necessário pelo menos um token de comando.</value></data>
+  <data name="ArgumentPromptRequired" xml:space="preserve"><value>O texto do argumento é obrigatório.</value></data>
+  <data name="ArgumentChoiceRequired" xml:space="preserve"><value>É necessária pelo menos uma opção de argumento.</value></data>
+  <data name="ChoiceNameRequired" xml:space="preserve"><value>O nome da opção é obrigatório.</value></data>
+  <data name="ChoiceTokenRequired" xml:space="preserve"><value>É necessário pelo menos um token de opção.</value></data>
+  <data name="RedirectedConsoleCannotClear" xml:space="preserve"><value>Não é possível limpar um console redirecionado.</value></data>
+</root>

@@ -6,7 +6,8 @@ internal sealed record UpdateListGeneratorSettings(
     string? KeyLabel,
     string? PatchVersion,
     string? UpdateListVersion,
-    string? PatchNumber);
+    string? PatchNumber,
+    bool CreateZipPackages = false);
 
 internal static class UpdateListGeneratorPreferences
 {
@@ -41,7 +42,8 @@ internal static class UpdateListGeneratorPreferences
             settings.KeyLabel?.Trim(),
             settings.PatchVersion?.Trim(),
             settings.UpdateListVersion?.Trim(),
-            settings.PatchNumber?.Trim());
+            settings.PatchNumber?.Trim(),
+            settings.CreateZipPackages);
 
         lock (PreferenceLock)
         {

@@ -314,6 +314,7 @@ public sealed class IffStreamingTests
         Assert.Equal(8, schema.Fields.Single(field => field.Name == "Name").Offset);
         Assert.Equal(40, schema.Fields.Single(field => field.Name == "Name").Width);
         Assert.Equal(136, schema.Fields.Single(field => field.Name == "StartDate").Offset);
+        Assert.Equal(100, schema.Fields.Single(field => field.Name == "UsedPrice").Offset);
         Assert.True(schema.Fields.Single(field => field.Name == "StartDate").IsInherited);
     }
 
@@ -730,6 +731,8 @@ public sealed class IffStreamingTests
     [InlineData("pangya-JP-data.iff", "JP")]
     [InlineData("archive_th.zip", "TH")]
     [InlineData("Pangya-Japan.zip", "JP")]
+    [InlineData("pangya-GB-data.iff", "Global")]
+    [InlineData("archive_global.zip", "Global")]
     [InlineData("PangyaThailand.iff", null)]
     [InlineData("something-eu.iff", null)]
     public void Region_IsDetectedFromDelimitedFilenameToken(string path, string? expected)

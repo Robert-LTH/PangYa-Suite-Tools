@@ -491,6 +491,148 @@ public sealed class PakStreamingTests
         Assert.Empty(Directory.GetFiles(temp.Path, "*.tmp"));
     }
 
+    [Fact]
+    public void UpdateArchive_MetadataOnlyPreservesPayloadsAndCreatesBackup()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("metadata-update.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+        byte[] original = File.ReadAllBytes(pak);
+
+        Dictionary<string, byte[]> compressed;
+        using (var reader = Open(pak, PakKeys.JP))
+        {
+            compressed = reader.Entries
+                .Where(entry => entry.Type != PakFileEntryType.Directory)
+                .ToDictionary(entry => entry.Name, reader.ReadCompressedEntryBytes);
+            PakManager.UpdateArchive(
+                pak,
+                reader,
+                Options(PakKeys.JP) with { Author = "UpdatedAuthor", PakVersion = 0x34 },
+                PakArchiveUpdateMode.PreservePayloads);
+        }
+
+        Assert.Equal(original, File.ReadAllBytes(pak + ".bak"));
+        using var updated = Open(pak, PakKeys.JP);
+        Assert.Equal(0x34, updated.Header.Version);
+        Assert.Equal("UpdatedAuthor", updated.Header.Author);
+        foreach (PakFileEntry entry in updated.Entries.Where(entry => entry.Type != PakFileEntryType.Directory))
+            Assert.Equal(compressed[entry.Name], updated.ReadCompressedEntryBytes(entry));
+    }
+
+    [Theory]
+    [InlineData(PakFileEntryType.Raw)]
+    [InlineData(PakFileEntryType.LZ77)]
+    [InlineData(PakFileEntryType.LZ772)]
+    public void UpdateArchive_RecompressesRegularEntries(PakFileEntryType targetType)
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine($"recompress-{targetType}.pak");
+        NewWriter(PakKeys.JP, PakFileEntryType.Raw).CreateFromDirectoryContents(source, pak);
+
+        Dictionary<string, byte[]> expected = Directory
+            .EnumerateFiles(source, "*", SearchOption.AllDirectories)
+            .ToDictionary(
+                path => Normalize(Path.GetRelativePath(source, path)),
+                File.ReadAllBytes,
+                StringComparer.OrdinalIgnoreCase);
+
+        using (var reader = Open(pak, PakKeys.JP))
+        {
+            PakManager.UpdateArchive(
+                pak,
+                reader,
+                Options(PakKeys.JP, targetType) with { Author = "Recompressed", PakVersion = 0x12 },
+                PakArchiveUpdateMode.RecompressEntries,
+                SaveBck: false);
+        }
+
+        using var updated = Open(pak, PakKeys.JP);
+        Assert.Equal("Recompressed", updated.Header.Author);
+        foreach (PakFileEntry entry in updated.Entries.Where(entry => entry.Type != PakFileEntryType.Directory))
+        {
+            string name = Normalize(entry.Name);
+            Assert.Equal(expected[name], updated.ExtractEntryToBytes(entry));
+            PakFileEntryType expectedType = entry.Size == 0 || name.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
+                ? PakFileEntryType.Raw
+                : targetType;
+            Assert.Equal(expectedType, entry.Type);
+        }
+    }
+
+    [Fact]
+    public void UpdateArchive_CancellationPreservesOriginalAndRemovesCandidate()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("cancel-update.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+        byte[] original = File.ReadAllBytes(pak);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        using var reader = Open(pak, PakKeys.JP);
+        Assert.ThrowsAny<OperationCanceledException>(() => PakManager.UpdateArchive(
+            pak, reader, Options(PakKeys.JP), PakArchiveUpdateMode.RecompressEntries,
+            null, null, true, cancellation.Token));
+
+        Assert.Equal(original, File.ReadAllBytes(pak));
+        Assert.False(File.Exists(pak + ".bak"));
+        Assert.Empty(Directory.GetFiles(temp.Path, "*.tmp"));
+    }
+
+    [Fact]
+    public void UpdateArchive_SameTypeWithNewLevelDoesNotReuseCompressedPayloads()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("compression-level-update.pak");
+        var writer = NewWriter(PakKeys.JP);
+        writer.CompressLevel = 1;
+        writer.CreateFromDirectoryContents(source, pak);
+
+        byte[] before;
+        using (var reader = Open(pak, PakKeys.JP))
+        {
+            before = reader.ReadCompressedEntryBytes(FindEntry(reader, "keep.txt"));
+            PakManager.UpdateArchive(
+                pak,
+                reader,
+                Options(PakKeys.JP) with { CompressLevel = 9 },
+                PakArchiveUpdateMode.RecompressEntries,
+                SaveBck: false);
+        }
+
+        using var updated = Open(pak, PakKeys.JP);
+        byte[] after = updated.ReadCompressedEntryBytes(FindEntry(updated, "keep.txt"));
+        Assert.NotEqual(before, after);
+        Assert.Equal(File.ReadAllBytes(Path.Combine(source, "keep.txt")),
+            updated.ExtractEntryToBytes(FindEntry(updated, "keep.txt")));
+    }
+
+    [Fact]
+    public void UpdateArchive_InvalidAuthorPreservesOriginalAndRemovesCandidate()
+    {
+        using var temp = new TemporaryDirectory();
+        string source = CreateSource(temp);
+        string pak = temp.Combine("invalid-author-update.pak");
+        NewWriter(PakKeys.JP).CreateFromDirectoryContents(source, pak);
+        byte[] original = File.ReadAllBytes(pak);
+
+        using var reader = Open(pak, PakKeys.JP);
+        Assert.Throws<InvalidDataException>(() => PakManager.UpdateArchive(
+            pak,
+            reader,
+            Options(PakKeys.JP) with { Author = "作者" },
+            PakArchiveUpdateMode.PreservePayloads));
+
+        Assert.Equal(original, File.ReadAllBytes(pak));
+        Assert.False(File.Exists(pak + ".bak"));
+        Assert.Empty(Directory.GetFiles(temp.Path, "*.tmp"));
+    }
+
     private static PakWriter NewWriter(uint[] keys, PakFileEntryType type = PakFileEntryType.LZ772) => new()
     {
         EntryVersion = PakFileEntryVersion.V3,

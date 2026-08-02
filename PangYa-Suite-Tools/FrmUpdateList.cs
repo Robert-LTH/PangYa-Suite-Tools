@@ -72,6 +72,7 @@ namespace PangYa_Suite_Tools
             lblPatchVersion.Text = Strings.Update_PatchVersion;
             lblUpdateListVer.Text = Strings.Update_ListVersion;
             lblClientPatchNum.Text = Strings.Update_PatchNumber;
+            chkCreateZipPackages.Text = Strings.UpdateList_CreateZipPackages;
             txtViewerFilePath.PlaceholderText = Strings.UpdateList_ViewerPathHint;
             btnBrowsePangya.Text = Strings.Pak_Browse;
             btnBrowseUpdate.Text = Strings.Pak_Browse;
@@ -161,6 +162,7 @@ private void SetupComponents()
             RestoreTextPreference(txtPatchVersion, settings.PatchVersion);
             RestoreTextPreference(txtUpdateListVer, settings.UpdateListVersion);
             RestoreTextPreference(txtClientPatchNum, settings.PatchNumber);
+            chkCreateZipPackages.Checked = settings.CreateZipPackages;
         }
 
         private static void RestoreTextPreference(TextBox textBox, string? value)
@@ -181,7 +183,8 @@ private void SetupComponents()
                 cboFileKey.SelectedItem?.ToString(),
                 txtPatchVersion.Text,
                 txtUpdateListVer.Text,
-                txtClientPatchNum.Text));
+                txtClientPatchNum.Text,
+                chkCreateZipPackages.Checked));
         }
 
         private void ConfigureToolbars()
@@ -587,6 +590,12 @@ private void SetupComponents()
                 Log(string.Format(LocalizationManager.CurrentCulture,
                     Strings.UpdateList_ErrorLogFormat, ex.Message));
                 lblStatus.Text = Strings.UpdateList_ErrorStatus;
+                MessageBox.Show(
+                    this,
+                    ex.Message,
+                    Strings.UpdateList_ErrorStatus,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
             finally
             {
@@ -641,6 +650,12 @@ private void SetupComponents()
             catch (Exception ex)
             {
                 Log($"[{Strings.UpdateList_INITERROR}] {ex.Message}");
+                MessageBox.Show(
+                    this,
+                    ex.Message,
+                    Strings.UpdateList_ErrorStatus,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
                 StopMonitoring();
             }
             finally
@@ -715,7 +730,16 @@ private void SetupComponents()
                 }
                 catch (Exception ex)
                 {
-                    this.Invoke(() => Log($"[{Strings.UpdateList_IOERROR}] {Strings.UpdateList_CouldNotManageTheFile} {e.Name}: {ex.Message}"));
+                    this.Invoke(() =>
+                    {
+                        Log($"[{Strings.UpdateList_IOERROR}] {Strings.UpdateList_CouldNotManageTheFile} {e.Name}: {ex.Message}");
+                        MessageBox.Show(
+                            this,
+                            ex.Message,
+                            Strings.UpdateList_ErrorStatus,
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    });
                 }
             }
         }
@@ -751,6 +775,7 @@ private void SetupComponents()
             string _patchVersion = string.Empty;
             string _updateVersion = string.Empty;
             string _patchNum = string.Empty;
+            bool _createZipPackages = false;
 
             this.Invoke(() =>
             {
@@ -761,6 +786,7 @@ private void SetupComponents()
                 _patchVersion = txtPatchVersion.Text;
                 _updateVersion = txtUpdateListVer.Text;
                 _patchNum = txtClientPatchNum.Text;
+                _createZipPackages = chkCreateZipPackages.Checked;
             });
 
             uint[] regionKeys = GetKeysByLabel(_keyLabel);
@@ -783,6 +809,7 @@ private void SetupComponents()
                 Log(string.Format(LocalizationManager.CurrentCulture, Strings.UpdateList_KeyLogFormat, _keyLabel));
                 Log(string.Format(LocalizationManager.CurrentCulture, Strings.UpdateList_VersionLogFormat, _patchVersion, _patchNum));
                 Log(Strings.UpdateList_ScanningFiles);
+                if (_createZipPackages) Log(Strings.UpdateList_PackagingFiles);
             });
 
             // ── Carrega updatelist existente para delta comparison ────────────
@@ -791,16 +818,19 @@ private void SetupComponents()
             {
                 try
                 {
-                    var detectedKey = regionKeys;
-                    var result = UpdateKeyDetector.DetectAndSetKey(_existingPath, out uint[]? autoKey, out _, out _);
-                    if (result == UpdateResult.Sucess && autoKey != null)
-                        detectedKey = autoKey;
+                    existingEntries = await Task.Run(() =>
+                    {
+                        var detectedKey = regionKeys;
+                        var result = UpdateKeyDetector.DetectAndSetKey(
+                            _existingPath, out uint[]? autoKey, out _, out _);
+                        if (result == UpdateResult.Sucess && autoKey != null)
+                            detectedKey = autoKey;
 
-                    var reader = new UpdateReader(detectedKey);
-                    var (_, loaded) = reader.ReadUpdateList(_existingPath);
-                    existingEntries = loaded;
+                        var reader = new UpdateReader(detectedKey);
+                        return reader.ReadUpdateList(_existingPath).Entries;
+                    });
                     this.Invoke(() => Log(string.Format(LocalizationManager.CurrentCulture,
-                        Strings.UpdateList_ExistingLoadedFormat, loaded.Count)));
+                        Strings.UpdateList_ExistingLoadedFormat, existingEntries.Count)));
                 }
                 catch (Exception ex)
                 {
@@ -811,7 +841,6 @@ private void SetupComponents()
 
             // ── Geração + progress bar ────────────────────────────────────────
             _updateMaker = new UpdateMaker();
-            List<UpdateEntry> generatedEntries = new();
 
             await Task.Run(() =>
             {
@@ -828,12 +857,36 @@ private void SetupComponents()
                         {
                             progressBar.Maximum = Math.Max(total, 1);
                             progressBar.Value = Math.Min(done, total);
-                            lblStatus.Text = string.Format(LocalizationManager.CurrentCulture,
-                                Strings.UpdateList_ScanningProgressFormat, done, total);
+                            int fileCount = _createZipPackages ? total / 2 : total;
+                            lblStatus.Text = _createZipPackages && done > fileCount
+                                ? string.Format(LocalizationManager.CurrentCulture,
+                                    Strings.UpdateList_PackagingProgressFormat,
+                                    done - fileCount, fileCount)
+                                : string.Format(LocalizationManager.CurrentCulture,
+                                    Strings.UpdateList_ScanningProgressFormat, done, fileCount);
                         });
+                    },
+                    createZipPackages: _createZipPackages,
+                    onFileProcessing: relativePath =>
+                    {
+                        this.Invoke(() => Log(string.Format(
+                            LocalizationManager.CurrentCulture,
+                            Strings.UpdateList_ProcessingFileFormat,
+                            relativePath)));
                     }
                 );
             });
+
+            List<UpdateEntry> scanned = await Task.Run(() =>
+                new UpdateReader(regionKeys).ReadUpdateList(outputPath).Entries);
+
+            if (_createZipPackages)
+            {
+                this.Invoke(() => Log(string.Format(
+                    LocalizationManager.CurrentCulture,
+                    Strings.UpdateList_PackagingSummaryFormat,
+                    scanned.Count)));
+            }
 
             // ── Delta comparison — igual ao Update() do sistema antigo ────────
             if (existingEntries != null && existingEntries.Count > 0)
@@ -845,10 +898,6 @@ private void SetupComponents()
                 int newFiles = 0;
                 int changedFiles = 0;
                 int unchangedFiles = 0;
-
-                // Usa os entries gerados pelo UpdateMaker para comparação
-                var tempReader = new UpdateReader(regionKeys);
-                var (_, scanned) = tempReader.ReadUpdateList(outputPath);
 
                 foreach (var entry in scanned)
                 {

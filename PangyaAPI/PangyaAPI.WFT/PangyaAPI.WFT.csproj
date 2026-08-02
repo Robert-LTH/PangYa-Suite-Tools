@@ -3,5 +3,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>PangyaAPI.WFT</PackageId>
+    <Title>PangyaAPI WFT</Title>
+    <Description>Safely read and inspect PangYa WFNT bitmap font files and glyph data.</Description>
   </PropertyGroup>
 </Project>

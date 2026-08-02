@@ -1,308 +1,12 @@
-﻿using System;
+#nullable disable
+using System;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 
 namespace PangyaAPI.Utilities
 {
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 16)]
-    public class SystemTime
+    public partial class UtilTime
     {
-        /// <summary>
-        /// Year
-        /// </summary>
-        public ushort Year { get; set; }
-
-        /// <summary>
-        /// Month
-        /// </summary>
-        public ushort Month { get; set; }
-
-        /// <summary>
-        /// Day of Week
-        /// </summary>
-        public ushort DayOfWeek { get; set; }
-
-        /// <summary>
-        /// Day
-        /// </summary>
-        public ushort Day { get; set; }
-
-        /// <summary>
-        /// Hour
-        /// </summary>
-        public ushort Hour { get; set; }
-
-        /// <summary>
-        /// Minute
-        /// </summary>
-        public ushort Minute { get; set; }
-
-        /// <summary>
-        /// Second
-        /// </summary>
-        public ushort Second { get; set; }
-
-        /// <summary>
-        /// Millisecond
-        /// </summary>
-        public ushort MilliSecond { get; set; }
-
-        public bool TimeActive
-        {
-            get
-            {
-                return Year > 0 && Month > 0 && Day > 0;
-            }
-        }
-        public bool IsEmpty
-        {
-            get
-            {
-                return Year == 0 && Month == 0 && DayOfWeek == 0 && Day == 0 && Hour == 0 && Minute == 0 && Second == 0 && MilliSecond == 0;
-            }
-        }
-
-        public DateTime ConvertTime()
-        {
-            if (Month < 1 || Month > 12 || Day < 1 || Day > 31 || Hour > 23 || Minute > 59 || Second > 59 || MilliSecond > 999)
-            {
-                return DateTime.FromFileTimeUtc(0); // 1601-01-01 00:00:00, mínimo válido
-            }
-
-            return new DateTime(Year, Month, Day, Hour, Minute, Second, MilliSecond, DateTimeKind.Utc);
-        }
-
-
-        public void CreateTime(string format)
-        {
-            var date = DateTime.Parse(format);
-
-            Year = (ushort)date.Year;
-            Month = (ushort)date.Month;
-            Minute = (ushort)date.Minute;
-            Day = (ushort)date.Day;
-            Hour = (ushort)date.Hour;
-            Second = (ushort)date.Second;
-            MilliSecond = (ushort)date.Millisecond;
-        }
-
-        public void CreateTime()
-        {
-            var date = DateTime.Now;
-
-            Year = (ushort)date.Year;
-            Month = (ushort)date.Month;
-            Minute = (ushort)date.Minute;
-            Day = (ushort)date.Day;
-            Hour = (ushort)date.Hour;
-            Second = (ushort)date.Second;
-            MilliSecond = (ushort)date.Millisecond;
-        }
-
-        public void CreateTime(DateTime? date)
-        {
-            if (date is { } value && value != DateTime.MinValue)
-            {
-                Year = (ushort)value.Year;
-                Month = (ushort)value.Month;
-                Minute = (ushort)value.Minute;
-                Day = (ushort)value.Day;
-                Hour = (ushort)value.Hour;
-                Second = (ushort)value.Second;
-                MilliSecond = (ushort)value.Millisecond;
-            }
-        }
-
-        public void Clear()
-        {
-            Year = 0;
-            Month = 0;
-            Minute = 0;
-            Day = 0;
-            Hour = 0;
-            Second = 0;
-            MilliSecond = 0;
-        }
-        public SystemTime(int init = 0)
-        {
-            if (init == 1)
-                CreateTime();
-        }
-        
-        public SystemTime()
-        {
-        }
-
-        public SystemTime(ushort _Year, ushort _Month = 0, ushort _Day = 0, ushort _Hour = 0, ushort _Minute = 0, ushort _Second = 0, ushort _Millisecond = 0)
-        {
-            Year = _Year;
-            Month = _Month;
-            Minute = _Minute;
-            Day = _Day;
-            Hour = _Hour;
-            Second = _Second;
-            MilliSecond = _Millisecond;
-        }
-        public SystemTime(ushort _Year, ushort _Month = 0, ushort _Day = 0, ushort _DayOfWeek = 0, ushort _Hour = 0, ushort _Minute = 0, ushort _Second = 0, ushort _Millisecond = 0)
-        {
-            Year = _Year;
-            Month = _Month;
-            Minute = _Minute;
-            Day = _Day;
-            DayOfWeek = _DayOfWeek;
-            Hour = _Hour;
-            Second = _Second;
-            MilliSecond = _Millisecond;
-        }
-        
-        public void SetInfo(SystemTime date)
-        {
-            Year = date.Year;
-            Month = date.Month;
-            Minute = date.Minute;
-            Day = date.Day;
-            DayOfWeek = date.DayOfWeek;
-            Hour = date.Hour;
-            Second = date.Second;
-            MilliSecond = date.MilliSecond;
-        }
-
-        public DateTime Time
-        {
-            get
-            {
-                if (TimeActive)//normal item
-                {
-                    return new DateTime(Year, Month, Day, Hour, Minute, Second, MilliSecond);
-                }
-                //for grand prix :D
-                else if (Hour > 0 || Minute > 0)
-                {
-
-                    var value = DateTime.Now; Year = (ushort)value.Year;
-                    Month = (ushort)value.Month;
-                    DayOfWeek = (ushort)value.DayOfWeek;
-                    Day = (ushort)value.Day;
-                    return new DateTime(value.Year, value.Month, value.Day, Hour, Minute, 0, 0);//aqui tem que setar, dia mes e ano
-                }
-                return DateTime.Now;
-            }
-            set
-            {
-                Year = (ushort)value.Year;
-                Month = (ushort)value.Month;
-                DayOfWeek = (ushort)value.DayOfWeek;
-                Day = (ushort)value.Day;
-                Hour = (ushort)value.Hour;
-                Minute = (ushort)value.Minute;
-                MilliSecond = (ushort)value.Millisecond == 0 ? (ushort)DateTime.Now.Millisecond : (ushort)value.Millisecond;
-                Second = (ushort)value.Second;
-            }
-        }
-        public DateTime TimeGP
-        {
-            get
-            {
-                if (Year == 0 && Month == 0 && Day == 0)
-                    return new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, Hour, Minute, Second, MilliSecond);
-                else
-                    return new DateTime(Year, Month, Day, Hour, Minute, Second, MilliSecond);//aqui tem que setar, dia mes e ano
-            }
-            set
-            {
-                Year = 0;        // Ano
-                Month = 0;         // Mês
-                DayOfWeek = 0;      // Dia da semana (não utilizado aqui)
-                Day = 0;           // Dia do mês     
-                Hour = (ushort)value.Hour;
-                Minute = (ushort)value.Minute;
-                Second = (ushort)value.Second;
-            }
-        }
-
-        public DateTime CheckAndReset()
-        {
-            Year = (ushort)DateTime.Now.Year;        // Ano
-            Month = (ushort)DateTime.Now.Month;         // Mês
-            DayOfWeek = (ushort)DateTime.Now.DayOfWeek;      // Dia da semana (não utilizado aqui)
-            Day = (ushort)DateTime.Now.Day;           // Dia do mês
-
-            // Criação de um novo DateTime com os valores decodificados
-            var value = new DateTime(Year, Month, Day, Hour, Minute, Second, MilliSecond);
-
-            // Retorna o novo DateTime
-            return value;
-
-        }
-
-        public void ClearTime()
-        {
-            Year = 0;
-            Month = 0;
-            DayOfWeek = 0;
-            Day = 0;
-            Hour = 0;
-            Minute = 0;
-            Second = 0;
-        }
-
-        public string ToString(string format)
-        {
-            return Time.ToString(format);
-        }
-        public string GPToString()
-        {
-            return TimeGP.ToString();
-        }
-
-        public void CreateTime(DateTime date)
-        {
-            if (date != DateTime.MinValue)
-            {
-
-                Year = (ushort)date.Year;
-                Month = (ushort)date.Month;
-                Minute = (ushort)date.Minute;
-                Day = (ushort)date.Day;
-                Hour = (ushort)date.Hour;
-                Second = (ushort)date.Second;
-                MilliSecond = (ushort)date.Millisecond;
-
-            }
-        }
-
-        public SystemTime
-            (DateTime date)
-        {
-            Time = date;
-        }
-
-
-        public void setTime(uint time)
-        {
-            Second = (ushort)(time / 0xFFFF);
-            MilliSecond = (ushort)(time % 0xFFFF);
-        }
-        public uint getTime()
-        {
-            return (uint)((Second * 0xFFFF) | MilliSecond);
-        }
-
-    }
-    public class UtilTime
-    {
-        public static DateTime ToDateTime(SystemTime st)
-        {
-            try
-            {
-                return new DateTime(st.Year, st.Month, st.Day, st.Hour, st.Minute, st.Second, st.MilliSecond);
-            }
-            catch
-            {
-                return DateTime.MinValue; // Caso a data seja inválida no IFF
-            }
-        }
-
         /// <summary>
         /// Retorna o timestamp Unix (em segundos) da hora local atual.
         /// </summary>
@@ -318,6 +22,9 @@ namespace PangyaAPI.Utilities
         {
             if (dateSrc == null)
                 throw new ArgumentNullException(nameof(dateSrc));
+
+            if (dateDst == null)
+                throw new ArgumentNullException(nameof(dateDst));
 
             if (string.IsNullOrEmpty(dateSrc))
             {
@@ -336,6 +43,9 @@ namespace PangyaAPI.Utilities
             if (dateSrc == null)
                 throw new ArgumentNullException(nameof(dateSrc));
 
+            if (dateDst == null)
+                throw new ArgumentNullException(nameof(dateDst));
+
             if (string.IsNullOrEmpty(dateSrc))
             {
                 dateDst = DateTime.MinValue;
@@ -347,14 +57,17 @@ namespace PangyaAPI.Utilities
 
             return -1; // Return an appropriate error code if parsing fails
         }
-         
+
+        // Implement the rest of the methods in a similar fashion
+        // ...
+
         public static long GetTimeDiff(DateTime st1, DateTime st2)
         {
             return st1.ToFileTimeUtc() - st2.ToFileTimeUtc();
         }
 
 
-        public static long GetTimeDiff(SystemTime st1, SystemTime st2)
+        public static long GetTimeDiff(SYSTEMTIME st1, SYSTEMTIME st2)
         {
             return GetTimeDiff(st1.ConvertTime(), st2.ConvertTime());
         }
@@ -362,9 +75,9 @@ namespace PangyaAPI.Utilities
 
         public static long UnixTimeConvert(DateTime? unixtime)
         {
-            if (unixtime is not { Ticks: not 0 } value)
+            if (unixtime.HasValue == false || unixtime?.Ticks == 0)
             { return 0; }
-            TimeSpan timeSpan = value - new DateTime(1970, 1, 1, 0, 0, 0);
+            TimeSpan timeSpan = (TimeSpan)(unixtime - new DateTime(1970, 1, 1, 0, 0, 0));
             return (long)timeSpan.TotalSeconds;
         }
 
@@ -402,7 +115,7 @@ namespace PangyaAPI.Utilities
             return (long)diff.TotalMilliseconds;
         }
 
-        public static long GetHourDiff(SystemTime st1, SystemTime st2)
+        public static long GetHourDiff(SYSTEMTIME st1, SYSTEMTIME st2)
         {
             // Usa data fixa para evitar erro com data inválida
             DateTime dt1 = new DateTime(2000, 1, 1, st1.Hour, st1.Minute, st1.Second, st1.MilliSecond);
@@ -424,7 +137,7 @@ namespace PangyaAPI.Utilities
             return st1.Date == st2.Date;
         }
 
-        public static bool IsSameDay(SystemTime st1, SystemTime st2)
+        public static bool IsSameDay(SYSTEMTIME st1, SYSTEMTIME st2)
         {
             return st1.ConvertTime().Date == st2.ConvertTime().Date;
         }
@@ -434,7 +147,7 @@ namespace PangyaAPI.Utilities
             return st.Date == DateTime.Now.Date;
         }
 
-        public static bool IsSameDay(SystemTime st)
+        public static bool IsSameDay(SYSTEMTIME st)
         {
             return st.ConvertTime().Date == DateTime.Now.Date;
         }
@@ -443,11 +156,11 @@ namespace PangyaAPI.Utilities
             return st == DateTime.MinValue;
         }
 
-        public static bool IsEmpty(SystemTime st)
+        public static bool IsEmpty(SYSTEMTIME st)
         {
             return st.IsEmpty || st.ConvertTime() == DateTime.MinValue;
         }
-        public static long GetLocalDateDiff(SystemTime st)
+        public static long GetLocalDateDiff(SYSTEMTIME st)
         {
             if (!st.IsEmpty)
             {
@@ -465,7 +178,7 @@ namespace PangyaAPI.Utilities
             return diff.Ticks / TimeSpan.TicksPerMillisecond;
         }
 
-        public static long GetLocalDateDiffDESC(SystemTime st)
+        public static long GetLocalDateDiffDESC(SYSTEMTIME st)
         {
             DateTime local = DateTime.Now;
 
@@ -497,34 +210,18 @@ namespace PangyaAPI.Utilities
             return utcTime.ToUnixTimeSeconds();
         }
 
-
-        public static string FormatDate(DateTime t)
+        public static string FormatDate(DateTime date)
         {
-            var str = string.Format(
-                "{0:0000}-{1:00}-{2:00} {3:00}:{4:00}:{5:00}.{6:000}",
-                t.Year, t.Month, t.Day,
-                t.Hour, t.Minute, t.Second, t.Millisecond
-            );
-            return str;
+            return date.ToString("yyyy-MM-dd HH:mm:ss.fff");
         }
 
-        public static string FormatTime(DateTime t)
-        {
-            var str = string.Format(
-                "{0:00}:{1:00}:{2:00}.{3:000}",
-                t.Hour, t.Minute, t.Second, t.Millisecond
-            );
-
-            return str;
-        }
-
-        public static string FormatDate(SystemTime _date)
+        public static string FormatDate(SYSTEMTIME _date)
         {
             var date = _date.ConvertTime();
             return $"{date:yyyy-MM-dd HH:mm:ss.fff}";
         }
 
-        // Função para traduzir data de Unix para SystemTime (UTC)
+        // Função para traduzir data de Unix para SYSTEMTIME (UTC)
         public static int TranslateDateSystem(long timeUnix, out DateTime dateDst)
         {
             if (timeUnix == 0)
@@ -539,7 +236,7 @@ namespace PangyaAPI.Utilities
             return 0;
         }
 
-        // Função para traduzir data de Unix para SystemTime (Local)
+        // Função para traduzir data de Unix para SYSTEMTIME (Local)
         public static int TranslateDateLocal(long timeUnix, out DateTime dateDst)
         {
             if (timeUnix == 0)
@@ -559,9 +256,15 @@ namespace PangyaAPI.Utilities
             return FormatDate(date);
         }
 
-        public static string _formatDate(SystemTime date)
+        public static string _formatDate(SYSTEMTIME date)
         {
             return FormatDate(date);
+        }
+
+        // Função para formatar hora para string
+        public static string FormatTime(DateTime date)
+        {
+            return date.ToString("HH:mm:ss.fff");
         }
 
         // Função para formatar data do sistema para string (UTC)
@@ -569,7 +272,7 @@ namespace PangyaAPI.Utilities
         {
             DateTime date;
             TranslateDateSystem(timeUnix, out date);
-            return date.ToString("yyyy-MM-dd HH:mm:ss");
+            return date.ToString("yyyy-MM-dd HH:mm:ss.fff");
         }
 
         // Função para formatar data local para string
@@ -577,14 +280,17 @@ namespace PangyaAPI.Utilities
         {
             DateTime date;
             TranslateDateLocal(timeUnix, out date);
-            return date.ToString("yyyy-MM-dd HH:mm:ss");
+            return date.ToString("yyyy-MM-dd HH:mm:ss.fff");
         }
         public static string formatDateLocal(long timeUnix)
         {
             DateTime date;
             TranslateDateLocal(timeUnix, out date);
-            return date.ToString("yyyy-MM-dd HH:mm:ss");
-        } 
+            return date.ToString("yyyy-MM-dd HH:mm:ss.fff");
+        }
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [Obsolete]
+        public static extern bool SystemTimeToFileTime(ref SYSTEMTIME lpSystemTime, ref FILETIME lpFileTime);
 
         // Função para converter System Time para Unix Timestamp
         public static long SystemTimeToUnix(DateTime st)
@@ -592,7 +298,7 @@ namespace PangyaAPI.Utilities
             return (long)(st.ToUniversalTime() - new DateTime(1970, 1, 1)).TotalSeconds;
         }
 
-        public static long SystemTimeToUnix(SystemTime st)
+        public static long SystemTimeToUnix(SYSTEMTIME st)
         {
             return (long)(st.ConvertTime().ToUniversalTime() - new DateTime(1970, 1, 1)).TotalSeconds;
         }
@@ -602,19 +308,19 @@ namespace PangyaAPI.Utilities
             return SystemTimeToUnix(DateTime.UtcNow);
         }
         [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern void GetLocalTime(ref SystemTime lpSystemTime);
+        public static extern void GetLocalTime(ref SYSTEMTIME lpSystemTime);
 
         public static void GetLocalTime(out DateTime time)
         {
             time = DateTime.Now;
         }
 
-        public static SystemTime UnixToSystemTime(long unixTime)
+        public static SYSTEMTIME UnixToSystemTime(long unixTime)
         {
-            return new SystemTime(DateTimeOffset.FromUnixTimeSeconds(unixTime).DateTime);
+            return new SYSTEMTIME(DateTimeOffset.FromUnixTimeSeconds(unixTime).DateTime);
         }
 
-        public static long GetLocalTimeDiffDESC(SystemTime time)
+        public static long GetLocalTimeDiffDESC(SYSTEMTIME time)
         {
             return _GetLocalTimeDiffDESC(time.ConvertTime()).Ticks;
         }
@@ -629,18 +335,7 @@ namespace PangyaAPI.Utilities
             return DateTime.Now - time; // positivo se já passou, negativo se ainda não
         }
 
-        public static bool IsExpired(DateTime time)
-        {
-            return DateTime.Now >= time;
-        }
-
-        public static bool IsExpired(SystemTime time)
-        {
-            var _time = time.ConvertTime();
-            return DateTime.Now >= _time;
-        }
-
-        public static long GetLocalTimeDiff(SystemTime dateTime)
+        public static long GetLocalTimeDiff(SYSTEMTIME dateTime)
         {
             // Cada Tick = 100 nanosegundos = 0.1 microssegundo
             return DateTime.Now.Ticks - dateTime.ConvertTime().Ticks;
@@ -651,7 +346,7 @@ namespace PangyaAPI.Utilities
             return DateTime.Now.Ticks - dateTime.Ticks;
         }
 
-        public static SystemTime UnixUTCToTzLocalTime(long timeUnix)
+        public static SYSTEMTIME UnixUTCToTzLocalTime(long timeUnix)
         {
             // Converte Unix timestamp para DateTime UTC
             DateTime utc = DateTimeOffset.FromUnixTimeSeconds(timeUnix).UtcDateTime;
@@ -659,26 +354,21 @@ namespace PangyaAPI.Utilities
             // Converte UTC para horário local
             DateTime tzLocal = TimeZoneInfo.ConvertTimeFromUtc(utc, TimeZoneInfo.Local);
 
-            return new SystemTime(tzLocal);
+            return new SYSTEMTIME(tzLocal);
         }
 
-        public static long TzLocalTimeToUnixUTC(SystemTime dt)
+        public static long TzLocalTimeToUnixUTC(SYSTEMTIME dt)
         {
             return new DateTimeOffset(dt.ConvertTime()).ToUnixTimeSeconds();
         }
 
-        public static int GetDateDiff(SystemTime _st1, SystemTime _st2)
+        public static int GetDateDiff(SYSTEMTIME _st1, SYSTEMTIME _st2)
         {
             // Apenas data a diferença
             _st1.Hour = _st1.Minute = _st1.Second = _st1.MilliSecond = 0;
             _st2.Hour = _st2.Minute = _st2.Second = _st2.MilliSecond = 0;
 
             return (int)GetTimeDiff(_st1, _st2);
-        }
-
-        public static long GetTickCount()
-        {
-            return (long)Environment.TickCount;
         }
     }
 }

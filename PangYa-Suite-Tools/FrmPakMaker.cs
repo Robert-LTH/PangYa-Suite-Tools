@@ -6,12 +6,25 @@ using PangyaAPI.PAK.Models;
 using PangyaAPI.Utilities.Cryptography;
 using System.ComponentModel;
 using System.Data;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace PangYa_Suite_Tools
 {
     public partial class FrmPakMaker : Form
     {
+        private const int VerticalScrollBar = 1;
+        private const int WindowStyleIndex = -16;
+        private const int VerticalScrollBarStyle = 0x00200000;
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool ShowScrollBar(
+            IntPtr windowHandle, int bar, [MarshalAs(UnmanagedType.Bool)] bool show);
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr windowHandle, int index);
+
         private PakReader? _currentReader;
 
         // Tag do nó raiz virtual da árvore = "ver todos os arquivos" (modo lista completa)
@@ -26,6 +39,7 @@ namespace PangYa_Suite_Tools
         private List<PakFileEntry> _scopedEntries = [];
         private sealed record RegionOption(string Label, uint[] Keys);
         private PakCreationOptions _creationOptions = PakCreationOptions.Default;
+        private byte? _knownCompressionLevel;
         private int _selectedFilenameEncodingCodePage = PakFilenameEncodingPreferences.DefaultCodePage;
         private bool _isInitializingFilenameEncoding;
         private CancellationTokenSource? _operationCancellation;
@@ -33,14 +47,13 @@ namespace PangYa_Suite_Tools
         private TableLayoutPanel? _toolbarLayout;
         private ToolStrip? _pakOperationsToolbar;
         private ToolStrip? _openedPakFileToolbar;
-        private ToolStrip? _settingsToolbar;
         private ToolStripLabel? _pakOperationsLabel;
         private ToolStripLabel? _fileOperationsLabel;
-        private ToolStripLabel? _toolbarAuthorLabel;
         private ToolStripButton? _toolbarNewPak;
         private ToolStripButton? _toolbarFilenameEncoding;
         private ToolStripButton? _toolbarBatchExtract;
         private ToolStripButton? _toolbarUpdatePak;
+        private ToolStripButton? _toolbarEditPakSettings;
         private ToolStripButton? _toolbarExtractAll;
         private ToolStripButton? _toolbarChangePakKey;
         private ToolStripButton? _toolbarExtractSelected;
@@ -53,15 +66,15 @@ namespace PangYa_Suite_Tools
         private readonly List<ToolStripItem> _operationToolbarItems = [];
         private readonly List<ToolStripButton> _officeToolbarButtons = [];
         private readonly List<ToolStripItem> _requiresLoadedPakToolbarItems = [];
+        private readonly HashSet<PakFileEntry> _unusualNameEntries = [];
         private bool _showToolbarText = true;
         private bool _operationInProgress;
-        private bool _isApplyingTreeSelection;
-        private bool _isClearingTreeChecks;
         private enum ToolbarIconKind
         {
             New,
             Folder,
             Update,
+            Settings,
             ExtractAll,
             Key,
             Encoding,
@@ -154,6 +167,14 @@ namespace PangYa_Suite_Tools
 
             // --- COMPONENTES GLOBAIS ---
             if (string.IsNullOrWhiteSpace(lblStatus.Text)) lblStatus.Text = Strings.Pak_Ready;
+
+            if (_currentReader != null)
+            {
+                lblAuthor.Text = $"{Strings.PakMaker_Author} {_currentReader.Header.Author}";
+                lblVersion.Text = $"{Strings.PakMaker_Version} 0x{_currentReader.Header.Version:X2}";
+                lblEntries.Text = $"{Strings.PakMaker_Entries} {_currentReader.Header.NumFileEntry}";
+            }
+            UpdateDisplayedCompressionLevel();
             UpdateDisplayedPakKey();
 
             // Menu de contexto (criado dinamicamente em código, não pelo Designer)
@@ -182,8 +203,7 @@ namespace PangYa_Suite_Tools
             this.DragEnter += FrmPakMaker_DragEnter;
             this.DragLeave += FrmPakMaker_DragLeave;
             this.DragDrop += FrmPakMaker_DragDrop;
-            tvFolders.CheckBoxes = true;
-            tvFolders.CheckBoxes = true;
+            tvFolders.CheckBoxes = false;
             lstEntries.MultiSelect = true;
             lstEntries.LabelEdit = true;
             lstEntries.DoubleClick += LstEntries_DoubleClick;
@@ -191,7 +211,6 @@ namespace PangYa_Suite_Tools
             lstEntries.KeyDown += LstEntries_KeyDown;
             lstEntries.ItemSelectionChanged += LstEntries_ItemSelectionChanged;
             tvFolders.AfterSelect += TvFolders_AfterSelect;
-            tvFolders.AfterCheck += TvFolders_AfterCheck;
             txtSearch.TextChanged += (s, e) => ApplyDisplayFilter();
 
             // Permite arrastar arquivos para dentro da lista de entries, para injetar/atualizar no PAK já carregado
@@ -238,7 +257,7 @@ namespace PangYa_Suite_Tools
                 Dock = DockStyle.Fill,
                 Margin = Padding.Empty,
                 Padding = Padding.Empty,
-                RowCount = 2
+                RowCount = 1
             };
             _toolbarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             for (int row = 0; row < _toolbarLayout.RowCount; row++)
@@ -246,7 +265,6 @@ namespace PangYa_Suite_Tools
 
             _pakOperationsToolbar = CreateToolbar(officeStyle: true);
             _openedPakFileToolbar = CreateToolbar(officeStyle: true);
-            _settingsToolbar = CreateToolbar(officeStyle: false);
 
             _pakOperationsLabel = AddSectionLabel(_pakOperationsToolbar);
             _toolbarNewPak = AddOperationButton(
@@ -261,18 +279,15 @@ namespace PangYa_Suite_Tools
 
             _fileOperationsLabel = AddSectionLabel(_openedPakFileToolbar);
             _toolbarUpdatePak = AddOperationButton(_openedPakFileToolbar, btnUpdatePak_Click, ToolbarIconKind.Update);
+            _toolbarEditPakSettings = AddOperationButton(
+                _openedPakFileToolbar,
+                async (_, _) => await EditPakSettingsAsync(),
+                ToolbarIconKind.Settings);
             _toolbarExtractSelected = AddOperationButton(_openedPakFileToolbar, btnExtractSelected_Click, ToolbarIconKind.ExtractSelected);
             _toolbarRenameSelected = AddOperationButton(_openedPakFileToolbar, (s, e) => BeginSelectedFileRename(), ToolbarIconKind.Rename);
             _toolbarRemoveSelected = AddOperationButton(_openedPakFileToolbar, btnRemoveSelected_Click, ToolbarIconKind.Remove);
 
-            txtUpdateAuthor.Width = 130;
-            _toolbarAuthorLabel = new ToolStripLabel();
-            _settingsToolbar.Items.Add(_toolbarAuthorLabel);
-            _settingsToolbar.Items.Add(new ToolStripControlHost(txtUpdateAuthor)
-            {
-                AutoSize = false,
-                Size = new Size(130, 23)
-            });
+            txtUpdateAuthor.Visible = false;
 
             lblNewKey.Visible = false;
             cboNewRegion.Visible = false;
@@ -286,7 +301,6 @@ namespace PangYa_Suite_Tools
             }
 
             _toolbarLayout.Controls.Add(_pakOperationsToolbar, 0, 0);
-            _toolbarLayout.Controls.Add(_settingsToolbar, 0, 1);
 
             Controls.Remove(readerPanel);
             Controls.Remove(statusStrip1);
@@ -328,8 +342,16 @@ namespace PangYa_Suite_Tools
             tvFolders.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
         }
 
-        private void ReaderPanel_Resize(object? sender, EventArgs e) =>
+        private void ReaderPanel_Resize(object? sender, EventArgs e)
+        {
             LayoutOpenPakEntryPoint();
+            groupHeader.Width = Math.Max(1,
+                readerPanel.ClientSize.Width - (groupHeader.Left * 2));
+            if (_openedPakFileToolbar != null)
+                _openedPakFileToolbar.Width = Math.Max(1,
+                    readerPanel.ClientSize.Width - (txtPakPath.Left * 2));
+            ResizeExtractListArea();
+        }
 
         private void LayoutOpenPakEntryPoint()
         {
@@ -483,6 +505,22 @@ namespace PangYa_Suite_Tools
                     g.DrawArc(whitePen, 8, 8, 16, 16, 30, 260);
                     g.FillPolygon(white, [new Point(22, 8), new Point(27, 8), new Point(24, 13)]);
                     break;
+                case ToolbarIconKind.Settings:
+                    g.FillEllipse(purple, 5, 5, 22, 22);
+                    g.FillEllipse(white, 11, 11, 10, 10);
+                    using (var settingsPen = new Pen(Color.FromArgb(111, 66, 193), 3F))
+                    {
+                        for (int angle = 0; angle < 360; angle += 45)
+                        {
+                            double radians = angle * Math.PI / 180D;
+                            g.DrawLine(settingsPen,
+                                16 + (float)(Math.Cos(radians) * 9),
+                                16 + (float)(Math.Sin(radians) * 9),
+                                16 + (float)(Math.Cos(radians) * 13),
+                                16 + (float)(Math.Sin(radians) * 13));
+                        }
+                    }
+                    break;
                 case ToolbarIconKind.ExtractAll:
                     g.FillRectangle(green, 5, 5, 22, 22);
                     g.DrawLine(whitePen, 16, 8, 16, 22);
@@ -535,15 +573,24 @@ namespace PangYa_Suite_Tools
         private void ResizeExtractListArea()
         {
             int bottom = readerPanel.ClientSize.Height - readerPanel.Padding.Bottom;
-            tvFolders.Height = Math.Max(180, bottom - tvFolders.Top);
-            lstEntries.Height = Math.Max(180, bottom - lstEntries.Top);
+            int visibleRight = readerPanel.ClientSize.Width - readerPanel.Padding.Right;
+            int listLeft = tvFolders.Right + 6;
+            int availableHeight = Math.Max(1, bottom - lstEntries.Top);
+
+            tvFolders.Height = Math.Max(1, bottom - tvFolders.Top);
+            lstEntries.Bounds = new Rectangle(
+                listLeft,
+                lstEntries.Top,
+                Math.Max(1, visibleRight - listLeft),
+                availableHeight);
+            lstEntries.BringToFront();
+            EnsureEntryListScrollBar();
         }
 
         private void ApplyToolbarLocalization()
         {
             if (_pakOperationsLabel != null) _pakOperationsLabel.Text = Strings.PakMaker_PakOperations;
             if (_fileOperationsLabel != null) _fileOperationsLabel.Text = Strings.PakMaker_FileOperations;
-            if (_toolbarAuthorLabel != null) _toolbarAuthorLabel.Text = Strings.PakMaker_Author;
             if (_toolbarNewPak != null)
             {
                 _toolbarNewPak.Text = Strings.Pak_New;
@@ -556,6 +603,7 @@ namespace PangYa_Suite_Tools
             }
             if (_toolbarBatchExtract != null) _toolbarBatchExtract.Text = Strings.Pak_BatchExtract;
             if (_toolbarUpdatePak != null) _toolbarUpdatePak.Text = Strings.Pak_Update;
+            if (_toolbarEditPakSettings != null) _toolbarEditPakSettings.Text = Strings.Pak_Settings;
             if (_toolbarExtractAll != null) _toolbarExtractAll.Text = Strings.Pak_ExtractAll;
             if (_toolbarChangePakKey != null) _toolbarChangePakKey.Text = Strings.Pak_ChangeKey;
             if (_toolbarExtractSelected != null) _toolbarExtractSelected.Text = Strings.Pak_ExtractSelected;
@@ -1078,7 +1126,13 @@ namespace PangYa_Suite_Tools
         private void LoadPakWithKeys(string path, Encoding filenameEncoding, uint[] forceKeys) =>
             LoadPakCore(path, filenameEncoding, forceKeys);
 
-        private void LoadPakCore(string path, Encoding? filenameEncoding, uint[]? forceKeys)
+        private void ReloadPak(string path, Encoding filenameEncoding,
+                               byte? knownCompressionLevel) =>
+            LoadPakCore(path, filenameEncoding, forceKeys: null,
+                knownCompressionLevel: knownCompressionLevel);
+
+        private void LoadPakCore(string path, Encoding? filenameEncoding, uint[]? forceKeys,
+                                 byte? knownCompressionLevel = null)
         {
             AppLogger.Instance.Log("PAK Manager", $"PAK load requested: '{path}'.");
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
@@ -1096,7 +1150,10 @@ namespace PangYa_Suite_Tools
                 var reader = new PakReader(path, filenameEncoding ?? SelectedFilenameEncoding, AppLogger.Instance);
                 _currentReader = reader;
                 reader.Parse(forceKeys);
+                _knownCompressionLevel = knownCompressionLevel;
+                UpdateUnusualNameDiagnostics(reader);
                 UpdateDisplayedPakKey();
+                UpdateDisplayedCompressionLevel();
                 UpdateToolbarEnabledState();
                 if (reader.LocationKeys?.SequenceEqual(PakKeys.SS) == true)
                 {
@@ -1114,6 +1171,7 @@ namespace PangYa_Suite_Tools
                 txtSearch.Text = "";
                 BuildFolderTree();
                 AppLogger.Instance.Log("PAK Manager", $"Loaded '{path}' successfully with {reader.Entries.Count} entries.");
+                ShowUnusualNameWarning();
             }
             catch (Exception ex)
             {
@@ -1121,7 +1179,9 @@ namespace PangYa_Suite_Tools
                 MessageBox.Show($"{Strings.PakMaker_ErrorOpeningPAKFile}\n{ex.Message}", Strings.PakMaker_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
                 _currentReader?.Dispose();
                 _currentReader = null;
+                _knownCompressionLevel = null;
                 UpdateDisplayedPakKey();
+                UpdateDisplayedCompressionLevel();
                 UpdateToolbarEnabledState();
             }
         }
@@ -1221,87 +1281,15 @@ namespace PangYa_Suite_Tools
 
             txtSearch.Clear();
             ApplyDisplayFilter();
-            _isApplyingTreeSelection = true;
-            try
-            {
-                foreach (ListViewItem item in lstEntries.Items) item.Selected = true;
-            }
-            finally
-            {
-                _isApplyingTreeSelection = false;
-                UpdateToolbarEnabledState();
-            }
+            foreach (ListViewItem item in lstEntries.Items) item.Selected = true;
+            UpdateToolbarEnabledState();
             AppLogger.Instance.Log("PAK Manager",
                 $"Selected folder '{(string.IsNullOrEmpty(folderTag) ? "/" : folderTag)}' and {_scopedEntries.Count} files below it.");
-        }
-
-        private void TvFolders_AfterCheck(object? sender, TreeViewEventArgs e)
-        {
-            if (_currentReader == null || e.Node == null || _isClearingTreeChecks || !e.Node.Checked)
-                return;
-
-            string folderTag = e.Node.Tag as string ?? RootFolderTag;
-            SelectVisibleEntriesUnderFolder(folderTag);
         }
 
         private void LstEntries_ItemSelectionChanged(object? sender, ListViewItemSelectionChangedEventArgs e)
         {
             UpdateToolbarEnabledState();
-
-            if (_isApplyingTreeSelection || _isClearingTreeChecks || !e.IsSelected || lstEntries.SelectedItems.Count != 1)
-                return;
-
-            if (lstEntries.SelectedItems[0].Tag is PakFileEntry { Type: not PakFileEntryType.Directory })
-                ClearFolderChecks();
-        }
-
-        private void SelectVisibleEntriesUnderFolder(string folderTag)
-        {
-            string normalizedFolder = folderTag.Replace('\\', '/').Trim('/');
-            string prefix = string.IsNullOrEmpty(normalizedFolder) ? string.Empty : normalizedFolder + "/";
-
-            _isApplyingTreeSelection = true;
-            try
-            {
-                foreach (ListViewItem item in lstEntries.Items)
-                {
-                    if (item.Tag is not PakFileEntry entry || entry.Type == PakFileEntryType.Directory)
-                        continue;
-
-                    string entryName = entry.Name.Replace('\\', '/');
-                    if (string.IsNullOrEmpty(prefix) ||
-                        entryName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        item.Selected = true;
-                    }
-                }
-            }
-            finally
-            {
-                _isApplyingTreeSelection = false;
-                UpdateToolbarEnabledState();
-            }
-        }
-
-        private void ClearFolderChecks()
-        {
-            _isClearingTreeChecks = true;
-            try
-            {
-                foreach (TreeNode node in tvFolders.Nodes)
-                    ClearFolderChecks(node);
-            }
-            finally
-            {
-                _isClearingTreeChecks = false;
-            }
-        }
-
-        private static void ClearFolderChecks(TreeNode node)
-        {
-            node.Checked = false;
-            foreach (TreeNode child in node.Nodes)
-                ClearFolderChecks(child);
         }
 
         private async void TvFolders_AfterLabelEdit(object? sender, NodeLabelEditEventArgs e)
@@ -1436,7 +1424,7 @@ namespace PangYa_Suite_Tools
                     onProgress: (done, total) => ReportProgress(done, total, Strings.PakMaker_RebuildingPAK),
                     SaveBck: false, cancellationToken: operation.Token));
 
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
                 TreeNode? targetNode = FindFolderNode(targetPath);
                 if (targetNode != null)
                 {
@@ -1453,7 +1441,7 @@ namespace PangYa_Suite_Tools
             catch (OperationCanceledException)
             {
                 lblStatus.Text = Strings.Pak_OperationCancelled;
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (Exception ex)
             {
@@ -1461,7 +1449,7 @@ namespace PangYa_Suite_Tools
                 lblStatus.Text = Strings.PakMaker_CreateFolderFailed;
                 MessageBox.Show($"{Strings.PakMaker_CreateFolderFailed} {ex.Message}",
                     Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             finally
             {
@@ -1593,7 +1581,7 @@ namespace PangYa_Suite_Tools
                     Strings.PakMaker_TheFolderAndItsItemsWere,
                     Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (OperationCanceledException)
             {
@@ -1654,6 +1642,7 @@ namespace PangYa_Suite_Tools
         {
             lstEntries.BeginUpdate();
             lstEntries.Items.Clear();
+            lstEntries.ShowItemToolTips = true;
             foreach (var entry in entries)
             {
                 // CORREÇÃO: Padroniza as barras e extrai apenas o nome do arquivo puro
@@ -1672,7 +1661,13 @@ namespace PangYa_Suite_Tools
                 item.SubItems.Add($"0x{entry.CompressSize:X8}");
 
                 item.Tag = entry; // O Tag continua guardando o objeto completo intacto (com o Name original do PAK)
-                if (entry.Type == PakFileEntryType.Directory)
+                if (_unusualNameEntries.Contains(entry))
+                {
+                    item.BackColor = Color.LemonChiffon;
+                    item.ForeColor = Color.DarkOrange;
+                    item.ToolTipText = Strings.Pak_UnusualNamesTitle;
+                }
+                else if (entry.Type == PakFileEntryType.Directory)
                     item.ForeColor = Color.DarkCyan; // Pastas mantêm o tom ciano escuro
                 else if (entry.Type == PakFileEntryType.LZ77)
                     item.ForeColor = Color.ForestGreen; // Arquivos compactados em LZ77 (Verde)
@@ -1685,7 +1680,54 @@ namespace PangYa_Suite_Tools
             }
 
             lstEntries.EndUpdate();
+            EnsureEntryListScrollBar();
             UpdateToolbarEnabledState();
+        }
+
+        private void EnsureEntryListScrollBar()
+        {
+            if (!lstEntries.IsHandleCreated)
+                _ = lstEntries.Handle;
+            _ = ShowScrollBar(lstEntries.Handle, VerticalScrollBar, show: true);
+        }
+
+        private bool IsEntryListScrollBarVisible()
+        {
+            if (!lstEntries.IsHandleCreated) return false;
+            return (GetWindowLong(lstEntries.Handle, WindowStyleIndex) & VerticalScrollBarStyle) != 0;
+        }
+
+        private void UpdateUnusualNameDiagnostics(PakReader reader)
+        {
+            _unusualNameEntries.Clear();
+            IReadOnlyList<PakEntryNameIssue> issues = PakEntryNameDiagnostics.FindIssues(reader);
+            if (issues.Count == 0) return;
+
+            var names = new HashSet<string>(issues.Select(issue => issue.Name), StringComparer.Ordinal);
+            foreach (PakFileEntry entry in reader.Entries)
+            {
+                string decoded = reader.FileNameEncoding.GetString(entry.NameRaw).Replace('\\', '/');
+                if (names.Contains(decoded)) _unusualNameEntries.Add(entry);
+            }
+
+            foreach (PakEntryNameIssue issue in issues)
+            {
+                AppLogger.Instance.Log(
+                    "PAK Manager",
+                    $"Unusual entry name '{issue.Name}': {issue.Kind}.",
+                    AppLogLevel.Warning);
+            }
+        }
+
+        private void ShowUnusualNameWarning()
+        {
+            if (_unusualNameEntries.Count == 0) return;
+            MessageBox.Show(
+                string.Format(LocalizationManager.CurrentCulture,
+                    Strings.Pak_UnusualNamesSummary, _unusualNameEntries.Count),
+                Strings.Pak_UnusualNamesTitle,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
 
         /// <summary>Duplo clique numa pasta dentro da lista navega para ela na árvore.</summary>
@@ -1720,10 +1762,27 @@ namespace PangYa_Suite_Tools
 
         private void UpdateDisplayedPakKey()
         {
-            uint[]? keys = _currentReader?.LocationKeys;
-            if (keys is not { Length: > 0 })
+            if (_currentReader == null)
             {
                 lblPakKey.Text = string.Empty;
+                lblPakKeySummary.Text = string.Empty;
+                toolTip1.SetToolTip(lblPakKeySummary, null);
+                UpdateDisplayedFilenameEncoding();
+                return;
+            }
+
+            PakReader currentReader = _currentReader;
+            uint[]? keys = currentReader.LocationKeys;
+            if (keys is not { Length: > 0 })
+            {
+                PakFileEntryVersion? entryVersion = currentReader.Entries.FirstOrDefault()?.Version;
+                string fallbackKeyName = entryVersion == PakFileEntryVersion.Raw
+                    ? Strings.Pak_NoKey
+                    : "XOR 0x71";
+                string fallbackKeyText = $"{Strings.Pak_KeyUsed} {fallbackKeyName}";
+                lblPakKey.Text = fallbackKeyText;
+                lblPakKeySummary.Text = fallbackKeyText;
+                toolTip1.SetToolTip(lblPakKeySummary, fallbackKeyText);
                 UpdateDisplayedFilenameEncoding();
                 return;
             }
@@ -1731,8 +1790,23 @@ namespace PangYa_Suite_Tools
             string keyName = PakKeys.All
                 .FirstOrDefault(candidate => candidate.Keys.SequenceEqual(keys)).Label
                 ?? Strings.Pak_CustomKey;
-            lblPakKey.Text = $"{Strings.Pak_KeyUsed} {keyName}";
+            string keyText = $"{Strings.Pak_KeyUsed} {keyName}";
+            string keyValues = string.Join(" ", keys.Select(key => $"0x{key:X8}"));
+            lblPakKey.Text = keyText;
+            lblPakKeySummary.Text = keyText;
+            toolTip1.SetToolTip(lblPakKeySummary, $"{keyText}: {keyValues}");
             UpdateDisplayedFilenameEncoding();
+        }
+
+        private void UpdateDisplayedCompressionLevel()
+        {
+            string value = _knownCompressionLevel.HasValue
+                ? _knownCompressionLevel.Value.ToString(LocalizationManager.CurrentCulture)
+                : Strings.Pak_CompressionLevelUnknown;
+            string summary = string.Format(LocalizationManager.CurrentCulture,
+                Strings.Pak_CompressionLevelSummaryFormat, value);
+            lblCompressionLevelSummary.Text = summary;
+            toolTip1.SetToolTip(lblCompressionLevelSummary, summary);
         }
 
         private void UpdateDisplayedFilenameEncoding()
@@ -2184,68 +2258,138 @@ namespace PangYa_Suite_Tools
 
         private PakRebuildOptions BuildRebuildOptionsForCurrentPak()
         {
-            if (_currentReader != null)
-            {
-                string novoAutor = txtUpdateAuthor.Text?.Trim() ?? string.Empty;
-                string autorAtual = _currentReader.Header.Author?.Trim() ?? string.Empty;
-
-                // O campo de texto está vazio ou apenas com espaços
-                if (string.IsNullOrEmpty(novoAutor))
-                {
-                    // Só avisa se o autor atual já NÃO for "PakMaker" (evita avisos redundantes)
-                    if (!string.Equals(autorAtual, "PakMaker", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Exibe a confirmação para redefinir para o padrão
-                        var resultado = MessageBox.Show(
-                            Strings.PakMaker_TheAuthorFieldIsEmptyDo,
-                            Strings.PakMaker_ConfirmAuthorReset,
-                            MessageBoxButtons.YesNo,
-                            MessageBoxIcon.Question
-                        );
-
-                        // Se o utilizador confirmar, altera para o padrão
-                        if (resultado == DialogResult.Yes)
-                        {
-                            _currentReader.Header.Author = "PakMaker";
-                        }
-                    }
-                }
-                // O utilizador digitou um novo nome
-                else
-                {
-                    // Só atualiza se o texto digitado for DIFERENTE do autor que já lá está
-                    if (!string.Equals(novoAutor, autorAtual, StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Exibe a confirmação para atualizar para o novo nome digitado
-                        var resultado = MessageBox.Show(
-                            string.Format(LocalizationManager.CurrentCulture,
-                                Strings.Pak_ChangeAuthorConfirmation, novoAutor),
-                            Strings.PakMaker_ConfirmAuthorChange,
-                            MessageBoxButtons.YesNo,
-                            MessageBoxIcon.Question
-                        );
-
-                        // Se o utilizador confirmar, altera para o novo nome digitado
-                        if (resultado == DialogResult.Yes)
-                        {
-                            _currentReader.Header.Author = novoAutor;
-                        }
-                        // Se o utilizador disser "Não", mantém o 'autorAtual' intacto e não faz nada
-                    }
-                }
-            }
-
-            // Retorna as opções preenchidas corretamente com o estado atual do Header.Author
+            PakFileEntryVersion entryVersion = GetLoadedEntryVersion();
             return new PakRebuildOptions(
-                EntryVersion: _creationOptions.EntryVersion,
-                EntryType: _creationOptions.EntryType,
+                EntryVersion: entryVersion,
+                EntryType: GetPreferredCompressionType(),
                 CompressLevel: _creationOptions.CompressLevel,
                 LocationKeys: _currentReader?.LocationKeys ?? [.. _creationOptions.LocationKeys],
                 Author: _currentReader?.Header.Author ?? "PakMaker"
             )
             {
-                FileNameEncoding = _currentReader?.FileNameEncoding ?? SelectedFilenameEncoding
+                FileNameEncoding = _currentReader?.FileNameEncoding ?? SelectedFilenameEncoding,
+                PakVersion = _currentReader?.Header.Version
             };
+        }
+
+        private PakFileEntryVersion GetLoadedEntryVersion() =>
+            _currentReader?.Entries.FirstOrDefault()?.Version ?? _creationOptions.EntryVersion;
+
+        private PakFileEntryType GetPreferredCompressionType()
+        {
+            if (_currentReader == null) return _creationOptions.EntryType;
+            return _currentReader.Entries
+                .Where(entry => entry.Type is PakFileEntryType.Raw or PakFileEntryType.LZ77 or PakFileEntryType.LZ772)
+                .Where(entry => entry.Size > 0)
+                .GroupBy(entry => entry.Type)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key)
+                .Select(group => group.Key)
+                .FirstOrDefault(_creationOptions.EntryType);
+        }
+
+        private async Task EditPakSettingsAsync()
+        {
+            if (_currentReader == null || string.IsNullOrEmpty(txtPakPath.Text) || !File.Exists(txtPakPath.Text))
+            {
+                MessageBox.Show(Strings.PakMaker_SelectAnActivePakFileFirst,
+                    Strings.PakMaker_Warning, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            PakReader reader = _currentReader;
+            string pakPath = txtPakPath.Text;
+            var initial = new PakSettingsOptions(
+                reader.Header.Version,
+                reader.Header.Author,
+                false,
+                GetPreferredCompressionType(),
+                _creationOptions.CompressLevel);
+            using var dialog = new PakSettingsDialog(initial);
+            if (dialog.ShowDialog(this) != DialogResult.OK ||
+                !dialog.TryGetSelectedOptions(out PakSettingsOptions selected, out _))
+                return;
+
+            bool metadataChanged = selected.PakVersion != reader.Header.Version ||
+                !string.Equals(selected.Author, reader.Header.Author, StringComparison.Ordinal);
+            if (!metadataChanged && !selected.RecompressEntries)
+            {
+                MessageBox.Show(Strings.Pak_NoSettingsChanges, Strings.PakMaker_Information,
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string confirmation = Strings.Pak_ConfirmSettingsUpdate;
+            if (selected.RecompressEntries)
+                confirmation += $"{Environment.NewLine}{Environment.NewLine}{Strings.Pak_ConfirmRecompression}";
+            if (MessageBox.Show(confirmation, Strings.Pak_SettingsTitle,
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                return;
+
+            PakRebuildOptions options = BuildRebuildOptionsForCurrentPak() with
+            {
+                PakVersion = selected.PakVersion,
+                Author = selected.Author,
+                EntryType = selected.CompressionType,
+                CompressLevel = selected.CompressionLevel
+            };
+            PakArchiveUpdateMode mode = selected.RecompressEntries
+                ? PakArchiveUpdateMode.RecompressEntries
+                : PakArchiveUpdateMode.PreservePayloads;
+            Encoding encoding = options.FileNameEncoding;
+            uint[] keys = [.. options.LocationKeys];
+            PakFileEntryVersion entryVersion = options.EntryVersion;
+
+            lblStatus.Text = Strings.Pak_UpdatingSettings;
+            using CancellationTokenSource operation = BeginOperation();
+            try
+            {
+                await Task.Run(() => PakManager.UpdateArchive(
+                    pakPath,
+                    reader,
+                    options,
+                    mode,
+                    msg => AppLogger.Instance.Log("PAK Writer", msg),
+                    (done, total) => ReportProgress(done, total, Strings.Pak_UpdatingSettings),
+                    SaveBck: true,
+                    cancellationToken: operation.Token));
+
+                _creationOptions = _creationOptions with
+                {
+                    EntryVersion = entryVersion,
+                    EntryType = selected.CompressionType,
+                    CompressLevel = selected.CompressionLevel
+                };
+                byte? resultingCompressionLevel = selected.RecompressEntries
+                    ? selected.CompressionLevel
+                    : _knownCompressionLevel;
+                LoadPakCore(pakPath, encoding,
+                    entryVersion == PakFileEntryVersion.V3 ? keys : null,
+                    resultingCompressionLevel);
+                lblStatus.Text = Strings.Pak_SettingsUpdated;
+                MessageBox.Show(Strings.Pak_SettingsUpdated, Strings.PakMaker_Success,
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = Strings.Pak_OperationCancelled;
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = Strings.Pak_SettingsUpdateFailed;
+                AppLogger.Instance.Log("PAK Writer", $"PAK settings update failed: {ex}", AppLogLevel.Error);
+                MessageBox.Show($"{Strings.Pak_SettingsUpdateFailed} {ex.Message}",
+                    Strings.PakMaker_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (File.Exists(pakPath))
+                    LoadPakCore(pakPath, encoding,
+                        entryVersion == PakFileEntryVersion.V3 ? keys : null,
+                        _knownCompressionLevel);
+            }
+            finally
+            {
+                HideProgress();
+                EndOperation(operation);
+            }
         }
 
 
@@ -2311,7 +2455,7 @@ namespace PangYa_Suite_Tools
                 MessageBox.Show(
                       $"{items.Count} {Strings.PakMaker_FileSInjectedAndThePAK}",
                       Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (Exception ex)
             {
@@ -2433,7 +2577,6 @@ namespace PangYa_Suite_Tools
             }
 
             HashSet<string> namesToRemove = new(StringComparer.OrdinalIgnoreCase);
-            List<string> folderNamesForDialog = new();
 
             // --- 1. COLETAR ARQUIVOS SELECIONADOS NO LISTVIEW (MULTIPLE SELECTION) ---
             if (lstEntries.SelectedItems.Count > 0)
@@ -2451,59 +2594,7 @@ namespace PangYa_Suite_Tools
                 }
             }
 
-            // --- 2. COLETAR TODAS AS PASTAS CHECADAS NA TREEVIEW (MULTIPLE SELECTION) ---
-            // Função local recursiva para varrer a árvore inteira atrás de nós checados
-            void ColetarPastasChecadas(TreeNodeCollection nodes)
-            {
-                foreach (TreeNode node in nodes)
-                {
-                    if (node.Checked)
-                    {
-                        string rawTreePath = node.FullPath;
-                        string virtualTargetFolder = rawTreePath
-                            .Replace("🗂 ", "").Replace("🗂", "")
-                            .Replace("📁 ", "").Replace("📁", "")
-                            .Replace('\\', '/');
-
-                        if (virtualTargetFolder.StartsWith("Todos os Arquivos/", StringComparison.OrdinalIgnoreCase))
-                            virtualTargetFolder = virtualTargetFolder.Substring("Todos os Arquivos/".Length);
-                        else if (virtualTargetFolder.StartsWith("All Files/", StringComparison.OrdinalIgnoreCase))
-                            virtualTargetFolder = virtualTargetFolder.Substring("All Files/".Length);
-                        else if (virtualTargetFolder.Equals(Strings.PakMaker_AllFiles_2, StringComparison.OrdinalIgnoreCase))
-                            virtualTargetFolder = "";
-
-                        // Ignora se for a raiz total, para evitar deletar o PAK inteiro sem querer
-                        if (!string.IsNullOrEmpty(virtualTargetFolder))
-                        {
-                            string prefix = virtualTargetFolder.Trim('/') + "/";
-
-                            var folderFiles = _currentReader.Entries
-                                .Where(en => en.Type != PakFileEntryType.Directory &&
-                                             en.Name.Replace('\\', '/').StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                                .Select(en => en.Name);
-
-                            foreach (var file in folderFiles)
-                            {
-                                namesToRemove.Add(file);
-                            }
-
-                            string folderName = node.Text.Replace("📁 ", "").Replace("🗂 ", "");
-                            folderNamesForDialog.Add(folderName);
-                        }
-                    }
-
-                    // Continua buscando nas subpastas deste nó
-                    if (node.Nodes.Count > 0)
-                    {
-                        ColetarPastasChecadas(node.Nodes);
-                    }
-                }
-            }
-
-            // Inicia a varredura a partir da raiz da TreeView
-            ColetarPastasChecadas(tvFolders.Nodes);
-
-            // Se nenhum arquivo e nenhuma pasta foram marcados
+            // Se nenhum arquivo foi selecionado
             if (namesToRemove.Count == 0)
             {
                 AppLogger.Instance.Log("PAK Manager", "Removal stopped because no files or folders were selected.", AppLogLevel.Warning);
@@ -2513,19 +2604,8 @@ namespace PangYa_Suite_Tools
                 return;
             }
 
-            // --- 3. MENSAGEM DE CONFIRMAÇÃO ---
-            string confirmationMessage;
-            if (folderNamesForDialog.Count > 0)
-            {
-                confirmationMessage = string.Format(LocalizationManager.CurrentCulture,
-                    Strings.Pak_RemoveFoldersConfirmation,
-                    string.Join(", ", folderNamesForDialog), namesToRemove.Count);
-            }
-            else
-            {
-                confirmationMessage = string.Format(LocalizationManager.CurrentCulture,
-                    Strings.Pak_RemoveFilesConfirmation, namesToRemove.Count);
-            }
+            string confirmationMessage = string.Format(LocalizationManager.CurrentCulture,
+                Strings.Pak_RemoveFilesConfirmation, namesToRemove.Count);
 
             var confirm = MessageBox.Show(
                 $"{confirmationMessage}\n\n{Strings.PakMaker_ThePAKWillBeRebuiltAnd}",
@@ -2566,7 +2646,7 @@ namespace PangYa_Suite_Tools
                     Strings.PakMaker_TheSelectedItemsWereRemovedSuccessfully,
                     Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (OperationCanceledException)
             {
@@ -2633,9 +2713,10 @@ namespace PangYa_Suite_Tools
                 };
                 txtPakPath.Text = saveFileDialog.FileName;
                 if (forceKeys != null)
-                    LoadPakWithKeys(saveFileDialog.FileName, filenameEncoding, forceKeys);
+                    LoadPakCore(saveFileDialog.FileName, filenameEncoding, forceKeys,
+                        selectedOptions.CompressLevel);
                 else
-                    LoadPak(saveFileDialog.FileName, filenameEncoding);
+                    ReloadPak(saveFileDialog.FileName, filenameEncoding, selectedOptions.CompressLevel);
 
                 lblStatus.Text = Strings.PakMaker_Ready;
                 MessageBox.Show(
@@ -2716,7 +2797,7 @@ namespace PangYa_Suite_Tools
                 MessageBox.Show($"{Strings.PakMaker_ThePAKWasRebuiltWithThe} \"{selectedRegion.Label}\"!",
                     Strings.PakMaker_Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                LoadPak(pakPath, newOptions.FileNameEncoding);
+                ReloadPak(pakPath, newOptions.FileNameEncoding, _knownCompressionLevel);
             }
             catch (OperationCanceledException)
             {
@@ -2826,38 +2907,38 @@ namespace PangYa_Suite_Tools
                 if (!success)
                 {
                     MessageBox.Show(Strings.PakMaker_RenameNotFound, Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    LoadPak(pakPath, options.FileNameEncoding);
+                    ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
                     return;
                 }
 
                 lblStatus.Text = Strings.PakMaker_RenameSuccess;
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (OperationCanceledException)
             {
                 lblStatus.Text = Strings.Pak_OperationCancelled;
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (ArgumentException ex)
             {
                 AppLogger.Instance.Log("PAK Manager", $"File rename validation failed: {ex}", AppLogLevel.Warning);
                 lblStatus.Text = Strings.PakMaker_RenameError;
                 MessageBox.Show($"{Strings.PakMaker_InvalidRenameName} {ex.Message}", Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (InvalidDataException ex)
             {
                 AppLogger.Instance.Log("PAK Manager", $"File rename failed validation: {ex}", AppLogLevel.Warning);
                 lblStatus.Text = Strings.PakMaker_RenameError;
                 MessageBox.Show($"{Strings.PakMaker_RenamePhysicalFailed} {ex.Message}", Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (Exception ex)
             {
                 AppLogger.Instance.Log("PAK Manager", $"File rename failed: {ex}", AppLogLevel.Error);
                 lblStatus.Text = Strings.PakMaker_RenameError;
                 MessageBox.Show($"{Strings.PakMaker_RenamePhysicalFailed} {ex.Message}", Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             finally
             {
@@ -2895,26 +2976,26 @@ namespace PangYa_Suite_Tools
                 if (!success)
                 {
                     MessageBox.Show(Strings.PakMaker_RenameNotFound, Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    LoadPak(pakPath, options.FileNameEncoding);
+                    ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
                     return;
                 }
 
                 lblStatus.Text = Strings.PakMaker_RenameSuccess;
 
                 // Recarrega a UI com os novos ponteiros persistidos no arquivo final
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (OperationCanceledException)
             {
                 lblStatus.Text = Strings.Pak_OperationCancelled;
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             catch (Exception ex)
             {
                 AppLogger.Instance.Log("PAK Manager", $"Folder rename failed: {ex}", AppLogLevel.Error);
                 lblStatus.Text = Strings.PakMaker_RenameError;
                 MessageBox.Show($"{Strings.PakMaker_RenamePhysicalFailed} {ex.Message}", Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                LoadPak(pakPath, options.FileNameEncoding);
+                ReloadPak(pakPath, options.FileNameEncoding, _knownCompressionLevel);
             }
             finally
             {

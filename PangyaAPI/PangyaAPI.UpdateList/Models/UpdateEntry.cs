@@ -1,24 +1,24 @@
 namespace PangyaAPI.UpdateList.Models;
 
 /// <summary>
-/// Representa um arquivo dentro da updatelist (.xml criptografado em XTEA).
+/// Represents a file in the update list (an XTEA-encrypted .xml file).
 ///
-/// Os 8 campos persistidos no XML são fname..psize — espelham exatamente os
-/// atributos do elemento &lt;fileinfo&gt;. CheckSum, Index e FullPath são campos
-/// auxiliares de RUNTIME, usados pelo UpdateMaker durante o processamento, mas
-/// nunca serializados.
+/// The eight fields persisted in XML are fname through psize and exactly mirror
+/// the attributes of the &lt;fileinfo&gt; element. CheckSum, Index, and FullPath
+/// are runtime-only fields used by UpdateMaker during processing and are never
+/// serialized.
 ///
-/// Nota: fdate/ftime devem ser gravados com LastWriteTime + 3 horas (padrão
-/// legado do Pangya — aplicado pelo UpdateMaker ao montar o entry).
+/// Note: fdate/ftime must be written as LastWriteTime plus three hours (the
+/// legacy Pangya convention applied by UpdateMaker when building the entry).
 /// </summary>
 public class UpdateEntry
 {
-    // ── Campos persistidos no XML (<fileinfo .../>) ─────────────────────────
+    // ── Fields persisted in XML (<fileinfo .../>) ───────────────────────────
     public string fname { get; set; } = "";
 
     /// <summary>
-    /// Pasta imediata do arquivo, formato: "NomePasta\" (sem caminho completo).
-    /// Ex.: arquivo em Pangya\data\round20\file.ext → fdir = "round20\".
+    /// The file's immediate directory, formatted as "DirectoryName\" (not a full path).
+    /// Example: a file at Pangya\data\round20\file.ext has fdir = "round20\".
     /// </summary>
     public string fdir { get; set; } = "";
     public long fsize { get; set; }
@@ -26,21 +26,21 @@ public class UpdateEntry
     public string fdate { get; set; } = "";
     public string ftime { get; set; } = "";
 
-    /// <summary>Nome do zip correspondente a este arquivo. Formato: "fname.zip".</summary>
+    /// <summary>The name of the ZIP file for this file, formatted as "fname.zip".</summary>
     public string pname { get; set; } = "";
 
-    /// <summary>Tamanho real do zip após compressão. Preenchido pelo UpdateMaker após zipar.</summary>
+    /// <summary>The actual ZIP size after compression, populated by UpdateMaker.</summary>
     public int psize { get; set; }
 
-    // ── Campos auxiliares de RUNTIME (nunca escritos/lidos no XML) ───────────
+    // ── Runtime-only fields (never written to or read from XML) ──────────────
     public string? FullPath { get; set; }
 
     /// <summary>
-    /// MD5 de (nome + tamanho + data+3h) — usado para detectar mudanças sem
-    /// recalcular CRC de todos os arquivos em checagens incrementais.
+    /// MD5 of (name + size + date+3h), used to detect changes without
+    /// recalculating every file's CRC during incremental checks.
     /// </summary>
     public string? CheckSum { get; set; }
 
-    /// <summary>Posição do arquivo na varredura do diretório (ordem de processamento).</summary>
+    /// <summary>The file's position in the directory scan (processing order).</summary>
     public int Index { get; set; }
 }

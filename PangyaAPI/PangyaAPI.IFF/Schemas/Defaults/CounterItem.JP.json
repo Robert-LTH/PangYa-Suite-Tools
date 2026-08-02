@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 2, "defaultRevision": 1, "fileName": "CounterItem.iff", "region": "JP", "minimumRecordSize": 280, "isEditable": true,
+  "base": { "name": "Common", "region": "JP" },
+  "fields": [ { "name": "CounterData", "offset": 192, "width": 88, "type": "Raw" } ]
+}

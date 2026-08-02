@@ -799,11 +799,13 @@ IFFファイルのディレクトリを選択してください。</value>
 いいえ: 内部パスを使用して、すべてのファイルを出力先へ直接書き込みます。後の PAK のファイルが先のファイルを上書きする場合があります。
 キャンセル: 展開を中止します。</value></data>
   <data name="Menu_Shop" xml:space="preserve"><value>PangYa UI エディター</value></data>
-  <data name="Shop_Title" xml:space="preserve"><value>PangYa ショップ・モックアップ</value></data>
+  <data name="Menu_UiEditor" xml:space="preserve"><value>PangYa UI エディター</value></data>
+  <data name="Menu_ShopEditor" xml:space="preserve"><value>PangYa ショップエディター</value></data>
+  <data name="Shop_Title" xml:space="preserve"><value>PangYa ショップエディター</value></data>
   <data name="Shop_SelectDataFolder" xml:space="preserve"><value>展開済み PangYa の data フォルダーを選択してください。</value></data>
   <data name="Shop_MissingRequiredFile" xml:space="preserve"><value>必要なショップファイルが見つかりません。</value></data>
   <data name="Shop_LoadFailed" xml:space="preserve"><value>ショップを読み込めませんでした: {0}</value></data>
-  <data name="Shop_NoItems" xml:space="preserve"><value>利用可能なアイコンを持つ販売可能なアイテムがありません。</value></data>
+  <data name="Shop_NoItems" xml:space="preserve"><value>IFF アーカイブに対応するショップフィールドを持つレコードが見つかりませんでした。</value></data>
   <data name="Shop_CartSummary" xml:space="preserve"><value>カート: {0} 個&#xA;Pang 合計: {1:N0}   Cookie 合計: {2:N0}</value></data>
   <data name="Shop_Balances" xml:space="preserve"><value>残高 — Pang: {0:N0}   Cookies: {1:N0}</value></data>
   <data name="Shop_Filter" xml:space="preserve"><value>検索: {0}</value></data>
@@ -812,8 +814,16 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="Shop_ConfirmPurchase" xml:space="preserve"><value>この購入シミュレーションを完了しますか？&#xA;&#xA;Pang: {0:N0}&#xA;Cookies: {1:N0}</value></data>
   <data name="Shop_InsufficientFunds" xml:space="preserve"><value>シミュレーション残高が不足しています。</value></data>
   <data name="Shop_PurchaseComplete" xml:space="preserve"><value>購入シミュレーションが完了しました。</value></data>
-  <data name="Shop_MissingIconsSkipped" xml:space="preserve"><value>アイコンを解決できなかったため、{0} 件のカタログレコードをスキップしました。</value></data>
+  <data name="Shop_MissingIconsSkipped" xml:space="preserve"><value>{0} 件のカタログレコードでアイコンを解決できないため、プレースホルダーを使用します。</value></data>
+  <data name="Shop_MissingSkinResourceSkipped" xml:space="preserve"><value>ショップスキンリソース「{0}」が見つからなかったため、スキップしました。</value></data>
   <data name="Shop_EditPrices" xml:space="preserve"><value>アイテム価格の編集</value></data>
+  <data name="Shop_EditItem" xml:space="preserve"><value>ショップアイテムの編集</value></data>
+  <data name="Shop_ItemId" xml:space="preserve"><value>アイテム ID</value></data>
+  <data name="Shop_ItemName" xml:space="preserve"><value>名前</value></data>
+  <data name="Shop_Category" xml:space="preserve"><value>カテゴリ</value></data>
+  <data name="Shop_SourceEntry" xml:space="preserve"><value>ソース IFF エントリ</value></data>
+  <data name="Shop_ChangeIcon" xml:space="preserve"><value>変更...</value></data>
+  <data name="Shop_InvalidIcon" xml:space="preserve"><value>選択したアイコンをデコードできませんでした。</value></data>
   <data name="Shop_Price" xml:space="preserve"><value>価格</value></data>
   <data name="Shop_DiscountPrice" xml:space="preserve"><value>割引価格</value></data>
   <data name="Shop_RentalPrice" xml:space="preserve"><value>レンタル価格</value></data>
@@ -822,7 +832,7 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="Shop_IconFilter" xml:space="preserve"><value>対応画像|*.tga;*.png;*.jpg;*.jpeg;*.bmp|すべてのファイル|*.*</value></data>
   <data name="Shop_SelectIcon" xml:space="preserve"><value>展開済み data フォルダーからアイコンを選択</value></data>
   <data name="Shop_IconMustBeInData" xml:space="preserve"><value>ゲームが参照できるように、選択するアイコンは展開済み data フォルダー内に置いてください。</value></data>
-  <data name="Shop_EditHint" xml:space="preserve"><value>アイコンをクリックすると変更できます。アイテムを右クリックすると価格を編集できます。</value></data>
+  <data name="Shop_EditHint" xml:space="preserve"><value>アイテムをクリックするとショップ設定を編集できます。</value></data>
   <data name="Shop_ShopFlags" xml:space="preserve"><value>ショップフラグ（16進）</value></data>
   <data name="Shop_MoneyFlags" xml:space="preserve"><value>通貨フラグ（16進）</value></data>
   <data name="Shop_TimeFlag" xml:space="preserve"><value>時間フラグ（16進）</value></data>
@@ -1085,4 +1095,27 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>読み込んだフォントでサポートされている16進コードポイント（U+0020～U+FFFF）を入力してください。</value></data>
   <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;素早い茶色の狐。</value></data>
   <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>PangYa の .wft フォントファイルのみ対応しています。</value></data>
+  <data name="UpdateList_CreateZipPackages" xml:space="preserve"><value>ZIP パッケージを作成</value></data>
+  <data name="UpdateList_PackagingFiles" xml:space="preserve"><value>クライアントファイルをパッケージ化しています...</value></data>
+  <data name="UpdateList_PackagingProgressFormat" xml:space="preserve"><value>ZIP パッケージを作成中: {0}/{1}</value></data>
+  <data name="UpdateList_PackagingSummaryFormat" xml:space="preserve"><value>ZIP パッケージの作成が完了しました: {0} 個のパッケージを準備しました。</value></data>
+  <data name="UpdateList_ProcessingFileFormat" xml:space="preserve"><value>ファイルを処理中: {0}</value></data>
+  <data name="Common_Apply" xml:space="preserve"><value>適用</value></data>
+  <data name="Pak_NoKey" xml:space="preserve"><value>なし (Raw)</value></data>
+  <data name="Pak_Settings" xml:space="preserve"><value>設定</value></data>
+  <data name="Pak_SettingsTitle" xml:space="preserve"><value>PAK 設定を編集</value></data>
+  <data name="Pak_HeaderVersion" xml:space="preserve"><value>PAK ヘッダーバージョン (16進数、標準 12)</value></data>
+  <data name="Pak_RecompressEntries" xml:space="preserve"><value>通常のエントリをすべて再圧縮</value></data>
+  <data name="Pak_CompressionLevelUnknownHint" xml:space="preserve"><value>現在の圧縮レベルは PAK に保存されません。選択したレベルは再圧縮時のみ使用されます。</value></data>
+  <data name="Pak_AuthorAsciiOnly" xml:space="preserve"><value>PAK の作者名には ASCII 文字のみ使用できます。</value></data>
+  <data name="Pak_ConfirmSettingsUpdate" xml:space="preserve"><value>設定を適用して PAK を再構築しますか？現在のアーカイブの .bak コピーが作成されます。</value></data>
+  <data name="Pak_ConfirmRecompression" xml:space="preserve"><value>通常のエントリをすべて展開して再圧縮します。時間がかかる場合があります。</value></data>
+  <data name="Pak_UpdatingSettings" xml:space="preserve"><value>PAK 設定を更新しています...</value></data>
+  <data name="Pak_SettingsUpdated" xml:space="preserve"><value>PAK 設定を更新しました。</value></data>
+  <data name="Pak_SettingsUpdateFailed" xml:space="preserve"><value>PAK 設定を更新できませんでした:</value></data>
+  <data name="Pak_NoSettingsChanges" xml:space="preserve"><value>PAK 設定は変更されていません。</value></data>
+  <data name="Pak_UnusualNamesTitle" xml:space="preserve"><value>通常と異なる PAK エントリ名</value></data>
+  <data name="Pak_UnusualNamesSummary" xml:space="preserve"><value>通常と異なるエントリ名が {0} 件見つかりました。抽出または編集する前にファイル名エンコーディングを確認してください。対象は強調表示され、詳細はログに記録されました。</value></data>
+  <data name="Pak_CompressionLevelUnknown" xml:space="preserve"><value>不明 (PAK には保存されません)</value></data>
+  <data name="Pak_CompressionLevelSummaryFormat" xml:space="preserve"><value>圧縮レベル: {0}</value></data>
 </root>

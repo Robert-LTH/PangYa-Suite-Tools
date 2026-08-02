@@ -51,7 +51,9 @@ public sealed record IffSchemaDefinition(
     IffSchemaUiDefinition? Ui = null,
     int DefaultLongStringSize = 512,
     IffSchemaBaseReference? Base = null,
-    int DefaultRevision = 0);
+    int DefaultRevision = 0,
+    string? KeyField = null,
+    bool IsOpaque = false);
 
 public sealed record IffFieldDefinition(
     string Name,
@@ -124,7 +126,8 @@ public static class IffSchemaJson
         IReadOnlyList<IffField> localFields = schema.LocalFields ?? schema.Fields.Where(field => !field.IsInherited).ToArray();
         return new(CurrentVersion, Path.GetFileName(fileName), region, schema.MinimumRecordSize, schema.IsEditable,
             localFields.Select(FromField).ToArray(), schema.DefaultStringSize,
-            schema.Ui, schema.DefaultLongStringSize, schema.BaseReference, schema.DefaultRevision);
+            schema.Ui, schema.DefaultLongStringSize, schema.BaseReference, schema.DefaultRevision, schema.KeyField,
+            schema.IsOpaque);
     }
 
     public static IffFieldDefinition FromField(IffField field) => new(
@@ -139,7 +142,10 @@ public static class IffSchemaJson
         ValidateDefinition(definition, recordSize);
         if (definition.Base is not null && baseSchema is null)
             throw new InvalidDataException($"Schema '{definition.FileName}' requires base '{definition.Base.Name}'.");
-        IffField[] localFields = definition.Fields.Select(field => new IffField(
+        IEnumerable<IffFieldDefinition> materializedDefinitions = definition.IsOpaque
+            ? CreateOpaqueFields(recordSize)
+            : definition.Fields;
+        IffField[] localFields = materializedDefinitions.Select(field => new IffField(
             field.Name, field.Offset, field.Width, field.Type, field.IsEditable,
             field.EncodingCodePage is int codePage ? Encoding.GetEncoding(codePage) : null,
             field.Minimum, field.Maximum, field.BitMask, field.BitShift,
@@ -155,9 +161,65 @@ public static class IffSchemaJson
             .ToArray() ?? [];
         ValidateComposition(definition, inheritedFields, localFields, recordSize);
         IffField[] fields = [.. inheritedFields, .. localFields];
+        string? keyField = definition.KeyField ?? baseSchema?.KeyField ?? InferKeyField(fields);
+        if (keyField is not null && !fields.Any(field => field.Name.Equals(keyField, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidDataException($"Schema '{definition.FileName}' identifies missing key field '{keyField}'.");
         return new IffSchema(Path.GetFileNameWithoutExtension(definition.FileName),
             definition.MinimumRecordSize, fields, definition.IsEditable, definition.DefaultStringSize, definition.Ui,
-            definition.DefaultLongStringSize, definition.Base, localFields, definition.DefaultRevision);
+            definition.DefaultLongStringSize, definition.Base, localFields, definition.DefaultRevision, keyField,
+            definition.IsOpaque);
+    }
+
+    private static IReadOnlyList<IffFieldDefinition> CreateOpaqueFields(int recordSize)
+    {
+        int firstWidth = Math.Max(1, recordSize / 2);
+        if (firstWidth == recordSize)
+            return [new IffFieldDefinition("Opaque data", 0, recordSize, IffFieldType.Raw, false)];
+        return
+        [
+            new IffFieldDefinition("Opaque data 1", 0, firstWidth, IffFieldType.Raw, false),
+            new IffFieldDefinition("Opaque data 2", firstWidth, recordSize - firstWidth, IffFieldType.Raw, false)
+        ];
+    }
+
+    internal static IffSchema CompleteCoverage(IffSchema schema, int recordSize)
+    {
+        IffField[] fields = schema.Fields
+            .Where(field => !IffSchemaCoverage.IsCatchAllRawRecord(field, recordSize))
+            .ToArray();
+        var represented = new bool[recordSize];
+        foreach (IffField field in fields)
+        {
+            int end = Math.Min(recordSize, field.Offset + field.Width);
+            for (int offset = Math.Max(0, field.Offset); offset < end; offset++)
+                represented[offset] = true;
+        }
+
+        var complete = new List<IffField>(fields);
+        int start = 0;
+        while (start < represented.Length)
+        {
+            while (start < represented.Length && represented[start]) start++;
+            if (start == represented.Length) break;
+            int end = start + 1;
+            while (end < represented.Length && !represented[end]) end++;
+            complete.Add(new IffField($"Reserved 0x{start:X}", start, end - start, IffFieldType.Raw,
+                IsEditable: false, IsVisible: false));
+            start = end;
+        }
+        IffField[] completed = complete.OrderBy(field => field.Offset)
+            .ThenBy(field => field.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+        return schema with { Fields = completed };
+    }
+
+    private static string? InferKeyField(IReadOnlyList<IffField> fields)
+    {
+        string[] conventionalNames = ["ItemId", "TypeId", "Id", "Index", "_typeid"];
+        return conventionalNames.FirstOrDefault(name => fields.Any(field =>
+            field.Name.Equals(name, StringComparison.OrdinalIgnoreCase) && field.Type is
+                IffFieldType.Byte or IffFieldType.SByte or IffFieldType.UInt16 or IffFieldType.Int16 or
+                IffFieldType.UInt32 or IffFieldType.Int32 or IffFieldType.UInt64 or IffFieldType.Int64 or
+                IffFieldType.ItemIdReference));
     }
 
     public static void ValidateDefinition(IffSchemaDefinition definition, int recordSize)
@@ -166,6 +228,8 @@ public static class IffSchemaJson
             throw new InvalidDataException($"Unsupported IFF schema version {definition.SchemaVersion}.");
         if (definition.DefaultRevision < 0)
             throw new InvalidDataException("An IFF default schema revision cannot be negative.");
+        if (definition.KeyField is { Length: 0 })
+            throw new InvalidDataException("An IFF schema key field cannot be empty.");
         if (definition.SchemaVersion == 1 && definition.Base is not null)
             throw new InvalidDataException("IFF schema version 1 does not support a base schema.");
         if (definition.Base is { } baseReference &&
@@ -182,8 +246,10 @@ public static class IffSchemaJson
             throw new InvalidDataException("The default string size must fit within the record.");
         if (definition.DefaultLongStringSize <= 0)
             throw new InvalidDataException("The default long string size must be positive.");
-        if (definition.Fields is null || (definition.Fields.Count == 0 && definition.Base is null))
+        if (definition.Fields is null || (definition.Fields.Count == 0 && definition.Base is null && !definition.IsOpaque))
             throw new InvalidDataException("An IFF schema must contain at least one local field or a base schema.");
+        if (definition.IsOpaque && (definition.Fields.Count != 0 || definition.Base is not null || definition.KeyField is not null))
+            throw new InvalidDataException("An opaque IFF schema cannot declare fields, a base schema, or a key field.");
         if (definition.Ui?.Tabs is { } tabs)
         {
             foreach (IffFormTabDefinition tab in tabs)
@@ -267,10 +333,10 @@ public static class IffSchemaJson
     {
         int expectedWidth = field.Type switch
         {
-            IffFieldType.Boolean or IffFieldType.Byte => 1,
+            IffFieldType.Boolean or IffFieldType.Byte or IffFieldType.SByte => 1,
             IffFieldType.UInt16 or IffFieldType.Int16 => 2,
             IffFieldType.UInt32 or IffFieldType.ItemIdReference or IffFieldType.Int32 or IffFieldType.Single => 4,
-            IffFieldType.Int64 => 8,
+            IffFieldType.Int64 or IffFieldType.UInt64 => 8,
             IffFieldType.DateTime => 16,
             _ => 0
         };
@@ -569,10 +635,10 @@ public sealed class EmbeddedIffSchemaProvider(Assembly? assembly = null, string 
         Resolve(fileName, [region], recordSize);
 
     public IffSchemaResolution Resolve(string fileName, IReadOnlyList<string> regions, int recordSize)
-        => ResolveCore(fileName, regions, recordSize, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        => ResolveCore(fileName, regions, recordSize, new HashSet<string>(StringComparer.OrdinalIgnoreCase), true);
 
     private IffSchemaResolution ResolveCore(string fileName, IReadOnlyList<string> regions, int recordSize,
-        HashSet<string> resolving)
+        HashSet<string> resolving, bool completeCoverage)
     {
         fileName = Path.GetFileName(fileName);
         string stem = Path.GetFileNameWithoutExtension(fileName);
@@ -588,7 +654,12 @@ public sealed class EmbeddedIffSchemaProvider(Assembly? assembly = null, string 
                 using var reader = new StreamReader(stream, Encoding.UTF8);
                 IffSchemaDefinition definition = IffSchemaJson.Deserialize(reader.ReadToEnd());
                 if (definition.Base is null)
-                    return new IffSchemaResolution(IffSchemaJson.ToSchema(definition, recordSize));
+                {
+                    IffSchema schema = IffSchemaJson.ToSchema(definition, recordSize);
+                    return new IffSchemaResolution(completeCoverage
+                        ? IffSchemaJson.CompleteCoverage(schema, recordSize)
+                        : schema);
+                }
 
                 string key = $"{definition.FileName}|{definition.Region}";
                 if (!resolving.Add(key))
@@ -599,12 +670,14 @@ public sealed class EmbeddedIffSchemaProvider(Assembly? assembly = null, string 
                         ? [fixedRegion]
                         : regions;
                     IffSchemaResolution baseResolution = ResolveCore(definition.Base.Name + ".iff", baseRegions,
-                        recordSize, resolving);
+                        recordSize, resolving, false);
                     if (baseResolution.Schema is null)
                         return new IffSchemaResolution(null, baseResolution.Warning ??
                             $"Could not resolve base schema '{definition.Base.Name}' for '{definition.FileName}'.");
-                    return new IffSchemaResolution(IffSchemaJson.ToSchema(definition, recordSize,
-                        baseResolution.Schema), baseResolution.Warning);
+                    IffSchema schema = IffSchemaJson.ToSchema(definition, recordSize, baseResolution.Schema);
+                    return new IffSchemaResolution(completeCoverage
+                        ? IffSchemaJson.CompleteCoverage(schema, recordSize)
+                        : schema, baseResolution.Warning);
                 }
                 finally
                 {

@@ -1,6 +1,7 @@
 using PangYa_Suite_Tools.Localization;
 using PangYa_Suite_Tools.Shop;
 using PangyaAPI.IFF;
+using PangyaAPI.UI;
 using PangyaAPI.PAK.Models;
 using System.Globalization;
 using System.Text;
@@ -70,9 +71,10 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
         IReadOnlyList<IffReferenceCatalogItem> Catalog);
 
     private readonly Dictionary<string, ReferenceIndex> _indexes;
-    private readonly ShopAssetResolver? _assets;
+    private readonly PangyaFileImageProvider? _assets;
 
-    private IffReferenceResolver(Dictionary<string, ReferenceIndex> indexes, string? dataRoot, ShopAssetResolver? assets) =>
+    private IffReferenceResolver(Dictionary<string, ReferenceIndex> indexes,
+        string? dataRoot, PangyaFileImageProvider? assets) =>
         (_indexes, DataRoot, _assets) = (indexes, dataRoot, assets);
 
     public string? DataRoot { get; }
@@ -103,7 +105,7 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
             .ToArray();
         string? manualDataRoot = NormalizeDataRoot(dataRootOverride);
         string? dataRoot = manualDataRoot ?? DetectDataRoot(sourcePath);
-        ShopAssetResolver? assets = TryCreateAssetResolver(dataRoot);
+        PangyaFileImageProvider? assets = TryCreateAssetResolver(dataRoot);
         var indexes = new Dictionary<string, ReferenceIndex>(StringComparer.OrdinalIgnoreCase);
         foreach (IffFieldReference reference in references)
         {
@@ -159,7 +161,7 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
         IIffSchemaProvider schemaProvider,
         string? dataRoot,
         bool dataRootIsManual,
-        ShopAssetResolver? assets,
+        PangyaFileImageProvider? assets,
         CancellationToken cancellationToken)
     {
         if (TryFindEntry(currentContainer, reference.TargetFile, out IffContainerEntry? archiveEntry) &&
@@ -174,7 +176,9 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
         if (loosePath is null) return null;
 
         string looseDataRoot = (dataRootIsManual ? dataRoot : DetectDataRoot(loosePath) ?? dataRoot) ?? string.Empty;
-        ShopAssetResolver? looseAssets = looseDataRoot.Length == 0 ? assets : TryCreateAssetResolver(looseDataRoot) ?? assets;
+        PangyaFileImageProvider? looseAssets = looseDataRoot.Length == 0
+            ? assets
+            : TryCreateAssetResolver(looseDataRoot) ?? assets;
         await using IffContainer container = await IffContainer.OpenAsync(loosePath, cancellationToken: cancellationToken);
         IffContainerEntry? entry = container.Entries.FirstOrDefault(candidate =>
             candidate.Name.Equals(reference.TargetFile, StringComparison.OrdinalIgnoreCase));
@@ -193,7 +197,7 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
         Encoding encoding,
         IIffSchemaProvider schemaProvider,
         string? dataRoot,
-        ShopAssetResolver? assets,
+        PangyaFileImageProvider? assets,
         IReadOnlyDictionary<uint, string> characterNames,
         CancellationToken cancellationToken)
     {
@@ -273,7 +277,7 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
         string region,
         Encoding encoding,
         IIffSchemaProvider schemaProvider,
-        ShopAssetResolver? assets,
+        PangyaFileImageProvider? assets,
         CancellationToken cancellationToken)
     {
         const string characterFile = "Character.iff";
@@ -283,7 +287,9 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
         string? loosePath = FindLooseIffPath(characterFile, iffDirectoryPath, sourcePath, dataRoot);
         if (loosePath is null) return new Dictionary<uint, string>();
         string looseDataRoot = (dataRootIsManual ? dataRoot : DetectDataRoot(loosePath) ?? dataRoot) ?? string.Empty;
-        ShopAssetResolver? looseAssets = looseDataRoot.Length == 0 ? assets : TryCreateAssetResolver(looseDataRoot) ?? assets;
+        PangyaFileImageProvider? looseAssets = looseDataRoot.Length == 0
+            ? assets
+            : TryCreateAssetResolver(looseDataRoot) ?? assets;
         _ = looseAssets;
         await using IffContainer container = await IffContainer.OpenAsync(loosePath, cancellationToken: cancellationToken);
         IffContainerEntry? entry = container.Entries.FirstOrDefault(candidate =>
@@ -349,7 +355,8 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
         string.Join('\u001f', reference.TargetFile, reference.TargetKeyField, reference.DisplayField,
             reference.IconField);
 
-    private static string? ResolveIconPath(IffField? field, string iconId, string? dataRoot, ShopAssetResolver? assets)
+    private static string? ResolveIconPath(IffField? field, string iconId,
+        string? dataRoot, PangyaFileImageProvider? assets)
     {
         if (string.IsNullOrWhiteSpace(iconId)) return null;
         if (field?.Type == IffFieldType.Icon && !string.IsNullOrWhiteSpace(field.IconPath) && dataRoot is not null)
@@ -358,7 +365,7 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
             if (relativeMatch is not null) return relativeMatch;
         }
 
-        return assets?.TryResolve(Path.GetFileNameWithoutExtension(iconId));
+        return assets?.TryResolvePath(Path.GetFileNameWithoutExtension(iconId));
     }
 
     private static string? TryResolveRelativeIconPath(string dataRoot, string relativeIconPath, string iconId)
@@ -386,10 +393,10 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
         return normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static ShopAssetResolver? TryCreateAssetResolver(string? dataRoot)
+    private static PangyaFileImageProvider? TryCreateAssetResolver(string? dataRoot)
     {
         if (dataRoot is null) return null;
-        try { return new ShopAssetResolver(dataRoot); }
+        try { return new PangyaFileImageProvider(dataRoot); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { return null; }
     }
 
@@ -441,27 +448,11 @@ internal sealed class IffReferenceResolver : IIffReferenceResolver
 
 internal static class IffPreviewImageLoader
 {
-    public static IReadOnlyList<string> SupportedExtensions { get; } =
-    [
-        ".tga", ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".bmp", ".dib", ".rle",
-        ".gif", ".tif", ".tiff", ".ico", ".wmf", ".emf", ".exif"
-    ];
+    public static IReadOnlyList<string> SupportedExtensions =>
+        PangyaImageLoader.SupportedExtensions;
 
-    public static bool IsSupportedPath(string path) => SupportedExtensions.Contains(
-        Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+    public static bool IsSupportedPath(string path) =>
+        PangyaImageLoader.IsSupportedPath(path);
 
-    public static Image? Load(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
-        try
-        {
-            if (path.EndsWith(".tga", StringComparison.OrdinalIgnoreCase)) return TgaDecoder.Load(path);
-            using Image source = Image.FromFile(path);
-            return new Bitmap(source);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException)
-        {
-            return null;
-        }
-    }
+    public static Image? Load(string? path) => PangyaImageLoader.Load(path);
 }

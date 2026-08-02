@@ -14,6 +14,8 @@ public static class IffRegionDetector
                 token.Equals("Thailand", StringComparison.OrdinalIgnoreCase)) return "TH";
             if (token.Equals("JP", StringComparison.OrdinalIgnoreCase) ||
                 token.Equals("Japan", StringComparison.OrdinalIgnoreCase)) return "JP";
+            if (token.Equals("GB", StringComparison.OrdinalIgnoreCase) ||
+                token.Equals("Global", StringComparison.OrdinalIgnoreCase)) return "Global";
         }
         return null;
     }

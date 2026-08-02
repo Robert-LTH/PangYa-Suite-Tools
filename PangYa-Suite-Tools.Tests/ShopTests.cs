@@ -1,10 +1,14 @@
 using System.Drawing;
+using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
 using System.Xml;
+using PangYa_Suite_Tools.Localization;
+using PangYa_Suite_Tools.Logging;
 using PangYa_Suite_Tools.Shop;
 using PangyaAPI.IFF;
+using PangyaAPI.UI;
 using PangyaAPI.PAK.Models;
 using Xunit;
 
@@ -15,6 +19,145 @@ public sealed class ShopTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "PangYaShopTests", Guid.NewGuid().ToString("N"));
 
     public ShopTests() => Directory.CreateDirectory(_directory);
+
+    [Fact]
+    public void ShopDataFiles_UsesDiscoveredUiFilesFromDataFolderOrGameRoot()
+    {
+        string dataRoot = Path.Combine(_directory, "client", "data");
+        string uiRoot = Path.Combine(dataRoot, "ui");
+        string nestedUi = Path.Combine(uiRoot, "layouts");
+        Directory.CreateDirectory(nestedUi);
+        string shopXml = Path.Combine(nestedUi, "shop.xml");
+        string predefinedXml = Path.Combine(uiRoot, "predefined.xml");
+        string iffPath = Path.Combine(dataRoot, "pangya_th.iff");
+        File.WriteAllText(shopXml, "<resource/>");
+        File.WriteAllText(predefinedXml, "<resource/>");
+        File.WriteAllBytes(iffPath, []);
+
+        ShopDataFiles fromGameRoot =
+            ShopDataFiles.Resolve(Path.Combine(_directory, "client"));
+        ShopDataFiles fromDataRoot = ShopDataFiles.Resolve(dataRoot);
+
+        Assert.Equal(dataRoot, fromGameRoot.DataRoot);
+        Assert.Equal(shopXml, fromGameRoot.ShopXml);
+        Assert.Equal(predefinedXml, fromGameRoot.PredefinedXml);
+        Assert.Equal(iffPath, fromGameRoot.IffPath);
+        Assert.Equal(fromGameRoot, fromDataRoot);
+    }
+
+    [Fact]
+    public void ShopDataFiles_RejectsAmbiguousNestedShopXmlFiles()
+    {
+        string uiRoot = Path.Combine(_directory, "data", "ui");
+        Directory.CreateDirectory(Path.Combine(uiRoot, "one"));
+        Directory.CreateDirectory(Path.Combine(uiRoot, "two"));
+        File.WriteAllText(Path.Combine(uiRoot, "one", "shop.xml"),
+            "<resource/>");
+        File.WriteAllText(Path.Combine(uiRoot, "two", "shop.xml"),
+            "<resource/>");
+        File.WriteAllText(Path.Combine(uiRoot, "predefined.xml"),
+            "<resource/>");
+        File.WriteAllBytes(Path.Combine(_directory, "data", "pangya_th.iff"),
+            []);
+
+        Assert.Throws<InvalidDataException>(() =>
+            ShopDataFiles.Resolve(Path.Combine(_directory, "data")));
+    }
+
+    [Fact]
+    public void ShopDataFiles_UsesPakPathManifestToFindSiblingUiTree()
+    {
+        string extractionRoot = Path.Combine(_directory, "extracted-client");
+        string dataDirectory = Path.Combine(extractionRoot, "data");
+        string uiDirectory = Path.Combine(extractionRoot, "ui");
+        Directory.CreateDirectory(dataDirectory);
+        Directory.CreateDirectory(uiDirectory);
+        string iffPath = Path.Combine(dataDirectory, "pangya_jp.iff");
+        string shopXml = Path.Combine(uiDirectory, "shop.xml");
+        string predefinedXml = Path.Combine(uiDirectory, "predefined.xml");
+        File.WriteAllBytes(iffPath, []);
+        File.WriteAllText(shopXml, "<resource/>");
+        File.WriteAllText(predefinedXml, "<resource/>");
+        PakExtractionSidecar.WriteManifest(
+        [
+            (new PakFileEntry { Name = "data/pangya_jp.iff" }, iffPath),
+            (new PakFileEntry { Name = "ui/shop.xml" }, shopXml),
+            (new PakFileEntry { Name = "ui/predefined.xml" }, predefinedXml),
+        ]);
+
+        ShopDataFiles files = ShopDataFiles.Resolve(dataDirectory);
+
+        Assert.Equal(extractionRoot, files.DataRoot);
+        Assert.Equal(shopXml, files.ShopXml);
+        Assert.Equal(predefinedXml, files.PredefinedXml);
+        Assert.Equal(iffPath, files.IffPath);
+        Assert.True(File.Exists(Path.Combine(dataDirectory,
+            PakExtractionSidecar.ManifestFileName)));
+    }
+
+    [Fact]
+    public void ShopDataFiles_RejectsMultiplePangyaIffArchives()
+    {
+        string dataDirectory = Path.Combine(_directory, "client", "data");
+        Directory.CreateDirectory(dataDirectory);
+        File.WriteAllBytes(Path.Combine(dataDirectory, "pangya_jp.iff"), []);
+        File.WriteAllBytes(Path.Combine(dataDirectory, "pangya_th.iff"), []);
+
+        InvalidDataException error = Assert.Throws<InvalidDataException>(() =>
+            ShopDataFiles.Resolve(Path.Combine(_directory, "client")));
+
+        Assert.Contains("pangya_jp.iff", error.Message,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pangya_th.iff", error.Message,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("pangya_jp.iff", 999, 42, "JP")]
+    [InlineData("pangya_gb.iff", 999, 42, "Global")]
+    [InlineData("pangya_jp.iff", 30447, 11, "Global")]
+    [InlineData("pangya.iff", 30447, 11, "Global")]
+    [InlineData("pangya.iff", 0, 11, "TH")]
+    public async Task ShopRegionProbe_UsesFilenameThenKnownHeader(
+        string fileName, ushort revision, byte magic, string expected)
+    {
+        string path = Path.Combine(_directory, fileName);
+        byte[] bytes =
+            [1, 0, (byte)revision, (byte)(revision >> 8), magic, 0, 0, 0, 0];
+        if (magic is 11 or 12 or 13)
+            await File.WriteAllBytesAsync(path, bytes);
+        else
+        {
+            using ZipArchive archive = ZipFile.Open(path, ZipArchiveMode.Create);
+            ZipArchiveEntry entry = archive.CreateEntry("Item.iff");
+            await using Stream output = entry.Open();
+            await output.WriteAsync(bytes);
+        }
+
+        ShopRegionProbe probe = await ShopCatalogLoader.ProbeRegionAsync(path,
+            CancellationToken.None);
+
+        Assert.Equal(expected, probe.Region);
+    }
+
+    [Fact]
+    public async Task ShopRegionProbe_LeavesUnknownHeaderForInteractiveSelection()
+    {
+        string path = Path.Combine(_directory, "pangya.iff");
+        using (ZipArchive archive = ZipFile.Open(path, ZipArchiveMode.Create))
+        {
+            ZipArchiveEntry entry = archive.CreateEntry("Item.iff");
+            await using Stream output = entry.Open();
+            await output.WriteAsync(new byte[] { 1, 0, 231, 3, 42, 0, 0, 0, 0 });
+        }
+
+        ShopRegionProbe probe = await ShopCatalogLoader.ProbeRegionAsync(path,
+            CancellationToken.None);
+
+        Assert.Null(probe.Region);
+        Assert.NotNull(probe.Document);
+        Assert.Equal("Unknown", probe.Document.Region);
+    }
 
     [Fact]
     public async Task UiDocument_LoadEditAndAtomicSave_RoundTripsElementPropertiesAndStates()
@@ -52,6 +195,56 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(new Rectangle(25, 35, 120, 45), saved.Bounds);
         Assert.Equal("purchase_normal.tga", saved.GetResource(PangyaUiButtonState.Normal));
         Assert.Empty(Directory.EnumerateFiles(uiDirectory, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task UiDocument_LoadsLegacyBareAmpersandsAndSavesValidXml()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        Encoding encoding = Encoding.GetEncoding(51949);
+        string path = Path.Combine(_directory, "topicons.xml");
+        string xml = """
+            <?xml version="1.0" encoding="euc-kr" standalone="yes" ?>
+            <TopIcons>
+              <!-- Preserve comment A & B. -->
+              <Icon Type="WEBICON" Name="WebEvent1"
+                    Url="https://example.test/login?ID=%s&KID=%s&amp;valid=1" />
+            </TopIcons>
+            """;
+        await File.WriteAllTextAsync(path, xml, encoding);
+
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        await document.SaveAtomicAsync();
+
+        string saved = await File.ReadAllTextAsync(path, encoding);
+        Assert.Contains("ID=%s&amp;KID=%s&amp;valid=1", saved,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("&amp;amp;", saved, StringComparison.Ordinal);
+        Assert.Contains("comment A & B", saved, StringComparison.Ordinal);
+        var strict = new XmlDocument { XmlResolver = null };
+        strict.LoadXml(saved);
+    }
+
+    [Fact]
+    public void ShopLayout_LoadsBareAmpersandResourceValues()
+    {
+        string shop = Path.Combine(_directory, "shop.xml");
+        string predefined = Path.Combine(_directory, "predefined.xml");
+        File.WriteAllText(shop, """
+            <resource>
+              <FORM ID="shopmain" SIZE="800 600">
+                <item type="BUTTON" name="web" rect="0 0 20 20">
+                  <param name="normal" var="button?a=1&b=2" />
+                </item>
+              </FORM>
+            </resource>
+            """, Encoding.UTF8);
+        File.WriteAllText(predefined, "<resource/>", Encoding.UTF8);
+
+        ShopLayout layout = ShopLayoutParser.Load(shop, predefined);
+
+        Assert.Equal("button?a=1&b=2",
+            Assert.Single(layout.Elements).Parameters["normal"]);
     }
 
     [Fact]
@@ -170,10 +363,10 @@ public sealed class ShopTests : IDisposable
         {
             ConstructorInfo constructor = typeof(FrmPangyaUiEditor).GetConstructor(
                 BindingFlags.Instance | BindingFlags.NonPublic, binder: null,
-                [typeof(string), typeof(IReadOnlyList<string>), typeof(ShopAssetResolver)],
+                [typeof(string), typeof(IReadOnlyList<string>), typeof(PangyaFileImageProvider)],
                 modifiers: null)!;
             using var form = (FrmPangyaUiEditor)constructor.Invoke(
-                [_directory, new[] { path }, new ShopAssetResolver(_directory)]);
+                [_directory, new[] { path }, new PangyaFileImageProvider(_directory)]);
             typeof(FrmPangyaUiEditor).GetMethod("ConfigureIfdefControls",
                 BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(form, [document]);
             ToolStrip toolbar = Assert.Single(form.Controls.OfType<ToolStrip>(),
@@ -304,7 +497,7 @@ public sealed class ShopTests : IDisposable
             </resource>
             """);
         PangyaUiDocument document = PangyaUiDocument.Load(xmlPath);
-        var assets = new ShopAssetResolver(_directory);
+        using var assets = new PangyaFileImageProvider(_directory);
 
         RunSta(() =>
         {
@@ -376,7 +569,7 @@ public sealed class ShopTests : IDisposable
             </resource>
             """);
         PangyaUiDocument document = PangyaUiDocument.Load(xmlPath);
-        var assets = new ShopAssetResolver(_directory);
+        using var assets = new PangyaFileImageProvider(_directory);
 
         RunSta(() =>
         {
@@ -419,6 +612,80 @@ public sealed class ShopTests : IDisposable
     }
 
     [Fact]
+    public void UiRenderer_UsesTheSameGeometryForPaintingAndHitTesting()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "images");
+        Directory.CreateDirectory(imageDirectory);
+        SaveSolidImage(Path.Combine(imageDirectory, "green.png"), Color.Lime, 6, 4);
+        string path = Path.Combine(_directory, "ui", "renderer.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="FORM" name="form" size="40 30">
+                <item type="AREA" name="image" rect="7 8 27 28">
+                  <param name="bgimg" var="green.png"/>
+                </item>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+        PangyaUiNode image = Assert.Single(document.Nodes, node => node.Name == "image");
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images);
+        var options = new PangyaUiRenderOptions();
+
+        Assert.Equal(new Rectangle(7, 8, 6, 4),
+            renderer.GetRenderedBounds(image, options));
+        Assert.Same(image, renderer.HitTest(document, form, new Point(9, 10), options));
+        Assert.Null(renderer.HitTest(document, form, new Point(18, 10), options));
+
+        using var bitmap = new Bitmap(40, 30);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        renderer.Render(graphics, document, form, options);
+        Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(9, 10).ToArgb());
+        Assert.NotEqual(Color.Lime.ToArgb(), bitmap.GetPixel(18, 10).ToArgb());
+    }
+
+    [Fact]
+    public void UiRenderer_PositionsNestedElementsRelativeToTheirParents()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "images");
+        Directory.CreateDirectory(imageDirectory);
+        SaveSolidImage(Path.Combine(imageDirectory, "red.png"), Color.Red, 4, 3);
+        string path = Path.Combine(_directory, "ui", "nested.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="FORM" name="form" size="80 60">
+                <item type="GROUPBOX" name="outer" rect="20 15 60 50">
+                  <item type="GROUPBOX" name="inner" rect="3 4 30 25">
+                    <item type="AREA" name="image" pos="5 7" size="0 0">
+                      <param name="bgimg" var="red.png"/>
+                    </item>
+                  </item>
+                </item>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+        PangyaUiNode image = Assert.Single(document.Nodes, node => node.Name == "image");
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images);
+        var options = new PangyaUiRenderOptions();
+
+        Assert.Equal(new Rectangle(28, 26, 4, 3),
+            renderer.GetRenderedBounds(image, options));
+        Assert.Same(image, renderer.HitTest(document, form, new Point(29, 27), options));
+        Assert.Null(renderer.HitTest(document, form, new Point(6, 8), options));
+
+        using var bitmap = new Bitmap(80, 60);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        renderer.Render(graphics, document, form, options);
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(29, 27).ToArgb());
+        Assert.NotEqual(Color.Red.ToArgb(), bitmap.GetPixel(6, 8).ToArgb());
+    }
+
+    [Fact]
     public void UiCanvas_SelectedElementRendersAndHitTestsInFront()
     {
         string imageDirectory = Path.Combine(_directory, "ui", "buttons");
@@ -439,7 +706,7 @@ public sealed class ShopTests : IDisposable
             </resource>
             """);
         PangyaUiDocument document = PangyaUiDocument.Load(xmlPath);
-        var assets = new ShopAssetResolver(_directory);
+        using var assets = new PangyaFileImageProvider(_directory);
 
         RunSta(() =>
         {
@@ -498,7 +765,7 @@ public sealed class ShopTests : IDisposable
         PangyaUiDocument document = PangyaUiDocument.Load(viewPath);
         PangyaUiResourceCatalog catalog = PangyaUiResourceCatalog.Load(
             [definitionsPath, viewPath]);
-        var assets = new ShopAssetResolver(_directory);
+        using var assets = new PangyaFileImageProvider(_directory);
 
         RunSta(() =>
         {
@@ -542,7 +809,7 @@ public sealed class ShopTests : IDisposable
             </resource>
             """);
         PangyaUiDocument document = PangyaUiDocument.Load(xmlPath);
-        var assets = new ShopAssetResolver(_directory);
+        using var assets = new PangyaFileImageProvider(_directory);
 
         RunSta(() =>
         {
@@ -602,7 +869,7 @@ public sealed class ShopTests : IDisposable
             """);
         PangyaUiNode image = Assert.Single(PangyaUiDocument.Load(xmlPath).Nodes,
             node => node.Name == "image");
-        var assets = new ShopAssetResolver(_directory);
+        using var assets = new PangyaFileImageProvider(_directory);
         string outsidePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".png");
         File.WriteAllBytes(outsidePath, [3]);
 
@@ -795,6 +1062,245 @@ public sealed class ShopTests : IDisposable
     }
 
     [Fact]
+    public void ShopRenderer_ReturnsVisibleGeometryAndPaintsSkinAndCatalog()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "shop_myroom");
+        Directory.CreateDirectory(imageDirectory);
+        string skinPath = Path.Combine(imageDirectory, "skin.png");
+        string iconPath = Path.Combine(imageDirectory, "icon.png");
+        string tabPath = Path.Combine(imageDirectory, "category_tab.png");
+        SaveSolidImage(skinPath, Color.Red, 6, 4);
+        SaveSolidImage(iconPath, Color.Blue, 8, 8);
+        SaveSolidImage(tabPath, Color.Lime, 12, 9);
+        var layout = new ShopLayout(new Size(800, 600),
+        [
+            new ShopLayoutElement("BUTTON", "button", new Rectangle(10, 12, 0, 0),
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["normal"] = "skin.png"
+                }),
+            new ShopLayoutElement("TABBUTTON", "category_tab",
+                new Rectangle(30, 40, 0, 0),
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["normal"] = "category_tab.png"
+                })
+        ]);
+        var item = new ShopCatalogItem("Item", 1, "Test item", "icon", 100, 0,
+            0, false, iconPath);
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new ShopRenderer(images);
+        var session = new ShopSession();
+        var state = new ShopRenderState(0, 0, false, string.Empty, null, session);
+        var text = new ShopRenderText("No items", "{0} {1} {2}", "{0} {1}",
+            "{0}", "Edit");
+        using var bitmap = new Bitmap(800, 600);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        ShopRenderResult result = renderer.Render(graphics, layout, [item], state,
+            text, System.Globalization.CultureInfo.InvariantCulture);
+
+        ShopVisibleItem visible = Assert.Single(result.VisibleItems);
+        Assert.Same(item, visible.Item);
+        Assert.Equal(new Rectangle(392, 150, 92, 56), visible.Bounds);
+        Assert.Same(item, ShopRenderer.HitTestItem(result, new Point(400, 160))!.Item);
+        Assert.Equal("button",
+            renderer.HitTestElement(layout, new Point(12, 13))?.Name);
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(12, 13).ToArgb());
+        Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(31, 41).ToArgb());
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(396, 154).ToArgb());
+    }
+
+    [Fact]
+    public void ShopRenderer_EditorModeSuppressesCommerceOverlaysWithoutChangingItems()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "shop_myroom");
+        Directory.CreateDirectory(imageDirectory);
+        string iconPath = Path.Combine(imageDirectory, "icon.png");
+        SaveSolidImage(iconPath, Color.Blue, 8, 8);
+        var layout = new ShopLayout(new Size(800, 600), []);
+        var item = new ShopCatalogItem("Item", 1, "Test item", "icon", 100,
+            0, 0, false, iconPath);
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new ShopRenderer(images);
+        var session = new ShopSession();
+        session.Add(item);
+        var text = new ShopRenderText("No items", "Cart {0} {1} {2}",
+            "Balance {0} {1}", "Filter {0}", "Edit");
+        using var simulationBitmap = new Bitmap(800, 600);
+        using var editorBitmap = new Bitmap(800, 600);
+        using Graphics simulationGraphics = Graphics.FromImage(simulationBitmap);
+        using Graphics editorGraphics = Graphics.FromImage(editorBitmap);
+
+        ShopRenderResult simulation = renderer.Render(simulationGraphics, layout,
+            [item], new ShopRenderState(0, 0, false, string.Empty, null,
+                session), text);
+        ShopRenderResult editor = renderer.Render(editorGraphics, layout, [item],
+            new ShopRenderState(0, 0, false, string.Empty, null, session,
+                ShopRenderMode.Editor), text);
+
+        Assert.Equal(simulation.VisibleItems.Single().Bounds,
+            editor.VisibleItems.Single().Bounds);
+        Assert.True(HasVisiblePixel(simulationBitmap,
+            new Rectangle(15, 408, 335, 97)));
+        Assert.False(HasVisiblePixel(editorBitmap,
+            new Rectangle(15, 408, 335, 97)));
+    }
+
+    [Fact]
+    public void ShopRenderer_PaintsPlaceholderForItemWithoutResolvedIcon()
+    {
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new ShopRenderer(images);
+        var item = new ShopCatalogItem("Item", 1, "Missing icon", string.Empty,
+            0, 0, 0, false, string.Empty);
+        using var bitmap = new Bitmap(800, 600);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        ShopRenderResult result = renderer.Render(graphics,
+            new ShopLayout(new Size(800, 600), []), [item],
+            new ShopRenderState(0, 0, false, string.Empty, null,
+                new ShopSession(), ShopRenderMode.Editor),
+            new ShopRenderText("None", string.Empty, string.Empty,
+                string.Empty, "Edit"));
+
+        Assert.Single(result.VisibleItems);
+        Assert.True(HasVisiblePixel(bitmap, new Rectangle(395, 153, 38, 38)));
+    }
+
+    [Fact]
+    public void ShopRenderer_SkipsAndLogsMissingSkinResourcesOnce()
+    {
+        string missingResource = $"missing_skin_{Guid.NewGuid():N}.tga";
+        var parameters = new Dictionary<string, string>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            ["normal"] = missingResource
+        };
+        var layout = new ShopLayout(new Size(800, 600),
+        [
+            new ShopLayoutElement("BUTTON", "first",
+                new Rectangle(10, 10, 20, 20), parameters),
+            new ShopLayoutElement("TABBUTTON", "second",
+                new Rectangle(40, 10, 20, 20), parameters)
+        ]);
+        using var images = new PangyaFileImageProvider(_directory);
+
+        FrmShopMockup.LogMissingSkinAssets(layout, images);
+
+        Assert.Single(AppLogger.Instance.GetEntries(), entry =>
+            entry.Source == "Shop" &&
+            entry.Level == AppLogLevel.Warning &&
+            entry.Message.Contains(missingResource, StringComparison.Ordinal));
+        using var bitmap = new Bitmap(800, 600);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        var renderer = new ShopRenderer(images);
+        ShopRenderResult result = renderer.Render(graphics, layout, [],
+            new ShopRenderState(0, 0, false, string.Empty, null,
+                new ShopSession(), ShopRenderMode.Editor),
+            new ShopRenderText("None", string.Empty, string.Empty,
+                string.Empty, "Edit"));
+        Assert.Empty(result.VisibleItems);
+    }
+
+    [Fact]
+    public void ShopItemDialog_ExposesMetadataAndExistingEditableValues()
+    {
+        string iconPath = Path.Combine(_directory, "icon.png");
+        SaveSolidImage(iconPath, Color.Magenta, 8, 8);
+        var item = new ShopCatalogItem("Item", 0x1234, "Test item", "icon",
+            100, 80, 25, false, iconPath, "Item.iff", 7, 0xA5, 0xD2,
+            3, 9, new DateTime(2026, 1, 2), new DateTime(2027, 3, 4));
+
+        RunSta(() =>
+        {
+            using var dialog = new ShopItemDialog(item, _directory);
+
+            Assert.Equal(Strings.Shop_EditItem, dialog.Text);
+            Assert.Equal("icon", dialog.IconId);
+            Assert.Equal(iconPath, dialog.IconPath);
+            Assert.Equal(100u, dialog.Price);
+            Assert.Equal(80u, dialog.DiscountPrice);
+            Assert.Equal(25u, dialog.RentalPrice);
+            Assert.Equal((byte)0xA5, dialog.ShopFlags);
+            Assert.Equal((byte)0xD2, dialog.MoneyFlags);
+            Assert.Equal((byte)3, dialog.TimeFlag);
+            Assert.Equal((byte)9, dialog.Time);
+            Assert.Contains(dialog.Controls.OfType<TextBox>(),
+                control => control.ReadOnly &&
+                           control.Text.Contains("0x00001234",
+                               StringComparison.Ordinal));
+            Assert.Contains(dialog.Controls.OfType<TextBox>(),
+                control => control.ReadOnly && control.Text == "Item.iff #7");
+            Assert.NotNull(dialog.Controls.OfType<PictureBox>().Single().Image);
+        });
+    }
+
+    [Fact]
+    public void ShopCanvas_ItemClickRequestsEditingWithoutAddingToCart()
+    {
+        string imageDirectory = Path.Combine(_directory, "ui", "shop_myroom");
+        Directory.CreateDirectory(imageDirectory);
+        string iconPath = Path.Combine(imageDirectory, "icon.png");
+        SaveSolidImage(iconPath, Color.Blue, 8, 8);
+        var item = new ShopCatalogItem("Item", 1, "Test item", "icon", 100,
+            0, 0, false, iconPath);
+
+        RunSta(() =>
+        {
+            var images = new PangyaFileImageProvider(_directory);
+            using var canvas = new ShopCanvas(
+                new ShopLayout(new Size(800, 600), []), images, [item],
+                Path.Combine(_directory, "pangya_th.iff"))
+            {
+                Size = new Size(1120, 840),
+            };
+            ShopCatalogItem? requestedItem = null;
+            canvas.SetEditItemHandler(requested =>
+            {
+                requestedItem = requested;
+                return Task.CompletedTask;
+            });
+            using var bitmap = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(bitmap, canvas.ClientRectangle);
+
+            canvas.ShopCanvas_MouseClick(canvas, new MouseEventArgs(
+                MouseButtons.Left, 1, 400 * 14 / 10, 160 * 14 / 10, 0));
+
+            Assert.Same(item, requestedItem);
+            var session = (ShopSession)typeof(ShopCanvas).GetField(
+                "_emptySession", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(canvas)!;
+            Assert.Empty(session.Cart);
+        });
+    }
+
+    [Fact]
+    public void MainMenu_SeparatesUiAndShopEditorsWithoutOverlappingControls()
+    {
+        RunSta(() =>
+        {
+            using var menu = new FrmMenu();
+            Control uiEditor =
+                menu.Controls.Find("btnOpenUiEditor", true).Single();
+            Control shopEditor =
+                menu.Controls.Find("btnOpenShopEditor", true).Single();
+            Control fontViewer =
+                menu.Controls.Find("btnOpenFontViewer", true).Single();
+            Control options = menu.Controls.Find("btnOpenOptions", true).Single();
+            Control log = menu.Controls.Find("btnOpenLog", true).Single();
+
+            Assert.Equal(Strings.Menu_UiEditor, uiEditor.Text);
+            Assert.Equal(Strings.Menu_ShopEditor, shopEditor.Text);
+            Control[] ordered =
+                [uiEditor, shopEditor, fontViewer, options, log];
+            for (int index = 1; index < ordered.Length; index++)
+                Assert.True(ordered[index - 1].Bottom < ordered[index].Top);
+            Assert.True(log.Bottom < menu.ClientSize.Height);
+        });
+    }
+
+    [Fact]
     public void TgaDecoder_DecodesBottomOriginBgraAndAlpha()
     {
         string path = Path.Combine(_directory, "test.tga");
@@ -808,7 +1314,7 @@ public sealed class ShopTests : IDisposable
         bytes[22] = 70; bytes[23] = 60; bytes[24] = 50; bytes[25] = 80;
         File.WriteAllBytes(path, bytes);
 
-        using Bitmap bitmap = TgaDecoder.Load(path);
+        using Bitmap bitmap = PangyaImageLoader.LoadTga(path);
 
         Assert.Equal(Color.FromArgb(80, 50, 60, 70), bitmap.GetPixel(0, 0));
         Assert.Equal(Color.FromArgb(40, 10, 20, 30), bitmap.GetPixel(0, 1));
@@ -821,7 +1327,7 @@ public sealed class ShopTests : IDisposable
         byte[] bytes = new byte[18];
         bytes[2] = 2; bytes[12] = 1; bytes[14] = 1; bytes[16] = 32;
         File.WriteAllBytes(path, bytes);
-        Assert.Throws<InvalidDataException>(() => TgaDecoder.Load(path));
+        Assert.Throws<InvalidDataException>(() => PangyaImageLoader.LoadTga(path));
     }
 
     [Fact]
@@ -833,10 +1339,13 @@ public sealed class ShopTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(other)!);
         File.WriteAllBytes(preferred, [1]);
         File.WriteAllBytes(other, [2]);
-        var resolver = new ShopAssetResolver(_directory);
-        Assert.Equal(preferred, resolver.Resolve("button"));
-        Assert.Equal(preferred, resolver.Resolve("button.tga"));
-        Assert.Throws<FileNotFoundException>(() => resolver.Resolve("missing"));
+        using var resolver = new PangyaFileImageProvider(_directory);
+        Assert.Equal(preferred, resolver.ResolvePath("button"));
+        Assert.Equal(preferred, resolver.ResolvePath("button.tga"));
+        Assert.Throws<FileNotFoundException>(() => resolver.ResolvePath("missing"));
+        Assert.Null(resolver.TryResolvePath(string.Empty));
+        Assert.Null(resolver.TryResolvePath("   "));
+        Assert.Null(resolver.TryResolvePath("."));
     }
 
     [Fact]
@@ -907,6 +1416,106 @@ public sealed class ShopTests : IDisposable
         Assert.Equal((byte)7, saved.GetValue("Time", encoding));
         Assert.Equal(start, saved.GetValue("StartDate", encoding));
         Assert.Equal(end, saved.GetValue("EndDate", encoding));
+        Assert.Contains(AppLogger.Instance.GetEntries(), entry =>
+            entry.Source == "Shop" &&
+            entry.Message.Contains(path, StringComparison.OrdinalIgnoreCase) &&
+            entry.Message.Contains("0x0000007B", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CatalogLoader_IncludesDisabledZeroPriceAndMissingIconRecords()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        Encoding encoding = Encoding.GetEncoding(949);
+        string iconDirectory = Path.Combine(_directory, "ui", "shop_myroom");
+        Directory.CreateDirectory(iconDirectory);
+        string iconPath = Path.Combine(iconDirectory, "visible_icon.png");
+        SaveSolidImage(iconPath, Color.Green, 8, 8);
+        string path = Path.Combine(_directory, "Item.iff");
+        var header = new IffHeader(2, 0, 12, [0, 0, 0]);
+        IffSchema schema = IffSchemaRegistry.Resolve("Item.iff", header, 244)!;
+        IffRecord hidden = IffRecord.CreateBlank(0, 244, schema);
+        hidden.SetValue("Enabled", false, encoding);
+        hidden.SetValue("ItemId", 100u, encoding);
+        hidden.SetValue("Name", string.Empty, encoding);
+        hidden.SetValue("Icon", ".", encoding);
+        hidden.SetValue("Price", 0u, encoding);
+        hidden.SetValue("DiscountPrice", 0u, encoding);
+        hidden.SetValue("IsSaleable", false, encoding);
+        hidden.SetValue("OnlyDisplay", true, encoding);
+        IffRecord displayOnly = IffRecord.CreateBlank(1, 244, schema);
+        displayOnly.SetValue("Enabled", false, encoding);
+        displayOnly.SetValue("ItemId", 200u, encoding);
+        displayOnly.SetValue("Name", "Display only", encoding);
+        displayOnly.SetValue("Icon", "visible_icon", encoding);
+        displayOnly.SetValue("Price", 0u, encoding);
+        displayOnly.SetValue("DiscountPrice", 0u, encoding);
+        displayOnly.SetValue("IsSaleable", false, encoding);
+        displayOnly.SetValue("OnlyDisplay", true, encoding);
+        await using (var output = File.Create(path))
+            await IffWriter.WriteAsync(output, header,
+                Many(hidden, displayOnly));
+        using var assets = new PangyaFileImageProvider(_directory);
+
+        ShopCatalogLoadResult result = await ShopCatalogLoader.LoadAsync(path,
+            assets, CancellationToken.None);
+
+        Assert.Equal(2, result.Items.Count);
+        ShopCatalogItem first =
+            Assert.Single(result.Items, item => item.ItemId == 100u);
+        Assert.Equal("0x00000064", first.Name);
+        Assert.Empty(first.IconPath);
+        Assert.Equal(0u, first.Price);
+        Assert.Equal((byte)0x80, first.ShopFlags);
+        ShopCatalogItem second =
+            Assert.Single(result.Items, item => item.ItemId == 200u);
+        Assert.Equal(iconPath, second.IconPath);
+        Assert.Equal(1, result.MissingIconCount);
+    }
+
+    [Fact]
+    public async Task CatalogLoader_LoadsGlobalCommonDerivedItems()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        Encoding encoding = Encoding.GetEncoding(949);
+        string path = Path.Combine(_directory, "Item.iff");
+        var header = new IffHeader(1, 30447, 11, [0, 0, 0]);
+        IffSchema schema = IffSchemaRegistry.Resolve("Item.iff", header, 224)!;
+        IffRecord record = IffRecord.CreateBlank(0, 224, schema);
+        record.SetValue("ItemId", 321u, encoding);
+        record.SetValue("Name", "Global item", encoding);
+        record.SetValue("Price", 500u, encoding);
+        record.SetValue("DiscountPrice", 450u, encoding);
+        record.SetValue("UsedPrice", 25u, encoding);
+        await using (var output = File.Create(path))
+            await IffWriter.WriteAsync(output, header, One(record));
+        using var assets = new PangyaFileImageProvider(_directory);
+
+        ShopCatalogLoadResult result = await ShopCatalogLoader.LoadAsync(path,
+            assets, "Global", CancellationToken.None);
+
+        ShopCatalogItem item = Assert.Single(result.Items);
+        Assert.Equal(321u, item.ItemId);
+        Assert.Equal("Global item", item.Name);
+        Assert.Equal(25u, item.RentalPrice);
+    }
+
+    [Fact]
+    public async Task CatalogLoader_SkipsSchemasThatDoNotUseCommonBase()
+    {
+        string path = Path.Combine(_directory, "Item.iff");
+        var header = new IffHeader(1, 0, 11, [0, 0, 0]);
+        IffSchema schema = IffSchemaRegistry.Resolve("Item.iff", header, 196)!;
+        Assert.Null(schema.BaseReference);
+        IffRecord record = IffRecord.CreateBlank(0, 196, schema);
+        await using (var output = File.Create(path))
+            await IffWriter.WriteAsync(output, header, One(record));
+        using var assets = new PangyaFileImageProvider(_directory);
+
+        ShopCatalogLoadResult result = await ShopCatalogLoader.LoadAsync(path,
+            assets, "TH", CancellationToken.None);
+
+        Assert.Empty(result.Items);
     }
 
     [Fact]
@@ -1173,6 +1782,15 @@ public sealed class ShopTests : IDisposable
         using Graphics graphics = Graphics.FromImage(bitmap);
         graphics.Clear(color);
         bitmap.Save(path);
+    }
+
+    private static bool HasVisiblePixel(Bitmap bitmap, Rectangle bounds)
+    {
+        for (int y = bounds.Top; y < bounds.Bottom; y++)
+        for (int x = bounds.Left; x < bounds.Right; x++)
+            if (bitmap.GetPixel(x, y).A != 0)
+                return true;
+        return false;
     }
 
     private sealed class StaticIffSchemaProvider(IffSchema schema) : IIffSchemaProvider

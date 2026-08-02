@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="EngineRequired" xml:space="preserve"><value>Database.Engine é obrigatório.</value></data>
+  <data name="ConnectionRequired" xml:space="preserve"><value>ConnectionStrings:Pangya é obrigatório.</value></data>
+  <data name="ServerAndDatabaseRequired" xml:space="preserve"><value>ConnectionStrings:Pangya deve especificar um servidor e um banco de dados.</value></data>
+  <data name="CredentialsRequired" xml:space="preserve"><value>ConnectionStrings:Pangya deve fornecer credenciais quando a segurança integrada estiver desativada.</value></data>
+  <data name="ConnectionInvalid" xml:space="preserve"><value>ConnectionStrings:Pangya é inválido para o mecanismo de banco de dados configurado.</value></data>
+  <data name="EngineUnsupported" xml:space="preserve"><value>O mecanismo de banco de dados '{0}' não é compatível.</value></data>
+  <data name="EngineUnsupportedEf" xml:space="preserve"><value>O mecanismo de banco de dados '{0}' não é compatível com o Entity Framework.</value></data>
+  <data name="ContextRequired" xml:space="preserve"><value>Um contexto e um mecanismo de banco de dados são obrigatórios.</value></data>
+  <data name="QueryRequired" xml:space="preserve"><value>Uma consulta ou um nome de procedimento é obrigatório.</value></data>
+  <data name="QueryTimeout" xml:space="preserve"><value>O tempo limite de espera pela conclusão da consulta ao banco de dados foi excedido.</value></data>
+</root>

@@ -13,6 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PangYa-Suite-Tools\PangYa-Suite-Tools.csproj" />
+    <ProjectReference Include="..\PangyaAPI\PangyaAPI.UI\PangyaAPI.UI.csproj" />
     <ProjectReference Include="..\PangyaAPI\PangyaAPI.WFT\PangyaAPI.WFT.csproj" />
   </ItemGroup>
 </Project>

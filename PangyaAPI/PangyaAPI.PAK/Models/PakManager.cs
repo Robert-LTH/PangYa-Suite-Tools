@@ -11,6 +11,13 @@ public readonly record struct PakRebuildOptions(
     string Author)
 {
     public Encoding FileNameEncoding { get; init; } = PakFileNameEncoding.CreateDefault();
+    public byte? PakVersion { get; init; }
+}
+
+public enum PakArchiveUpdateMode
+{
+    PreservePayloads,
+    RecompressEntries
 }
 
 public readonly record struct PakInjectItem(string SourcePath, string? RelativeFolder);
@@ -64,7 +71,8 @@ public static class PakManager
         }
 
         buildItems = AddMissingDirectoryEntries(buildItems);
-        Rebuild(pakPath, reader, buildItems, options, log, onProgress, SaveBck, cancellationToken);
+        Rebuild(pakPath, reader, buildItems, options, log, onProgress, SaveBck,
+            cancellationToken, preserveExistingPayloadTypes: true);
     }
 
     public static void InjectFiles(string pakPath, PakReader reader, IEnumerable<string> sourceFiles,
@@ -176,6 +184,34 @@ public static class PakManager
                 log, onProgress, SaveBck, cancellationToken, preserveExistingPayloadTypes: true);
     }
 
+    public static void UpdateArchive(string pakPath, PakReader reader, PakRebuildOptions options,
+                                     PakArchiveUpdateMode updateMode,
+                                     Action<string>? log = null,
+                                     Action<int, int>? onProgress = null,
+                                     bool SaveBck = true) =>
+        UpdateArchive(pakPath, reader, options, updateMode, log, onProgress,
+            SaveBck, CancellationToken.None);
+
+    public static void UpdateArchive(string pakPath, PakReader reader, PakRebuildOptions options,
+                                     PakArchiveUpdateMode updateMode,
+                                     Action<string>? log, Action<int, int>? onProgress,
+                                     bool SaveBck, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!Enum.IsDefined(updateMode))
+            throw new ArgumentOutOfRangeException(nameof(updateMode));
+
+        bool recompress = updateMode == PakArchiveUpdateMode.RecompressEntries;
+        log?.Invoke(recompress
+            ? "Recompressing all regular PAK entries and updating metadata."
+            : "Updating PAK metadata while preserving compressed payloads.");
+        Rebuild(pakPath, reader, ExistingBuildItems(reader).ToList(), options,
+            log, onProgress, SaveBck, cancellationToken,
+            preserveExistingPayloadTypes: !recompress,
+            reuseExistingCompressedPayloads: !recompress);
+    }
+
     public static void RemoveFiles(string pakPath, PakReader reader, IEnumerable<string> namesToRemove,
                                    PakRebuildOptions options, Action<string>? log = null,
                                    Action<int, int>? onProgress = null, bool SaveBck = false) =>
@@ -192,7 +228,8 @@ public static class PakManager
             .Where(item => item.IsDirectory || !remove.Contains(item.ArchivePath))
             .ToList();
         foreach (string name in remove) log?.Invoke($"Removido: {name}");
-        Rebuild(pakPath, reader, buildItems, options, log, onProgress, SaveBck, cancellationToken);
+        Rebuild(pakPath, reader, buildItems, options, log, onProgress, SaveBck,
+            cancellationToken, preserveExistingPayloadTypes: true);
     }
 
     private static IEnumerable<PakWriter.BuildItem> ExistingBuildItems(
@@ -281,21 +318,23 @@ public static class PakManager
                                 PakRebuildOptions options, Action<string>? log,
                                 Action<int, int>? onProgress, bool saveBackup,
                                 CancellationToken cancellationToken,
-                                bool preserveExistingPayloadTypes = false)
+                                bool preserveExistingPayloadTypes = false,
+                                bool reuseExistingCompressedPayloads = true)
     {
         string destination = Path.GetFullPath(pakPath);
         string candidate = destination + $".{Guid.NewGuid():N}.tmp";
         string backup = destination + ".bak";
         var writer = new PakWriter
         {
-            PakVersion = reader.Header.Version,
+            PakVersion = options.PakVersion ?? reader.Header.Version,
             EntryVersion = options.EntryVersion,
             EntryType = options.EntryType,
             CompressLevel = options.CompressLevel,
             LocationKeys = options.LocationKeys,
             Author = options.Author,
             FileNameEncoding = options.FileNameEncoding,
-            PreserveExistingPayloadTypes = preserveExistingPayloadTypes
+            PreserveExistingPayloadTypes = preserveExistingPayloadTypes,
+            ReuseExistingCompressedPayloads = reuseExistingCompressedPayloads
         };
 
         try

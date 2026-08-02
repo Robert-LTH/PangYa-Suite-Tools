@@ -993,11 +993,13 @@ Ja: Behåll den nuvarande strukturen (mål\PAK-namn\filer).
 Nej: Skriv alla filer direkt under målmappen med deras interna sökvägar. Filer från senare PAK-filer kan skriva över tidigare filer.
 Avbryt: Stoppa extraheringen.</value></data>
   <data name="Menu_Shop" xml:space="preserve"><value>PangYa UI-redigerare</value></data>
-  <data name="Shop_Title" xml:space="preserve"><value>PangYa-butikssimulering</value></data>
+  <data name="Menu_UiEditor" xml:space="preserve"><value>PangYa UI-redigerare</value></data>
+  <data name="Menu_ShopEditor" xml:space="preserve"><value>PangYa-butiksredigerare</value></data>
+  <data name="Shop_Title" xml:space="preserve"><value>PangYa-butiksredigerare</value></data>
   <data name="Shop_SelectDataFolder" xml:space="preserve"><value>Välj den extraherade PangYa-mappen data.</value></data>
   <data name="Shop_MissingRequiredFile" xml:space="preserve"><value>En obligatorisk butiksfil saknas.</value></data>
   <data name="Shop_LoadFailed" xml:space="preserve"><value>Butiken kunde inte läsas in: {0}</value></data>
-  <data name="Shop_NoItems" xml:space="preserve"><value>Inga säljbara objekt med tillgängliga ikoner hittades.</value></data>
+  <data name="Shop_NoItems" xml:space="preserve"><value>Inga poster med butiksfält som stöds hittades i IFF-arkivet.</value></data>
   <data name="Shop_CartSummary" xml:space="preserve"><value>Kundvagn: {0} objekt&#xA;Pang totalt: {1:N0}   Cookies totalt: {2:N0}</value></data>
   <data name="Shop_Balances" xml:space="preserve"><value>Saldo — Pang: {0:N0}   Cookies: {1:N0}</value></data>
   <data name="Shop_Filter" xml:space="preserve"><value>Sökning: {0}</value></data>
@@ -1006,8 +1008,16 @@ Avbryt: Stoppa extraheringen.</value></data>
   <data name="Shop_ConfirmPurchase" xml:space="preserve"><value>Slutför det simulerade köpet?&#xA;&#xA;Pang: {0:N0}&#xA;Cookies: {1:N0}</value></data>
   <data name="Shop_InsufficientFunds" xml:space="preserve"><value>Det simulerade saldot är otillräckligt.</value></data>
   <data name="Shop_PurchaseComplete" xml:space="preserve"><value>Det simulerade köpet är klart.</value></data>
-  <data name="Shop_MissingIconsSkipped" xml:space="preserve"><value>{0} katalogpost(er) hoppades över eftersom ikonen inte kunde hittas.</value></data>
+  <data name="Shop_MissingIconsSkipped" xml:space="preserve"><value>{0} katalogpost(er) har olösta ikoner och använder platshållare.</value></data>
+  <data name="Shop_MissingSkinResourceSkipped" xml:space="preserve"><value>Butikens gränssnittsresurs '{0}' hittades inte och hoppades över.</value></data>
   <data name="Shop_EditPrices" xml:space="preserve"><value>Redigera objektpriser</value></data>
+  <data name="Shop_EditItem" xml:space="preserve"><value>Redigera butiksobjekt</value></data>
+  <data name="Shop_ItemId" xml:space="preserve"><value>Objekt-ID</value></data>
+  <data name="Shop_ItemName" xml:space="preserve"><value>Namn</value></data>
+  <data name="Shop_Category" xml:space="preserve"><value>Kategori</value></data>
+  <data name="Shop_SourceEntry" xml:space="preserve"><value>IFF-källpost</value></data>
+  <data name="Shop_ChangeIcon" xml:space="preserve"><value>Byt...</value></data>
+  <data name="Shop_InvalidIcon" xml:space="preserve"><value>Den valda ikonen kunde inte avkodas.</value></data>
   <data name="Shop_Price" xml:space="preserve"><value>Pris</value></data>
   <data name="Shop_DiscountPrice" xml:space="preserve"><value>Rabattpris</value></data>
   <data name="Shop_RentalPrice" xml:space="preserve"><value>Hyrespris</value></data>
@@ -1016,7 +1026,7 @@ Avbryt: Stoppa extraheringen.</value></data>
   <data name="Shop_IconFilter" xml:space="preserve"><value>Bildfiler som stöds|*.tga;*.png;*.jpg;*.jpeg;*.jpe;*.jfif;*.bmp;*.dib;*.rle;*.gif;*.tif;*.tiff;*.ico;*.wmf;*.emf;*.exif|Alla filer|*.*</value></data>
   <data name="Shop_SelectIcon" xml:space="preserve"><value>Välj en ikon från den extraherade data-mappen</value></data>
   <data name="Shop_IconMustBeInData" xml:space="preserve"><value>Den valda ikonen måste redan finnas i den extraherade data-mappen så att spelet kan hitta den.</value></data>
-  <data name="Shop_EditHint" xml:space="preserve"><value>Klicka på en ikon för att ersätta den. Högerklicka på ett objekt för att redigera priserna.</value></data>
+  <data name="Shop_EditHint" xml:space="preserve"><value>Klicka på ett objekt för att redigera dess butiksinställningar.</value></data>
   <data name="Shop_ShopFlags" xml:space="preserve"><value>Butiksflaggor (hex)</value></data>
   <data name="Shop_MoneyFlags" xml:space="preserve"><value>Pengaflaggor (hex)</value></data>
   <data name="Shop_TimeFlag" xml:space="preserve"><value>Tidsflagga (hex)</value></data>
@@ -1107,4 +1117,27 @@ Avbryt: Stoppa extraheringen.</value></data>
   <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>Ange en hexadecimal kodpunkt som stöds av det inlästa teckensnittet (U+0020 till U+FFFF).</value></data>
   <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;Den snabba bruna räven.</value></data>
   <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>Endast PangYa-teckensnitt med filändelsen .wft stöds.</value></data>
+  <data name="UpdateList_CreateZipPackages" xml:space="preserve"><value>Skapa ZIP-paket</value></data>
+  <data name="UpdateList_PackagingFiles" xml:space="preserve"><value>Paketerar klientfiler...</value></data>
+  <data name="UpdateList_PackagingProgressFormat" xml:space="preserve"><value>Paketerar ZIP-paket: {0}/{1}</value></data>
+  <data name="UpdateList_PackagingSummaryFormat" xml:space="preserve"><value>ZIP-paketeringen är klar: {0} paket är redo.</value></data>
+  <data name="UpdateList_ProcessingFileFormat" xml:space="preserve"><value>Bearbetar fil: {0}</value></data>
+  <data name="Common_Apply" xml:space="preserve"><value>Verkställ</value></data>
+  <data name="Pak_NoKey" xml:space="preserve"><value>Ingen (Raw)</value></data>
+  <data name="Pak_Settings" xml:space="preserve"><value>Inställningar</value></data>
+  <data name="Pak_SettingsTitle" xml:space="preserve"><value>Redigera PAK-inställningar</value></data>
+  <data name="Pak_HeaderVersion" xml:space="preserve"><value>PAK-huvudversion (hex; standard 12)</value></data>
+  <data name="Pak_RecompressEntries" xml:space="preserve"><value>Komprimera om alla vanliga poster</value></data>
+  <data name="Pak_CompressionLevelUnknownHint" xml:space="preserve"><value>Den nuvarande komprimeringsnivån lagras inte i PAK-filen. Vald nivå används endast vid omkomprimering.</value></data>
+  <data name="Pak_AuthorAsciiOnly" xml:space="preserve"><value>PAK-författaren får endast innehålla ASCII-tecken.</value></data>
+  <data name="Pak_ConfirmSettingsUpdate" xml:space="preserve"><value>Verkställ inställningarna och bygg om PAK-filen? En .bak-kopia av det nuvarande arkivet skapas.</value></data>
+  <data name="Pak_ConfirmRecompression" xml:space="preserve"><value>Alla vanliga poster packas upp och komprimeras om. Det kan ta en stund.</value></data>
+  <data name="Pak_UpdatingSettings" xml:space="preserve"><value>Uppdaterar PAK-inställningar...</value></data>
+  <data name="Pak_SettingsUpdated" xml:space="preserve"><value>PAK-inställningarna uppdaterades.</value></data>
+  <data name="Pak_SettingsUpdateFailed" xml:space="preserve"><value>Det gick inte att uppdatera PAK-inställningarna:</value></data>
+  <data name="Pak_NoSettingsChanges" xml:space="preserve"><value>Inga PAK-inställningar ändrades.</value></data>
+  <data name="Pak_UnusualNamesTitle" xml:space="preserve"><value>Ovanliga PAK-postnamn</value></data>
+  <data name="Pak_UnusualNamesSummary" xml:space="preserve"><value>{0} ovanliga postnamn hittades. Kontrollera filnamnskodningen innan du extraherar eller redigerar. Berörda poster är markerade och detaljer finns i loggen.</value></data>
+  <data name="Pak_CompressionLevelUnknown" xml:space="preserve"><value>Okänd (lagras inte i PAK-filen)</value></data>
+  <data name="Pak_CompressionLevelSummaryFormat" xml:space="preserve"><value>Komprimeringsnivå: {0}</value></data>
 </root>
