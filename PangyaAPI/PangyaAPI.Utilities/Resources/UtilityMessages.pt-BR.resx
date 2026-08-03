@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?><root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="UnsupportedCulture" xml:space="preserve"><value>Cultura de localização '{0}' não compatível. Valores aceitos: {1}.</value></data>
+  <data name="ErrorCode" xml:space="preserve"><value>{0}	 Código do erro: {1}</value></data>
+  <data name="StackTrace" xml:space="preserve"><value>{0}, [Rastreamento de pilha]: {1}</value></data>
+  <data name="CrashLog" xml:space="preserve"><value>Origem: {0}
+Data: {1}
+Mensagem: {2}
+Rastreamento de pilha:
+{3}</value></data>
+  <data name="DumpCreated" xml:space="preserve"><value>Dump e log gerados: {0}, {1}</value></data>
+  <data name="DumpFailed" xml:space="preserve"><value>Falha ao gerar dump/log: {0}</value></data>
+  <data name="SendReadError" xml:space="preserve"><value>[Envio] Erro de leitura: {0}</value></data>
+  <data name="UnexpectedError" xml:space="preserve"><value>[{0}] Erro inesperado: {1}</value></data>
+  <data name="SocketDisconnected" xml:space="preserve"><value>[Leitura] Socket desconectado.</value></data>
+  <data name="ClientDisconnected" xml:space="preserve"><value>[Leitura] O cliente desconectou durante a leitura.</value></data>
+  <data name="SocketClosed" xml:space="preserve"><value>[{0}] Socket encerrado pelo cliente: {1} - {2}</value></data>
+  <data name="StreamUnreadable" xml:space="preserve"><value>[Leitura] O stream é nulo ou não pode ser lido.</value></data>
+  <data name="StreamReadError" xml:space="preserve"><value>[Leitura] Erro de leitura do stream: {0}</value></data>
+  <data name="BufferInvalid" xml:space="preserve"><value>O buffer é inválido ou pequeno demais para o tipo especificado.</value></data>
+  <data name="DumpGenerationError" xml:space="preserve"><value>Erro ao gerar o dump: {0}</value></data>
+  <data name="SingletonAlreadyConfigured" xml:space="preserve"><value>A instância singleton de {0} já está configurada.</value></data>
+  <data name="ShiftJisReadFailed" xml:space="preserve"><value>[Erro] Falha ao ler a string Shift_JIS: {0}</value></data>
+  <data name="ObjectTypeName" xml:space="preserve"><value>Nome do tipo do objeto: {0}</value></data>
+  <data name="TypeNotImplemented" xml:space="preserve"><value>O tipo não foi implementado.</value></data>
+  <data name="ShiftJisStringTooLong" xml:space="preserve"><value>A string Shift_JIS é longa demais (limite: 65535 bytes).</value></data>
+  <data name="WriteByteFailed" xml:space="preserve"><value>[WriteByte] Erro ao escrever o byte: {0}</value></data>
+  <data name="ByteOutOfRange" xml:space="preserve"><value>[WriteByte] Valor fora do intervalo de byte: {0} | Rastreamento de pilha:</value></data>
+  <data name="ValueMustBeStruct" xml:space="preserve"><value>O parâmetro 'value' deve ser uma estrutura.</value></data>
+  <data name="StructSerializationFailed" xml:space="preserve"><value>[WriteStruct][Erro] Erro ao serializar a estrutura: {0}</value></data>
+  <data name="CallStack" xml:space="preserve"><value>Pilha de chamadas: {0}</value></data>
+  <data name="StructValuesNull" xml:space="preserve"><value>[WriteStruct][Aviso] O parâmetro 'value' ou 'valueOri' é nulo.</value></data>
+  <data name="StructHandlingFailed" xml:space="preserve"><value>[WriteStruct][Erro] Erro ao manipular a estrutura:</value></data>
+  <data name="ExceptionMessage" xml:space="preserve"><value>Mensagem: {0}</value></data>
+  <data name="ExceptionSource" xml:space="preserve"><value>Origem: {0}</value></data>
+  <data name="ExceptionMethod" xml:space="preserve"><value>Método: {0}</value></data>
+  <data name="WriteBufferNull" xml:space="preserve"><value>WriteBuffer é nulo para {0}</value></data>
+</root>

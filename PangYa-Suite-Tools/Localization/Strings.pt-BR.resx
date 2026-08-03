@@ -996,11 +996,13 @@ Sim: Manter a estrutura atual (destino\nome do PAK\arquivos).
 Não: Gravar todos os arquivos diretamente no destino usando seus caminhos internos. Arquivos de PAKs posteriores podem substituir arquivos anteriores.
 Cancelar: Interromper a extração.</value></data>
   <data name="Menu_Shop" xml:space="preserve"><value>Editor de UI PangYa</value></data>
-  <data name="Shop_Title" xml:space="preserve"><value>Simulação da Loja PangYa</value></data>
+  <data name="Menu_UiEditor" xml:space="preserve"><value>Editor de UI PangYa</value></data>
+  <data name="Menu_ShopEditor" xml:space="preserve"><value>Editor da Loja PangYa</value></data>
+  <data name="Shop_Title" xml:space="preserve"><value>Editor da Loja PangYa</value></data>
   <data name="Shop_SelectDataFolder" xml:space="preserve"><value>Selecione a pasta data extraída do PangYa.</value></data>
   <data name="Shop_MissingRequiredFile" xml:space="preserve"><value>Um arquivo obrigatório da loja está ausente.</value></data>
   <data name="Shop_LoadFailed" xml:space="preserve"><value>Não foi possível carregar a loja: {0}</value></data>
-  <data name="Shop_NoItems" xml:space="preserve"><value>Nenhum item vendável com ícone disponível foi encontrado.</value></data>
+  <data name="Shop_NoItems" xml:space="preserve"><value>Nenhum registro com campos de loja compatíveis foi encontrado no arquivo IFF.</value></data>
   <data name="Shop_CartSummary" xml:space="preserve"><value>Carrinho: {0} item(ns)&#xA;Total Pang: {1:N0}   Total Cookie: {2:N0}</value></data>
   <data name="Shop_Balances" xml:space="preserve"><value>Saldo — Pang: {0:N0}   Cookies: {1:N0}</value></data>
   <data name="Shop_Filter" xml:space="preserve"><value>Pesquisa: {0}</value></data>
@@ -1009,8 +1011,16 @@ Cancelar: Interromper a extração.</value></data>
   <data name="Shop_ConfirmPurchase" xml:space="preserve"><value>Concluir esta compra simulada?&#xA;&#xA;Pang: {0:N0}&#xA;Cookies: {1:N0}</value></data>
   <data name="Shop_InsufficientFunds" xml:space="preserve"><value>O saldo simulado é insuficiente.</value></data>
   <data name="Shop_PurchaseComplete" xml:space="preserve"><value>A compra simulada foi concluída.</value></data>
-  <data name="Shop_MissingIconsSkipped" xml:space="preserve"><value>{0} registro(s) do catálogo foram ignorados porque o ícone não pôde ser localizado.</value></data>
+  <data name="Shop_MissingIconsSkipped" xml:space="preserve"><value>{0} registro(s) do catálogo têm ícones não resolvidos e usarão marcadores.</value></data>
+  <data name="Shop_MissingSkinResourceSkipped" xml:space="preserve"><value>O recurso de aparência da loja '{0}' não foi encontrado e foi ignorado.</value></data>
   <data name="Shop_EditPrices" xml:space="preserve"><value>Editar preços do item</value></data>
+  <data name="Shop_EditItem" xml:space="preserve"><value>Editar item da loja</value></data>
+  <data name="Shop_ItemId" xml:space="preserve"><value>ID do item</value></data>
+  <data name="Shop_ItemName" xml:space="preserve"><value>Nome</value></data>
+  <data name="Shop_Category" xml:space="preserve"><value>Categoria</value></data>
+  <data name="Shop_SourceEntry" xml:space="preserve"><value>Entrada IFF de origem</value></data>
+  <data name="Shop_ChangeIcon" xml:space="preserve"><value>Alterar...</value></data>
+  <data name="Shop_InvalidIcon" xml:space="preserve"><value>Não foi possível decodificar o ícone selecionado.</value></data>
   <data name="Shop_Price" xml:space="preserve"><value>Preço</value></data>
   <data name="Shop_DiscountPrice" xml:space="preserve"><value>Preço com desconto</value></data>
   <data name="Shop_RentalPrice" xml:space="preserve"><value>Preço de aluguel</value></data>
@@ -1019,7 +1029,7 @@ Cancelar: Interromper a extração.</value></data>
   <data name="Shop_IconFilter" xml:space="preserve"><value>Imagens compatíveis|*.tga;*.png;*.jpg;*.jpeg;*.jpe;*.jfif;*.bmp;*.dib;*.rle;*.gif;*.tif;*.tiff;*.ico;*.wmf;*.emf;*.exif|Todos os arquivos|*.*</value></data>
   <data name="Shop_SelectIcon" xml:space="preserve"><value>Selecione um ícone da pasta data extraída</value></data>
   <data name="Shop_IconMustBeInData" xml:space="preserve"><value>O ícone selecionado deve estar dentro da pasta data extraída para que o jogo possa localizá-lo.</value></data>
-  <data name="Shop_EditHint" xml:space="preserve"><value>Clique no ícone para substituí-lo. Clique com o botão direito no item para editar os preços.</value></data>
+  <data name="Shop_EditHint" xml:space="preserve"><value>Clique em um item para editar suas configurações da loja.</value></data>
   <data name="Shop_ShopFlags" xml:space="preserve"><value>Flags da loja (hex)</value></data>
   <data name="Shop_MoneyFlags" xml:space="preserve"><value>Flags monetárias (hex)</value></data>
   <data name="Shop_TimeFlag" xml:space="preserve"><value>Flag de tempo (hex)</value></data>
@@ -1110,4 +1120,27 @@ Cancelar: Interromper a extração.</value></data>
   <data name="WftViewer_InvalidCodePoint" xml:space="preserve"><value>Digite um ponto de código hexadecimal compatível com a fonte carregada (U+0020 a U+FFFF).</value></data>
   <data name="WftViewer_DefaultSample" xml:space="preserve"><value>PangYa 123!&#xD;&#xA;A rápida raposa marrom.</value></data>
   <data name="WftViewer_InvalidExtension" xml:space="preserve"><value>Somente arquivos de fonte .wft do PangYa são compatíveis.</value></data>
+  <data name="UpdateList_CreateZipPackages" xml:space="preserve"><value>Criar pacotes ZIP</value></data>
+  <data name="UpdateList_PackagingFiles" xml:space="preserve"><value>Empacotando arquivos do cliente...</value></data>
+  <data name="UpdateList_PackagingProgressFormat" xml:space="preserve"><value>Empacotando pacotes ZIP: {0}/{1}</value></data>
+  <data name="UpdateList_PackagingSummaryFormat" xml:space="preserve"><value>Empacotamento ZIP concluído: {0} pacotes prontos.</value></data>
+  <data name="UpdateList_ProcessingFileFormat" xml:space="preserve"><value>Processando arquivo: {0}</value></data>
+  <data name="Common_Apply" xml:space="preserve"><value>Aplicar</value></data>
+  <data name="Pak_NoKey" xml:space="preserve"><value>Nenhuma (Raw)</value></data>
+  <data name="Pak_Settings" xml:space="preserve"><value>Configurações</value></data>
+  <data name="Pak_SettingsTitle" xml:space="preserve"><value>Editar configurações do PAK</value></data>
+  <data name="Pak_HeaderVersion" xml:space="preserve"><value>Versão do cabeçalho PAK (hex; padrão 12)</value></data>
+  <data name="Pak_RecompressEntries" xml:space="preserve"><value>Recomprimir todas as entradas normais</value></data>
+  <data name="Pak_CompressionLevelUnknownHint" xml:space="preserve"><value>O nível atual não é armazenado no PAK. O nível selecionado é usado somente ao recomprimir.</value></data>
+  <data name="Pak_AuthorAsciiOnly" xml:space="preserve"><value>O autor do PAK deve conter somente caracteres ASCII.</value></data>
+  <data name="Pak_ConfirmSettingsUpdate" xml:space="preserve"><value>Aplicar estas configurações e reconstruir o PAK? Uma cópia .bak do arquivo atual será criada.</value></data>
+  <data name="Pak_ConfirmRecompression" xml:space="preserve"><value>Todas as entradas normais serão descompactadas e recomprimidas. Isso pode levar algum tempo.</value></data>
+  <data name="Pak_UpdatingSettings" xml:space="preserve"><value>Atualizando configurações do PAK...</value></data>
+  <data name="Pak_SettingsUpdated" xml:space="preserve"><value>Configurações do PAK atualizadas com sucesso.</value></data>
+  <data name="Pak_SettingsUpdateFailed" xml:space="preserve"><value>Não foi possível atualizar as configurações do PAK:</value></data>
+  <data name="Pak_NoSettingsChanges" xml:space="preserve"><value>Nenhuma configuração do PAK foi alterada.</value></data>
+  <data name="Pak_UnusualNamesTitle" xml:space="preserve"><value>Nomes incomuns nas entradas do PAK</value></data>
+  <data name="Pak_UnusualNamesSummary" xml:space="preserve"><value>Foram encontrados {0} nome(s) incomum(ns). Verifique a codificação antes de extrair ou editar. As entradas afetadas estão destacadas e os detalhes foram gravados no log.</value></data>
+  <data name="Pak_CompressionLevelUnknown" xml:space="preserve"><value>Desconhecido (não armazenado no PAK)</value></data>
+  <data name="Pak_CompressionLevelSummaryFormat" xml:space="preserve"><value>Nível de compressão: {0}</value></data>
 </root>

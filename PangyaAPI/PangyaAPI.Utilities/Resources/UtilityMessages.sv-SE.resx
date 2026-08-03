@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?><root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="UnsupportedCulture" xml:space="preserve"><value>Lokaliseringskulturen '{0}' stöds inte. Värden som stöds: {1}.</value></data>
+  <data name="ErrorCode" xml:space="preserve"><value>{0}	 Felkod: {1}</value></data>
+  <data name="StackTrace" xml:space="preserve"><value>{0}, [Stackspårning]: {1}</value></data>
+  <data name="CrashLog" xml:space="preserve"><value>Källa: {0}
+Datum: {1}
+Meddelande: {2}
+Stackspårning:
+{3}</value></data>
+  <data name="DumpCreated" xml:space="preserve"><value>Dump och logg skapades: {0}, {1}</value></data>
+  <data name="DumpFailed" xml:space="preserve"><value>Det gick inte att skapa dump/logg: {0}</value></data>
+  <data name="SendReadError" xml:space="preserve"><value>[Skicka] Läsfel: {0}</value></data>
+  <data name="UnexpectedError" xml:space="preserve"><value>[{0}] Oväntat fel: {1}</value></data>
+  <data name="SocketDisconnected" xml:space="preserve"><value>[Läs] Socketen kopplades från.</value></data>
+  <data name="ClientDisconnected" xml:space="preserve"><value>[Läs] Klienten kopplade från under läsningen.</value></data>
+  <data name="SocketClosed" xml:space="preserve"><value>[{0}] Socketen stängdes av klienten: {1} - {2}</value></data>
+  <data name="StreamUnreadable" xml:space="preserve"><value>[Läs] Dataströmmen är null eller kan inte läsas.</value></data>
+  <data name="StreamReadError" xml:space="preserve"><value>[Läs] Fel vid läsning av dataströmmen: {0}</value></data>
+  <data name="BufferInvalid" xml:space="preserve"><value>Bufferten är ogiltig eller för liten för den angivna typen.</value></data>
+  <data name="DumpGenerationError" xml:space="preserve"><value>Fel när dumpen skapades: {0}</value></data>
+  <data name="SingletonAlreadyConfigured" xml:space="preserve"><value>Singleton-instansen för {0} är redan konfigurerad.</value></data>
+  <data name="ShiftJisReadFailed" xml:space="preserve"><value>[Fel] Det gick inte att läsa Shift_JIS-strängen: {0}</value></data>
+  <data name="ObjectTypeName" xml:space="preserve"><value>Objekttypens namn: {0}</value></data>
+  <data name="TypeNotImplemented" xml:space="preserve"><value>Typen är inte implementerad.</value></data>
+  <data name="ShiftJisStringTooLong" xml:space="preserve"><value>Shift_JIS-strängen är för lång (gräns: 65535 byte).</value></data>
+  <data name="WriteByteFailed" xml:space="preserve"><value>[WriteByte] Fel vid skrivning av byte: {0}</value></data>
+  <data name="ByteOutOfRange" xml:space="preserve"><value>[WriteByte] Värdet ligger utanför byteintervallet: {0} | Stackspårning:</value></data>
+  <data name="ValueMustBeStruct" xml:space="preserve"><value>Parametern 'value' måste vara en struktur.</value></data>
+  <data name="StructSerializationFailed" xml:space="preserve"><value>[WriteStruct][Fel] Fel vid serialisering av struktur: {0}</value></data>
+  <data name="CallStack" xml:space="preserve"><value>Anropsstack: {0}</value></data>
+  <data name="StructValuesNull" xml:space="preserve"><value>[WriteStruct][Varning] Parametern 'value' eller 'valueOri' är null.</value></data>
+  <data name="StructHandlingFailed" xml:space="preserve"><value>[WriteStruct][Fel] Fel vid hantering av struktur:</value></data>
+  <data name="ExceptionMessage" xml:space="preserve"><value>Meddelande: {0}</value></data>
+  <data name="ExceptionSource" xml:space="preserve"><value>Källa: {0}</value></data>
+  <data name="ExceptionMethod" xml:space="preserve"><value>Metod: {0}</value></data>
+  <data name="WriteBufferNull" xml:space="preserve"><value>WriteBuffer är null för {0}</value></data>
+</root>

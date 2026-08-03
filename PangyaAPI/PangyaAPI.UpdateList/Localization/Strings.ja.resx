@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Crc32InputStreamMustNotBeNull" xml:space="preserve">
+    <value>入力ストリームを null にすることはできません。</value>
+  </data>
+  <data name="Crc32DataBufferMustNotBeNull" xml:space="preserve">
+    <value>データバッファーを null にすることはできません。</value>
+  </data>
+  <data name="UpdateMakerTargetDirectoryNotFound" xml:space="preserve">
+    <value>対象ディレクトリが存在しません: {0}</value>
+  </data>
+  <data name="UpdateMakerOutputPathMustIncludeDirectory" xml:space="preserve">
+    <value>出力パスにはディレクトリを含める必要があります。</value>
+  </data>
+  <data name="UpdateMakerInvalidZipPackageName" xml:space="preserve">
+    <value>ファイル '{0}' から有効な単純 ZIP パッケージ名を生成できません。</value>
+  </data>
+  <data name="UpdateMakerZipPackageCollision" xml:space="preserve">
+    <value>ファイル '{0}' と '{1}' は同じパッケージ '{2}' を生成しますが、内容が異なります。1 つの ZIP パッケージで両方を表すことはできません。</value>
+  </data>
+  <data name="UpdateReaderFileNotFound" xml:space="preserve">
+    <value>更新ファイルが見つかりません: {0}</value>
+  </data>
+  <data name="UpdateReaderEncryptedListEmptyOrTruncated" xml:space="preserve">
+    <value>暗号化された UpdateList が空か、途中で切れています。</value>
+  </data>
+  <data name="UpdateReaderDecryptedListMissingCompleteXml" xml:space="preserve">
+    <value>復号された UpdateList に完全な XML が含まれていません。</value>
+  </data>
+  <data name="UpdateWriterNoChangesToSave" xml:space="preserve">
+    <value>保存する変更はありません。</value>
+  </data>
+  <data name="UpdateWriterGeneratedSuccessfully" xml:space="preserve">
+    <value>UpdateList を正常に生成しました: {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorKeyDetected" xml:space="preserve">
+    <value>[成功] キーを検出しました: リージョン {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorNoKnownKey" xml:space="preserve">
+    <value>[警告] 既知のキーではファイルを復号できませんでした。</value>
+  </data>
+  <data name="UpdateKeyDetectorPlainTextReadyToEncrypt" xml:space="preserve">
+    <value>[情報] ファイルをプレーンテキストとして開きました。暗号化できます ({0}{1})</value>
+  </data>
+</root>

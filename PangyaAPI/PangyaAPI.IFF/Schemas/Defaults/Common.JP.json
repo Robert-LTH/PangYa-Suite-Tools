@@ -1,6 +1,7 @@
 {
   "schemaVersion": 2,
   "defaultRevision": 1,
+  "keyField": "ItemId",
   "fileName": "Common.iff",
   "region": "JP",
   "minimumRecordSize": 192,

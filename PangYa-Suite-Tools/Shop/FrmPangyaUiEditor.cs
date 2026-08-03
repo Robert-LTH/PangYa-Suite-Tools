@@ -1,5 +1,6 @@
 using PangYa_Suite_Tools.Localization;
 using PangYa_Suite_Tools.Logging;
+using PangyaAPI.UI;
 using System.ComponentModel;
 using System.Xml;
 
@@ -10,7 +11,7 @@ internal sealed class FrmPangyaUiEditor : Form
     private const string LogSource = "UI Editor";
     private readonly string _dataRoot;
     private readonly IReadOnlyList<string> _uiFiles;
-    private readonly ShopAssetResolver _assets;
+    private readonly PangyaFileImageProvider _assets;
     private readonly ToolStrip _toolbar = new();
     private readonly ToolStripComboBox _fileSelector = new();
     private readonly ToolStripButton _openButton = new();
@@ -36,12 +37,14 @@ internal sealed class FrmPangyaUiEditor : Form
     private bool _dirty;
     private bool _changingFile;
 
-    private FrmPangyaUiEditor(string dataRoot, IReadOnlyList<string> uiFiles, ShopAssetResolver assets)
+    private FrmPangyaUiEditor(string dataRoot, IReadOnlyList<string> uiFiles,
+        PangyaFileImageProvider assets)
         : this(dataRoot, uiFiles, assets, PangyaUiResourceCatalog.Empty)
     {
     }
 
-    private FrmPangyaUiEditor(string dataRoot, IReadOnlyList<string> uiFiles, ShopAssetResolver assets,
+    private FrmPangyaUiEditor(string dataRoot, IReadOnlyList<string> uiFiles,
+        PangyaFileImageProvider assets,
         PangyaUiResourceCatalog resourceCatalog)
     {
         _dataRoot = dataRoot;
@@ -81,7 +84,11 @@ internal sealed class FrmPangyaUiEditor : Form
         };
         FormClosing += FrmPangyaUiEditor_FormClosing;
         LocalizationManager.CultureChanged += LocalizationManager_CultureChanged;
-        Disposed += (_, _) => LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
+        Disposed += (_, _) =>
+        {
+            LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
+            _assets.Dispose();
+        };
         ApplyLocalization();
         PopulateFileSelector();
     }
@@ -90,21 +97,31 @@ internal sealed class FrmPangyaUiEditor : Form
         CancellationToken cancellationToken = default)
     {
         string fullRoot = Path.GetFullPath(dataRoot);
-        (IReadOnlyList<string> files, ShopAssetResolver assets, PangyaUiResourceCatalog catalog) =
+        (IReadOnlyList<string> files, PangyaFileImageProvider assets,
+            PangyaUiResourceCatalog catalog) =
             await Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<string> discovered = PangyaUiDocument.FindUiFiles(fullRoot);
             if (discovered.Count == 0) throw new InvalidDataException(Strings.UiEditor_NoXmlFiles);
-            var resolver = new ShopAssetResolver(fullRoot);
+            var resolver = new PangyaFileImageProvider(fullRoot);
             PangyaUiResourceCatalog catalog = PangyaUiResourceCatalog.Load(discovered);
             return (discovered, resolver, catalog);
         }, cancellationToken);
         var editor = new FrmPangyaUiEditor(fullRoot, files, assets, catalog);
-        string initial = files.FirstOrDefault(path =>
-            Path.GetFileName(path).Equals("shop.xml", StringComparison.OrdinalIgnoreCase)) ?? files[0];
-        await editor.LoadDocumentAsync(initial, cancellationToken);
-        return editor;
+        try
+        {
+            string initial = files.FirstOrDefault(path =>
+                Path.GetFileName(path).Equals("shop.xml",
+                    StringComparison.OrdinalIgnoreCase)) ?? files[0];
+            await editor.LoadDocumentAsync(initial, cancellationToken);
+            return editor;
+        }
+        catch
+        {
+            editor.Dispose();
+            throw;
+        }
     }
 
     private void ConfigureToolbar()
@@ -502,10 +519,7 @@ internal sealed class FrmPangyaUiEditor : Form
 internal sealed class PangyaUiCanvas : Control
 {
     internal const int FormPadding = 16;
-    private readonly ShopAssetResolver _assets;
-    private readonly PangyaUiResourceCatalog _resourceCatalog;
-    private readonly Dictionary<string, Image> _images = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _failedResources = new(StringComparer.OrdinalIgnoreCase);
+    private readonly PangyaUiRenderer _renderer;
     private HashSet<string> _enabledSymbols = new(StringComparer.OrdinalIgnoreCase);
     private PangyaUiDocument? _document;
     private PangyaUiNode? _selectedForm;
@@ -516,11 +530,10 @@ internal sealed class PangyaUiCanvas : Control
     private Size _viewportSize;
     private float _zoom = 1f;
 
-    public PangyaUiCanvas(ShopAssetResolver assets,
+    public PangyaUiCanvas(IPangyaImageProvider assets,
         PangyaUiResourceCatalog? resourceCatalog = null)
     {
-        _assets = assets;
-        _resourceCatalog = resourceCatalog ?? PangyaUiResourceCatalog.Empty;
+        _renderer = new PangyaUiRenderer(assets, resourceCatalog);
         DoubleBuffered = true;
         BackColor = Color.FromArgb(36, 39, 44);
         Cursor = Cursors.Default;
@@ -616,7 +629,6 @@ internal sealed class PangyaUiCanvas : Control
         _document = document;
         _selectedForm = null;
         _selectedNode = null;
-        _failedResources.Clear();
         UpdateCanvasSize();
         Invalidate();
     }
@@ -630,224 +642,18 @@ internal sealed class PangyaUiCanvas : Control
             Zoom, 0f, 0f, Zoom, FormPadding * Zoom, FormPadding * Zoom);
         e.Graphics.Transform = transform;
         e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-        using var canvasBrush = new SolidBrush(Color.FromArgb(46, 49, 55));
-        e.Graphics.FillRectangle(canvasBrush, new Rectangle(Point.Empty, _document.CanvasSize));
-
-        foreach (PangyaUiNode node in RenderOrderedNodes())
-        {
-            DrawNode(e.Graphics, node, Point.Empty, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-            if (ShowDebugBounds) DrawDebugBounds(e.Graphics, node);
-        }
-        if (SelectedNode is not null)
-        {
-            Rectangle selectedBounds = GetRenderedBounds(SelectedNode);
-            if (selectedBounds.Width <= 0 || selectedBounds.Height <= 0)
-                selectedBounds = SelectedNode.Bounds;
-            DrawOutline(e.Graphics, selectedBounds, Color.Orange, 2f / Zoom);
-        }
-    }
-
-    private void DrawNode(Graphics graphics, PangyaUiNode node, Point offset,
-        HashSet<string> resourceChain)
-    {
-        if (!node.IsRenderVisible || IsTransparentInCurrentState(node)) return;
-
-        Rectangle nodeBounds = node.Bounds;
-        nodeBounds.Offset(offset);
-        string resource = node.GetResource(ButtonState);
-        PangyaUiNode? definition = _resourceCatalog.TryResolve(resource, node.Type, _enabledSymbols);
-        if (definition is not null)
-        {
-            if (!resourceChain.Add(resource)) return;
-            if (definition.Type.Equals("FRAME", StringComparison.OrdinalIgnoreCase))
-            {
-                DrawFrameResource(graphics, nodeBounds, definition);
-            }
-            else
-            {
-                Point childOffset = new(nodeBounds.X, nodeBounds.Y);
-                foreach (PangyaUiNode child in definition.Children.Where(child =>
-                             child.IsVisible(_enabledSymbols)))
-                    DrawNode(graphics, child, childOffset, resourceChain);
-            }
-            resourceChain.Remove(resource);
-            return;
-        }
-
-        Image? image = string.IsNullOrWhiteSpace(resource) ? null : TryGetImage(resource);
-        if (image is not null)
-        {
-            Rectangle bounds = GetRenderedBounds(node, nodeBounds, image);
-            graphics.DrawImage(image, bounds);
-        }
+        _renderer.Render(e.Graphics, _document, SelectedForm, RenderOptions());
     }
 
     internal Rectangle GetRenderedBounds(PangyaUiNode node)
-    {
-        ArgumentNullException.ThrowIfNull(node);
-        if (!node.IsRenderVisible || IsTransparentInCurrentState(node))
-            return ShowDebugBounds ? node.Bounds : Rectangle.Empty;
-
-        string resource = node.GetResource(ButtonState);
-        PangyaUiNode? definition = _resourceCatalog.TryResolve(resource, node.Type, _enabledSymbols);
-        if (definition is not null)
-        {
-            Rectangle bounds = node.Bounds;
-            if (bounds.Width > 0 && bounds.Height > 0) return bounds;
-            Rectangle referencedBounds = GetReferencedBounds(definition,
-                new HashSet<PangyaUiNode>(ReferenceEqualityComparer.Instance));
-            referencedBounds.Offset(bounds.Location);
-            return referencedBounds;
-        }
-        Image? image = TryGetNodeImage(node);
-        if (image is null) return ShowDebugBounds ? node.Bounds : Rectangle.Empty;
-        return GetRenderedBounds(node, node.Bounds, image);
-    }
-
-    private static Rectangle GetRenderedBounds(PangyaUiNode node, Rectangle bounds, Image image)
-    {
-        if (node.IsExplicitlyStretched && bounds.Width > 0 && bounds.Height > 0)
-            return bounds;
-        return new Rectangle(bounds.Location, image.Size);
-    }
-
-    private Image? TryGetNodeImage(PangyaUiNode node)
-    {
-        string resource = node.GetResource(ButtonState);
-        if (string.IsNullOrWhiteSpace(resource) ||
-            _resourceCatalog.TryResolve(resource, node.Type, _enabledSymbols) is not null)
-            return null;
-        return TryGetImage(resource);
-    }
-
-    private void DrawFrameResource(Graphics graphics, Rectangle bounds, PangyaUiNode definition)
-    {
-        if (bounds.Width <= 0 || bounds.Height <= 0) return;
-        XmlElement? frame = definition.Element.ChildNodes.OfType<XmlElement>()
-            .LastOrDefault(child => child.LocalName.Equals("bfrm",
-                StringComparison.OrdinalIgnoreCase));
-        string baseName = frame?.GetAttribute("filename") ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(baseName)) return;
-        if (Path.HasExtension(baseName))
-        {
-            Image? directImage = TryGetImage(baseName);
-            if (directImage is not null) graphics.DrawImage(directImage, bounds);
-            return;
-        }
-
-        Image?[] slices = Enumerable.Range(0, 9)
-            .Select(index => TryGetImage(baseName + index.ToString("00",
-                System.Globalization.CultureInfo.InvariantCulture)))
-            .ToArray();
-        if (slices.All(image => image is null))
-        {
-            Image? directImage = TryGetImage(baseName);
-            if (directImage is not null) graphics.DrawImage(directImage, bounds);
-            return;
-        }
-
-        int left = Math.Min(slices[0]?.Width ?? slices[3]?.Width ?? 0, bounds.Width);
-        int right = Math.Min(slices[2]?.Width ?? slices[5]?.Width ?? 0,
-            Math.Max(0, bounds.Width - left));
-        int top = Math.Min(slices[0]?.Height ?? slices[1]?.Height ?? 0, bounds.Height);
-        int bottom = Math.Min(slices[6]?.Height ?? slices[7]?.Height ?? 0,
-            Math.Max(0, bounds.Height - top));
-        int centerWidth = Math.Max(0, bounds.Width - left - right);
-        int centerHeight = Math.Max(0, bounds.Height - top - bottom);
-        int[] widths = [left, centerWidth, right];
-        int[] heights = [top, centerHeight, bottom];
-
-        int slice = 0;
-        int y = bounds.Y;
-        for (int row = 0; row < 3; row++)
-        {
-            int x = bounds.X;
-            for (int column = 0; column < 3; column++)
-            {
-                Image? image = slices[slice++];
-                var target = new Rectangle(x, y, widths[column], heights[row]);
-                if (image is not null && target.Width > 0 && target.Height > 0)
-                    graphics.DrawImage(image, target);
-                x += widths[column];
-            }
-            y += heights[row];
-        }
-    }
-
-    private Rectangle GetReferencedBounds(PangyaUiNode node, HashSet<PangyaUiNode> visited)
-    {
-        if (!visited.Add(node)) return Rectangle.Empty;
-        Rectangle? result = null;
-
-        string resource = node.GetResource(ButtonState);
-        PangyaUiNode? definition = _resourceCatalog.TryResolve(resource, node.Type, _enabledSymbols);
-        if (definition is not null)
-        {
-            Rectangle referenced = GetReferencedBounds(definition, visited);
-            referenced.Offset(node.Bounds.Location);
-            IncludeBounds(ref result, referenced);
-        }
-        else
-        {
-            Image? image = string.IsNullOrWhiteSpace(resource) ? null : TryGetImage(resource);
-            if (image is not null && node.IsRenderVisible && !IsTransparentInCurrentState(node))
-                IncludeBounds(ref result, GetRenderedBounds(node, node.Bounds, image));
-        }
-
-        foreach (PangyaUiNode child in node.Children.Where(child => child.IsVisible(_enabledSymbols)))
-            IncludeBounds(ref result, GetReferencedBounds(child, visited));
-        visited.Remove(node);
-        return result ?? Rectangle.Empty;
-    }
-
-    private static void IncludeBounds(ref Rectangle? aggregate, Rectangle bounds)
-    {
-        if (bounds.Width <= 0 || bounds.Height <= 0) return;
-        aggregate = aggregate is Rectangle existing
-            ? Rectangle.Union(existing, bounds)
-            : bounds;
-    }
-
-    private Image? TryGetImage(string resource)
-    {
-        if (_images.TryGetValue(resource, out Image? cached)) return cached;
-        string? path = _assets.TryResolve(resource);
-        if (path is null)
-        {
-            LogResourceFailure(resource, $"File not found for UI resource '{resource}'.");
-            return null;
-        }
-        try
-        {
-            Image image;
-            if (Path.GetExtension(path).Equals(".tga", StringComparison.OrdinalIgnoreCase))
-                image = TgaDecoder.Load(path);
-            else
-            {
-                using Image source = Image.FromFile(path);
-                image = new Bitmap(source);
-            }
-            _images[resource] = image;
-            return image;
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or InvalidDataException)
-        {
-            LogResourceFailure(resource,
-                $"Could not load UI resource '{resource}': {ex.GetType().Name}: {ex.Message}");
-            return null;
-        }
-    }
+        => _renderer.GetRenderedBounds(node, RenderOptions());
 
     internal void CanvasMouseDown(object? sender, MouseEventArgs e)
     {
         if (_document is null || e.Button != MouseButtons.Left) return;
         Point logical = LogicalPoint(e.Location);
-        PangyaUiNode? hit = RenderOrderedNodes()
-            .LastOrDefault(node =>
-            {
-                Rectangle bounds = GetRenderedBounds(node);
-                return bounds.Width > 0 && bounds.Height > 0 && bounds.Contains(logical);
-            });
+        PangyaUiNode? hit = _renderer.HitTest(_document, SelectedForm, logical,
+            RenderOptions());
         _draggedNode = null;
         _dragStart = null;
         Capture = false;
@@ -894,64 +700,12 @@ internal sealed class PangyaUiCanvas : Control
             Math.Max(Math.Max(1, contentHeight), _viewportSize.Height));
     }
 
-    private IReadOnlyList<PangyaUiNode> VisibleNodes() =>
-        _document is not null && _selectedForm is not null
-            ? _document.GetNodesForForm(_selectedForm, _enabledSymbols)
-            : [];
-
     internal IReadOnlyList<PangyaUiNode> RenderOrderedNodes()
-    {
-        IReadOnlyList<PangyaUiNode> visible = VisibleNodes();
-        if (SelectedNode is null || SelectedNode.IsForm || !visible.Contains(SelectedNode))
-            return visible;
-        return [.. visible.Where(node => !ReferenceEquals(node, SelectedNode)), SelectedNode];
-    }
+        => _document is null ? [] : _renderer.GetRenderOrder(_document, SelectedForm,
+            SelectedNode, _enabledSymbols);
 
-    private void LogResourceFailure(string resource, string message)
-    {
-        if (_failedResources.Add(resource))
-            AppLogger.Instance.Log("UI Editor", message, AppLogLevel.Error);
-    }
-
-    private static void DrawOutline(Graphics graphics, Rectangle bounds, Color color, float width)
-    {
-        if (bounds.Width <= 0 || bounds.Height <= 0) return;
-        using var pen = new Pen(color, width);
-        graphics.DrawRectangle(pen, bounds);
-    }
-
-    private bool IsTransparentInCurrentState(PangyaUiNode node)
-    {
-        if (node.Type.Equals("TABBUTTON", StringComparison.OrdinalIgnoreCase))
-            return ButtonState == PangyaUiButtonState.Normal;
-        return node.Type.Equals("GROUPBOX", StringComparison.OrdinalIgnoreCase) ||
-               node.Type.Equals("LISTBOX", StringComparison.OrdinalIgnoreCase) ||
-               (node.IsForm && string.IsNullOrWhiteSpace(node.GetResource(ButtonState)));
-    }
-
-    private void DrawDebugBounds(Graphics graphics, PangyaUiNode node)
-    {
-        Rectangle bounds = node.Bounds;
-        if (bounds.Width <= 0 || bounds.Height <= 0) return;
-        DrawOutline(graphics, bounds, Color.FromArgb(150, Color.DeepSkyBlue), 1f / Zoom);
-        using var font = new Font(Font.FontFamily, 8f / Zoom);
-        SizeF labelSize = graphics.MeasureString(node.DisplayName, font);
-        var labelBounds = new RectangleF(bounds.X, bounds.Y, labelSize.Width, labelSize.Height);
-        using var background = new SolidBrush(Color.FromArgb(180, 35, 75, 95));
-        using var foreground = new SolidBrush(Color.White);
-        graphics.FillRectangle(background, labelBounds);
-        graphics.DrawString(node.DisplayName, font, foreground, labelBounds.Location);
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            foreach (Image image in _images.Values) image.Dispose();
-            _images.Clear();
-        }
-        base.Dispose(disposing);
-    }
+    private PangyaUiRenderOptions RenderOptions() => new(
+        ButtonState, _enabledSymbols, ShowDebugBounds, SelectedNode, 1f / Zoom);
 }
 
 internal sealed class PangyaUiNodeEventArgs(PangyaUiNode node) : EventArgs
@@ -961,7 +715,7 @@ internal sealed class PangyaUiNodeEventArgs(PangyaUiNode node) : EventArgs
 
 internal sealed class PangyaUiPropertyPanel : UserControl
 {
-    private readonly ShopAssetResolver _assets;
+    private readonly PangyaFileImageProvider _assets;
     private readonly GroupBox _group = new() { Dock = DockStyle.Fill };
     private readonly TableLayoutPanel _layout = new()
     {
@@ -995,7 +749,7 @@ internal sealed class PangyaUiPropertyPanel : UserControl
     private PangyaUiNode? _selectedNode;
     private bool _loading;
 
-    public PangyaUiPropertyPanel(ShopAssetResolver assets)
+    public PangyaUiPropertyPanel(PangyaFileImageProvider assets)
     {
         _assets = assets;
         Name = "pnlUiProperties";
@@ -1058,7 +812,7 @@ internal sealed class PangyaUiPropertyPanel : UserControl
 
     internal string GetResourceInitialDirectory()
     {
-        string? resolvedPath = _assets.TryResolve(_resource.Text);
+        string? resolvedPath = _assets.TryResolvePath(_resource.Text);
         string? resolvedDirectory = Path.GetDirectoryName(resolvedPath);
         return !string.IsNullOrWhiteSpace(resolvedDirectory) && Directory.Exists(resolvedDirectory)
             ? resolvedDirectory

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using PangyaAPI.UpdateList.Localization;
 using PangyaAPI.UpdateList.Flags;
 using PangyaAPI.Utilities.Cryptography;
 
@@ -24,7 +25,9 @@ public class UpdateKeyDetector
         if (Xtea.TryDecryptBlocks(data, UpdateKeys.All, "<?"u8, out string? matchedLabel,
             out uint[]? matchedKeys, out byte[]? plaintext))
         {
-            Console.WriteLine($"[Sucesso] Chave detectada com sucesso: Região {matchedLabel}");
+            Console.WriteLine(UpdateListStrings.Format(
+                UpdateListStrings.UpdateKeyDetectorKeyDetected,
+                matchedLabel));
             detectedKey = matchedKeys;
             Document = Encoding.UTF8.GetString(plaintext!).Replace("\0", "").Trim();
             decryptedData = Encoding.UTF8.GetBytes(Document);
@@ -34,7 +37,7 @@ public class UpdateKeyDetector
             return UpdateResult.Sucess;
         }
 
-        Console.WriteLine("[Aviso] Nenhuma das chaves conhecidas conseguiu descriptografar o arquivo.");
+        Console.WriteLine(UpdateListStrings.UpdateKeyDetectorNoKnownKey);
         return UpdateResult.Test_New_Key;
     }
 
@@ -48,15 +51,18 @@ public class UpdateKeyDetector
         byte[] rawBytes = File.ReadAllBytes(filePath);
         if (rawBytes.Length < 2) return OperacaoEnum.Decrypt;
 
-        // Verifica os cabeçalhos sem converter o arquivo inteiro para char[] (ganho de performance)
+        // Check the header without converting the entire file to char[].
         if (rawBytes[0] == '<' && rawBytes[1] == '?')
         {
-            // Se o arquivo tiver tamanho suficiente, lê a região do cabeçalho
+            // Read the header region when the file is large enough.
             if (rawBytes.Length > 76)
             {
                 char c75 = (char)rawBytes[75];
                 char c76 = (char)rawBytes[76];
-                Console.WriteLine($"[Info] Arquivo aberto em texto puro. Pronto para encriptar ({c75}{c76})");
+                Console.WriteLine(UpdateListStrings.Format(
+                    UpdateListStrings.UpdateKeyDetectorPlainTextReadyToEncrypt,
+                    c75,
+                    c76));
             }
             return OperacaoEnum.Encrypt;
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using PangyaAPI.UpdateList.Localization;
 
 namespace PangyaAPI.UpdateList.Models;
 
@@ -36,7 +37,7 @@ public class CRC32
     {
         if (input == null)
         {
-            throw new Exception("The input stream must not be null.");
+            throw new Exception(UpdateListStrings.Crc32InputStreamMustNotBeNull);
         }
         byte[] array = new byte[8192];
         int count = 8192;
@@ -68,7 +69,7 @@ public class CRC32
     {
         if (block == null)
         {
-            throw new Exception("The data buffer must not be null.");
+            throw new Exception(UpdateListStrings.Crc32DataBufferMustNotBeNull);
         }
         for (int i = 0; i < count; i++)
         {

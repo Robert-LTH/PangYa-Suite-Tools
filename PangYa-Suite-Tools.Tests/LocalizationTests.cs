@@ -297,6 +297,33 @@ public sealed class LocalizationTests : IDisposable
     }
 
     [Fact]
+    public void ShopEditorResources_ExistInEverySupportedCulture()
+    {
+        string[] keys =
+        [
+            "Menu_UiEditor", "Menu_ShopEditor", "Shop_Title", "Shop_EditItem",
+            "Shop_ItemId", "Shop_ItemName", "Shop_Category",
+            "Shop_SourceEntry", "Shop_ChangeIcon", "Shop_InvalidIcon",
+            "Shop_EditHint",
+        ];
+        CultureInfo[] cultures =
+        [
+            CultureInfo.InvariantCulture,
+            CultureInfo.GetCultureInfo(LocalizationManager.PortugueseBrazil),
+            CultureInfo.GetCultureInfo(LocalizationManager.Swedish),
+            CultureInfo.GetCultureInfo(LocalizationManager.Japonese),
+            CultureInfo.GetCultureInfo(LocalizationManager.French),
+        ];
+
+        foreach (CultureInfo culture in cultures)
+        {
+            HashSet<string> resourceKeys = KeysFor(culture);
+            foreach (string key in keys)
+                Assert.Contains(key, resourceKeys);
+        }
+    }
+
+    [Fact]
     public void UpdateListMigratedResources_ExistWithMatchingPlaceholdersInEveryCulture()
     {
         string[] keys =
@@ -309,7 +336,9 @@ public sealed class LocalizationTests : IDisposable
             "UpdateList_NewFileFormat", "UpdateList_ChangedFileFormat",
             "UpdateList_DeltaSummaryFormat", "UpdateList_GeneratedAtFormat",
             "UpdateList_InvalidSourceFolder", "UpdateList_InvalidDestinationFolder",
-            "UpdateList_PatchVersionRequired"
+            "UpdateList_PatchVersionRequired", "UpdateList_CreateZipPackages",
+            "UpdateList_PackagingFiles", "UpdateList_PackagingProgressFormat",
+            "UpdateList_PackagingSummaryFormat", "UpdateList_ProcessingFileFormat"
         ];
         CultureInfo[] cultures =
         [
@@ -563,7 +592,8 @@ public sealed class LocalizationTests : IDisposable
             " Japan ",
             " JP.R8.1000.00 ",
             " 2026072601 ",
-            " 42 "));
+            " 42 ",
+            true));
 
         UpdateListGeneratorSettings settings = Assert.IsType<UpdateListGeneratorSettings>(
             UpdateListGeneratorPreferences.Load());
@@ -571,6 +601,22 @@ public sealed class LocalizationTests : IDisposable
         Assert.Equal("JP.R8.1000.00", settings.PatchVersion);
         Assert.Equal("2026072601", settings.UpdateListVersion);
         Assert.Equal("42", settings.PatchNumber);
+        Assert.True(settings.CreateZipPackages);
+    }
+
+    [Fact]
+    public void UpdateListGeneratorPreferences_OlderFilesDefaultZipPackagesToFalse()
+    {
+        File.WriteAllText(
+            UpdateListGeneratorPreferences.PreferencePathOverride!,
+            """
+            {"KeyLabel":"Japan","PatchVersion":"1","UpdateListVersion":"2","PatchNumber":"3"}
+            """);
+
+        UpdateListGeneratorSettings settings = Assert.IsType<UpdateListGeneratorSettings>(
+            UpdateListGeneratorPreferences.Load());
+
+        Assert.False(settings.CreateZipPackages);
     }
 
     [Fact]
@@ -595,6 +641,7 @@ public sealed class LocalizationTests : IDisposable
                     PrivateField<TextBox>(form, "txtPatchVersion").Text = "JP.R8.1000.00";
                     PrivateField<TextBox>(form, "txtUpdateListVer").Text = "2026072601";
                     PrivateField<TextBox>(form, "txtClientPatchNum").Text = "42";
+                    PrivateField<CheckBox>(form, "chkCreateZipPackages").Checked = true;
                     form.Show();
                     form.Close();
                 }
@@ -608,6 +655,7 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Equal("JP.R8.1000.00", PrivateField<TextBox>(restored, "txtPatchVersion").Text);
                 Assert.Equal("2026072601", PrivateField<TextBox>(restored, "txtUpdateListVer").Text);
                 Assert.Equal("42", PrivateField<TextBox>(restored, "txtClientPatchNum").Text);
+                Assert.True(PrivateField<CheckBox>(restored, "chkCreateZipPackages").Checked);
             }
             catch (Exception ex)
             {
@@ -765,6 +813,16 @@ public sealed class LocalizationTests : IDisposable
                 Assert.Empty(reader.Entries);
                 Assert.Equal("Empty UI Test", reader.Header.Author);
                 Assert.Equal(PakKeys.JP, reader.LocationKeys);
+                Label keySummary =
+                    PrivateField<Label>(form, "lblPakKeySummary");
+                Assert.Contains(Strings.Pak_KeyUsed, keySummary.Text);
+                Assert.False(string.IsNullOrWhiteSpace(keySummary.Text));
+                ToolTip toolTip = PrivateField<ToolTip>(form, "toolTip1");
+                Assert.Contains($"0x{PakKeys.JP[0]:X8}",
+                    toolTip.GetToolTip(keySummary));
+                ListView entries = PrivateField<ListView>(form, "lstEntries");
+                Assert.True(entries.Scrollable);
+                Assert.True(entries.IsHandleCreated);
 
                 TreeView tree = PrivateField<TreeView>(form, "tvFolders");
                 TreeNode root = Assert.Single(tree.Nodes.Cast<TreeNode>());
@@ -919,7 +977,10 @@ public sealed class LocalizationTests : IDisposable
 
                 LocalizationManager.SetCulture(LocalizationManager.PortugueseBrazil);
                 Assert.Equal(Strings.Menu_Title, menu.Text);
-                Assert.Equal(Strings.Menu_Shop, menu.Controls.Find("btnOpenShop", true).Single().Text);
+                Assert.Equal(Strings.Menu_UiEditor,
+                    menu.Controls.Find("btnOpenUiEditor", true).Single().Text);
+                Assert.Equal(Strings.Menu_ShopEditor,
+                    menu.Controls.Find("btnOpenShopEditor", true).Single().Text);
                 Assert.Equal(Strings.Pak_Title, pak.Text);
                 Assert.Equal(Strings.Update_Title, update.Text);
                 Assert.Equal(Strings.Iff_Title, iff.Text);
@@ -972,7 +1033,10 @@ public sealed class LocalizationTests : IDisposable
 
                 LocalizationManager.SetCulture(LocalizationManager.English);
                 Assert.Equal(Strings.Menu_Title, menu.Text);
-                Assert.Equal(Strings.Menu_Shop, menu.Controls.Find("btnOpenShop", true).Single().Text);
+                Assert.Equal(Strings.Menu_UiEditor,
+                    menu.Controls.Find("btnOpenUiEditor", true).Single().Text);
+                Assert.Equal(Strings.Menu_ShopEditor,
+                    menu.Controls.Find("btnOpenShopEditor", true).Single().Text);
                 Assert.Equal(Strings.Pak_Title, pak.Text);
                 Assert.Equal(Strings.Common_OK, options.Controls.Find("btnOK", true).Single().Text);
                 Assert.Equal(Strings.Pak_New,
@@ -980,7 +1044,10 @@ public sealed class LocalizationTests : IDisposable
 
                 LocalizationManager.SetCulture(LocalizationManager.Swedish);
                 Assert.Equal(Strings.Menu_Title, menu.Text);
-                Assert.Equal(Strings.Menu_Shop, menu.Controls.Find("btnOpenShop", true).Single().Text);
+                Assert.Equal(Strings.Menu_UiEditor,
+                    menu.Controls.Find("btnOpenUiEditor", true).Single().Text);
+                Assert.Equal(Strings.Menu_ShopEditor,
+                    menu.Controls.Find("btnOpenShopEditor", true).Single().Text);
                 Assert.Equal(Strings.Pak_Title, pak.Text);
                 Assert.Equal(Strings.Update_Title, update.Text);
                 Assert.Equal(Strings.Iff_Title, iff.Text);
@@ -992,7 +1059,10 @@ public sealed class LocalizationTests : IDisposable
 
                 LocalizationManager.SetCulture(LocalizationManager.Japonese);
                 Assert.Equal(Strings.Menu_Title, menu.Text);
-                Assert.Equal(Strings.Menu_Shop, menu.Controls.Find("btnOpenShop", true).Single().Text);
+                Assert.Equal(Strings.Menu_UiEditor,
+                    menu.Controls.Find("btnOpenUiEditor", true).Single().Text);
+                Assert.Equal(Strings.Menu_ShopEditor,
+                    menu.Controls.Find("btnOpenShopEditor", true).Single().Text);
                 Assert.Equal(Strings.Pak_Title, pak.Text);
                 Assert.Equal(Strings.Update_Title, update.Text);
                 Assert.Equal(Strings.Iff_Title, iff.Text);
@@ -1003,6 +1073,10 @@ public sealed class LocalizationTests : IDisposable
 
                 LocalizationManager.SetCulture(LocalizationManager.French);
                 Assert.Equal(Strings.Menu_Title, menu.Text);
+                Assert.Equal(Strings.Menu_UiEditor,
+                    menu.Controls.Find("btnOpenUiEditor", true).Single().Text);
+                Assert.Equal(Strings.Menu_ShopEditor,
+                    menu.Controls.Find("btnOpenShopEditor", true).Single().Text);
                 Assert.Equal(Strings.Pak_Title, pak.Text);
                 Assert.Equal(Strings.Update_Title, update.Text);
                 Assert.Equal(Strings.Iff_Title, iff.Text);

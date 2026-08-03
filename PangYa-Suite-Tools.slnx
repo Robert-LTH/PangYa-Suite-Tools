@@ -3,8 +3,14 @@
   <Project Path="PangYa-Suite-Tools.Tests/PangYa-Suite-Tools.Tests.csproj" />
   <Project Path="PangyaAPI/PangyaAPI.PAK/PangyaAPI.PAK.csproj" />
   <Project Path="PangyaAPI/PangyaAPI.IFF/PangyaAPI.IFF.csproj" />
+  <Project Path="PangyaAPI/PangyaAPI.Network/PangyaAPI.Network.csproj" />
+  <Project Path="PangyaAPI/PangyaAPI.Migrations.SqlServer/PangyaAPI.Migrations.SqlServer.csproj" />
+  <Project Path="PangyaAPI/PangyaAPI.SQL/PangyaAPI.SQL.csproj" />
   <Project Path="PangyaAPI/PangyaAPI.UpdateList/PangyaAPI.UpdateList.csproj" />
+  <Project Path="PangyaAPI/PangyaAPI.UI/PangyaAPI.UI.csproj" />
   <Project Path="PangyaAPI/PangyaAPI.Utilities/PangyaAPI.Utilities.csproj" />
   <Project Path="PangyaAPI/PangyaAPI.WFT/PangyaAPI.WFT.csproj" />
   <Project Path="PangyaAPI.Tests/PangyaAPI.Tests.csproj" />
+  <Project Path="PangyaAPI.SQL.Tests/PangyaAPI.SQL.Tests.csproj" />
+  <Project Path="PangyaAPI.Network.Tests/PangyaAPI.Network.Tests.csproj" />
 </Solution>

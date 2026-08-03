@@ -29,6 +29,8 @@ namespace PangYa_Suite_Tools
         private System.Windows.Forms.Label lblAuthor;
         private System.Windows.Forms.Label lblVersion;
         private System.Windows.Forms.Label lblEntries;
+        private System.Windows.Forms.Label lblCompressionLevelSummary;
+        private System.Windows.Forms.Label lblPakKeySummary;
         private System.Windows.Forms.GroupBox groupHeader;
 
         // Barra de Status Global e Progresso
@@ -67,6 +69,8 @@ namespace PangYa_Suite_Tools
             lblAuthor = new Label();
             lblVersion = new Label();
             lblEntries = new Label();
+            lblCompressionLevelSummary = new Label();
+            lblPakKeySummary = new Label();
             lblSearch = new Label();
             txtSearch = new TextBox();
             lblCurrentPath = new Label();
@@ -132,6 +136,8 @@ namespace PangYa_Suite_Tools
             groupHeader.Controls.Add(lblAuthor);
             groupHeader.Controls.Add(lblVersion);
             groupHeader.Controls.Add(lblEntries);
+            groupHeader.Controls.Add(lblCompressionLevelSummary);
+            groupHeader.Controls.Add(lblPakKeySummary);
             groupHeader.Location = new Point(11, 40);
             groupHeader.Margin = new Padding(3, 2, 3, 2);
             groupHeader.Name = "groupHeader";
@@ -144,22 +150,38 @@ namespace PangYa_Suite_Tools
             // 
             lblAuthor.Location = new Point(13, 19);
             lblAuthor.Name = "lblAuthor";
-            lblAuthor.Size = new Size(219, 15);
+            lblAuthor.Size = new Size(160, 15);
             lblAuthor.TabIndex = 0;
             // 
             // lblVersion
             // 
-            lblVersion.Location = new Point(262, 19);
+            lblVersion.Location = new Point(178, 19);
             lblVersion.Name = "lblVersion";
-            lblVersion.Size = new Size(175, 15);
+            lblVersion.Size = new Size(105, 15);
             lblVersion.TabIndex = 1;
             // 
             // lblEntries
             // 
-            lblEntries.Location = new Point(481, 19);
+            lblEntries.Location = new Point(288, 19);
             lblEntries.Name = "lblEntries";
-            lblEntries.Size = new Size(175, 15);
+            lblEntries.Size = new Size(95, 15);
             lblEntries.TabIndex = 2;
+            //
+            // lblCompressionLevelSummary
+            //
+            lblCompressionLevelSummary.AutoEllipsis = true;
+            lblCompressionLevelSummary.Location = new Point(388, 19);
+            lblCompressionLevelSummary.Name = "lblCompressionLevelSummary";
+            lblCompressionLevelSummary.Size = new Size(150, 15);
+            lblCompressionLevelSummary.TabIndex = 3;
+            //
+            // lblPakKeySummary
+            //
+            lblPakKeySummary.AutoEllipsis = true;
+            lblPakKeySummary.Location = new Point(543, 19);
+            lblPakKeySummary.Name = "lblPakKeySummary";
+            lblPakKeySummary.Size = new Size(167, 15);
+            lblPakKeySummary.TabIndex = 4;
             // 
             // lblSearch
             // 
@@ -265,6 +287,7 @@ namespace PangYa_Suite_Tools
             lstEntries.Location = new Point(217, 114);
             lstEntries.Margin = new Padding(3, 2, 3, 2);
             lstEntries.Name = "lstEntries";
+            lstEntries.Scrollable = true;
             lstEntries.Size = new Size(518, 180);
             lstEntries.TabIndex = 12;
             lstEntries.UseCompatibleStateImageBehavior = false;
@@ -397,11 +420,13 @@ namespace PangYa_Suite_Tools
             ClientSize = new Size(774, 487);
             Controls.Add(readerPanel);
             Controls.Add(statusStrip1);
-            FormBorderStyle = FormBorderStyle.FixedSingle;
+            FormBorderStyle = FormBorderStyle.Sizable;
             Margin = new Padding(3, 2, 3, 2);
-            MaximizeBox = false;
+            MaximizeBox = true;
+            MinimumSize = new Size(800, 600);
             Name = "FrmPakMaker";
             Padding = new Padding(9, 8, 9, 26);
+            SizeGripStyle = SizeGripStyle.Show;
             Text = "PakManager - Interface";
             readerPanel.ResumeLayout(false);
             readerPanel.PerformLayout();

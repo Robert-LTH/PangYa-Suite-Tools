@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="EngineRequired" xml:space="preserve"><value>Database.Engine is required.</value></data>
+  <data name="ConnectionRequired" xml:space="preserve"><value>ConnectionStrings:Pangya is required.</value></data>
+  <data name="ServerAndDatabaseRequired" xml:space="preserve"><value>ConnectionStrings:Pangya must specify a server and database.</value></data>
+  <data name="CredentialsRequired" xml:space="preserve"><value>ConnectionStrings:Pangya must supply credentials when integrated security is disabled.</value></data>
+  <data name="ConnectionInvalid" xml:space="preserve"><value>ConnectionStrings:Pangya is invalid for the configured database engine.</value></data>
+  <data name="EngineUnsupported" xml:space="preserve"><value>Database engine '{0}' is not supported.</value></data>
+  <data name="EngineUnsupportedEf" xml:space="preserve"><value>Database engine '{0}' is not supported by Entity Framework.</value></data>
+  <data name="ContextRequired" xml:space="preserve"><value>A database context and engine are required.</value></data>
+  <data name="QueryRequired" xml:space="preserve"><value>A query or procedure name is required.</value></data>
+  <data name="QueryTimeout" xml:space="preserve"><value>Timed out waiting for the database query to complete.</value></data>
+</root>

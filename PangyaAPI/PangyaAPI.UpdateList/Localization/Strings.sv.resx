@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Crc32InputStreamMustNotBeNull" xml:space="preserve">
+    <value>Indataströmmen får inte vara null.</value>
+  </data>
+  <data name="Crc32DataBufferMustNotBeNull" xml:space="preserve">
+    <value>Databufferten får inte vara null.</value>
+  </data>
+  <data name="UpdateMakerTargetDirectoryNotFound" xml:space="preserve">
+    <value>Målkatalogen finns inte: {0}</value>
+  </data>
+  <data name="UpdateMakerOutputPathMustIncludeDirectory" xml:space="preserve">
+    <value>Utdatasökvägen måste innehålla en katalog.</value>
+  </data>
+  <data name="UpdateMakerInvalidZipPackageName" xml:space="preserve">
+    <value>Filen '{0}' ger inte ett giltigt enkelt namn för ett ZIP-paket.</value>
+  </data>
+  <data name="UpdateMakerZipPackageCollision" xml:space="preserve">
+    <value>Filerna '{0}' och '{1}' ger samma paket '{2}', men har olika innehåll. Ett enda ZIP-paket kan inte representera båda.</value>
+  </data>
+  <data name="UpdateReaderFileNotFound" xml:space="preserve">
+    <value>Uppdateringsfilen hittades inte: {0}</value>
+  </data>
+  <data name="UpdateReaderEncryptedListEmptyOrTruncated" xml:space="preserve">
+    <value>Den krypterade UpdateList-filen är tom eller trunkerad.</value>
+  </data>
+  <data name="UpdateReaderDecryptedListMissingCompleteXml" xml:space="preserve">
+    <value>Den dekrypterade UpdateList-filen innehåller inte fullständig XML.</value>
+  </data>
+  <data name="UpdateWriterNoChangesToSave" xml:space="preserve">
+    <value>Det finns inga ändringar att spara.</value>
+  </data>
+  <data name="UpdateWriterGeneratedSuccessfully" xml:space="preserve">
+    <value>UpdateList skapades: {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorKeyDetected" xml:space="preserve">
+    <value>[Klart] Nyckeln identifierades: Region {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorNoKnownKey" xml:space="preserve">
+    <value>[Varning] Ingen av de kända nycklarna kunde dekryptera filen.</value>
+  </data>
+  <data name="UpdateKeyDetectorPlainTextReadyToEncrypt" xml:space="preserve">
+    <value>[Info] Filen öppnades som klartext. Klar att kryptera ({0}{1})</value>
+  </data>
+</root>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Crc32InputStreamMustNotBeNull" xml:space="preserve">
+    <value>Le flux d’entrée ne doit pas être null.</value>
+  </data>
+  <data name="Crc32DataBufferMustNotBeNull" xml:space="preserve">
+    <value>Le tampon de données ne doit pas être null.</value>
+  </data>
+  <data name="UpdateMakerTargetDirectoryNotFound" xml:space="preserve">
+    <value>Le répertoire cible n’existe pas : {0}</value>
+  </data>
+  <data name="UpdateMakerOutputPathMustIncludeDirectory" xml:space="preserve">
+    <value>Le chemin de sortie doit inclure un répertoire.</value>
+  </data>
+  <data name="UpdateMakerInvalidZipPackageName" xml:space="preserve">
+    <value>Le fichier « {0} » ne produit pas un nom de paquet ZIP simple valide.</value>
+  </data>
+  <data name="UpdateMakerZipPackageCollision" xml:space="preserve">
+    <value>Les fichiers « {0} » et « {1} » produisent le même paquet « {2} », mais leur contenu diffère. Un seul paquet ZIP ne peut pas représenter les deux.</value>
+  </data>
+  <data name="UpdateReaderFileNotFound" xml:space="preserve">
+    <value>Fichier de mise à jour introuvable : {0}</value>
+  </data>
+  <data name="UpdateReaderEncryptedListEmptyOrTruncated" xml:space="preserve">
+    <value>La liste de mise à jour chiffrée est vide ou tronquée.</value>
+  </data>
+  <data name="UpdateReaderDecryptedListMissingCompleteXml" xml:space="preserve">
+    <value>La liste de mise à jour déchiffrée ne contient pas de XML complet.</value>
+  </data>
+  <data name="UpdateWriterNoChangesToSave" xml:space="preserve">
+    <value>Aucune modification à enregistrer.</value>
+  </data>
+  <data name="UpdateWriterGeneratedSuccessfully" xml:space="preserve">
+    <value>Liste de mise à jour générée avec succès dans : {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorKeyDetected" xml:space="preserve">
+    <value>[Succès] Clé détectée avec succès : région {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorNoKnownKey" xml:space="preserve">
+    <value>[Avertissement] Aucune des clés connues n’a pu déchiffrer le fichier.</value>
+  </data>
+  <data name="UpdateKeyDetectorPlainTextReadyToEncrypt" xml:space="preserve">
+    <value>[Info] Fichier ouvert en texte brut. Prêt pour le chiffrement ({0}{1})</value>
+  </data>
+</root>

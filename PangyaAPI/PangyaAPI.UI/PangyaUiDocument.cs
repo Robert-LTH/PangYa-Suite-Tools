@@ -1,18 +1,19 @@
 using System.Globalization;
+using System.Drawing;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 
-namespace PangYa_Suite_Tools.Shop;
+namespace PangyaAPI.UI;
 
-internal enum PangyaUiButtonState
+public enum PangyaUiButtonState
 {
     Normal,
     Hover,
     Selected
 }
 
-internal static class PangyaUiDimensionHelper
+public static class PangyaUiDimensionHelper
 {
     public static Point? ParsePoint(string? text)
     {
@@ -50,7 +51,7 @@ internal static class PangyaUiDimensionHelper
     }
 }
 
-internal sealed class PangyaUiNode
+public sealed class PangyaUiNode
 {
     private static readonly string[] ImageParameterNames =
         ["normal", "over", "selected", "below_over", "below_selected", "bgimg", "resource", "image", "src"];
@@ -212,7 +213,7 @@ internal sealed class PangyaUiNode
         .FirstOrDefault(attribute => attribute.LocalName.Equals(name, StringComparison.OrdinalIgnoreCase))
         ?.Value ?? string.Empty;
 
-    internal static Rectangle ParseBounds(XmlElement element)
+    public static Rectangle ParseBounds(XmlElement element)
     {
         string rect = FirstAttribute(element, "rect", "bounds");
         if (PangyaUiDimensionHelper.ParseRectangle(rect) is Rectangle rectangle)
@@ -247,7 +248,7 @@ internal sealed class PangyaUiNode
 
 }
 
-internal sealed class PangyaUiDocument
+public sealed class PangyaUiDocument
 {
     private const int MaximumXmlBytes = 16 * 1024 * 1024;
     private const int MaximumNodes = 10_000;
@@ -309,9 +310,10 @@ internal sealed class PangyaUiDocument
         if (info.Length > MaximumXmlBytes) throw new InvalidDataException("The PangYa UI XML file is too large.");
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        Encoding encoding = DetectEncoding(fullPath);
+        Encoding encoding = PangyaXmlCompatibility.DetectEncoding(fullPath);
         string xml = File.ReadAllText(fullPath, encoding);
         xml = NormalizeLegacyMultilineComments(xml);
+        xml = PangyaXmlCompatibility.EscapeBareAmpersands(xml);
         xml = NormalizeLegacyAdjacentAttributes(xml);
         xml = NormalizeLegacyElementCasing(xml);
         var settings = new XmlReaderSettings
@@ -472,6 +474,7 @@ internal sealed class PangyaUiDocument
     private static XmlElement LoadConditionalFragment(string fragment)
     {
         string xml = "<conditional-root>" + fragment + "</conditional-root>";
+        xml = PangyaXmlCompatibility.EscapeBareAmpersands(xml);
         xml = NormalizeLegacyAdjacentAttributes(xml);
         xml = NormalizeLegacyElementCasing(xml);
         var settings = new XmlReaderSettings
@@ -513,22 +516,6 @@ internal sealed class PangyaUiDocument
 
     private static Size Limit(Size size) =>
         new(Math.Clamp(size.Width, 1, 8192), Math.Clamp(size.Height, 1, 8192));
-
-    private static Encoding DetectEncoding(string path)
-    {
-        using var reader = new StreamReader(path, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        char[] buffer = new char[512];
-        int count = reader.Read(buffer, 0, buffer.Length);
-        string header = new(buffer, 0, count);
-        Match match = Regex.Match(header, """encoding\s*=\s*["'](?<value>[^"']+)["']""",
-            RegexOptions.IgnoreCase);
-        if (match.Success)
-        {
-            try { return Encoding.GetEncoding(match.Groups["value"].Value); }
-            catch (ArgumentException) { }
-        }
-        return reader.CurrentEncoding;
-    }
 
     private static string NormalizeLegacyMultilineComments(string xml) =>
         Regex.Replace(xml, @"<!--(?<content>.*?)-->",
@@ -710,7 +697,7 @@ internal sealed class PangyaUiDocument
     }
 }
 
-internal sealed class PangyaUiResourceCatalog
+public sealed class PangyaUiResourceCatalog
 {
     private readonly Dictionary<string, List<ResourceDefinition>> _definitions;
 

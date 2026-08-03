@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2, "defaultRevision": 1, "fileName": "MemorialShopRareItemSff.iff", "region": "JP", "minimumRecordSize": 36, "isEditable": true,
+  "fields": [
+    { "name": "CoinType", "offset": 0, "width": 4, "type": "Int32" }, { "name": "CoinTypeId", "offset": 4, "width": 4, "type": "Int32" },
+    { "name": "CoinProbability", "offset": 8, "width": 4, "type": "Int32" }, { "name": "ItemType", "offset": 12, "width": 4, "type": "Int32" },
+    { "name": "ItemTypeId", "offset": 16, "width": 4, "type": "Int32" }, { "name": "ItemProbability", "offset": 20, "width": 4, "type": "Int32" },
+    { "name": "GachaNumber", "offset": 24, "width": 4, "type": "Int32" }, { "name": "Quantity", "offset": 28, "width": 4, "type": "Int32" },
+    { "name": "Duplicate", "offset": 32, "width": 4, "type": "Int32" }
+  ]
+}

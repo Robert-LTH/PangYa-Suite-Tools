@@ -10,7 +10,8 @@
         private System.Windows.Forms.Button btnOpenOptions;
         private System.Windows.Forms.Button btnOpenPakDiff;
         private System.Windows.Forms.Button btnOpenLog;
-        private System.Windows.Forms.Button btnOpenShop;
+        private System.Windows.Forms.Button btnOpenUiEditor;
+        private System.Windows.Forms.Button btnOpenShopEditor;
         private System.Windows.Forms.Button btnOpenFontViewer;
         protected override void Dispose(bool disposing)
         {
@@ -26,7 +27,8 @@
             btnOpenPakDiff = new Button();
             btnOpenOptions = new Button();
             btnOpenLog = new Button();
-            btnOpenShop = new CenteredImageButton();
+            btnOpenUiEditor = new CenteredImageButton();
+            btnOpenShopEditor = new Button();
             btnOpenFontViewer = new Button();
             lblTitle = new Label();
             SuspendLayout();
@@ -74,40 +76,50 @@
             // 
             // btnOpenOptions
             // 
-            btnOpenOptions.Location = new Point(103, 460);
+            btnOpenOptions.Location = new Point(103, 525);
             btnOpenOptions.Name = "btnOpenOptions";
             btnOpenOptions.Size = new Size(180, 35);
-            btnOpenOptions.TabIndex = 7;
+            btnOpenOptions.TabIndex = 8;
             btnOpenOptions.Text = "Options";
             btnOpenOptions.UseVisualStyleBackColor = true;
             btnOpenOptions.Click += btnOpenOptions_Click;
             //
             // btnOpenLog
             //
-            btnOpenLog.Location = new Point(103, 505);
+            btnOpenLog.Location = new Point(103, 570);
             btnOpenLog.Name = "btnOpenLog";
             btnOpenLog.Size = new Size(180, 35);
-            btnOpenLog.TabIndex = 8;
+            btnOpenLog.TabIndex = 9;
             btnOpenLog.UseVisualStyleBackColor = true;
             btnOpenLog.Click += btnOpenLog_Click;
             //
-            // btnOpenShop
+            // btnOpenUiEditor
             //
-            btnOpenShop.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            btnOpenShop.Location = new Point(42, 330);
-            btnOpenShop.Name = "btnOpenShop";
-            btnOpenShop.Size = new Size(300, 50);
-            btnOpenShop.TabIndex = 5;
-            btnOpenShop.UseVisualStyleBackColor = true;
-            btnOpenShop.Click += btnOpenShop_Click;
+            btnOpenUiEditor.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnOpenUiEditor.Location = new Point(42, 330);
+            btnOpenUiEditor.Name = "btnOpenUiEditor";
+            btnOpenUiEditor.Size = new Size(300, 50);
+            btnOpenUiEditor.TabIndex = 5;
+            btnOpenUiEditor.UseVisualStyleBackColor = true;
+            btnOpenUiEditor.Click += btnOpenUiEditor_Click;
+            //
+            // btnOpenShopEditor
+            //
+            btnOpenShopEditor.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnOpenShopEditor.Location = new Point(42, 395);
+            btnOpenShopEditor.Name = "btnOpenShopEditor";
+            btnOpenShopEditor.Size = new Size(300, 50);
+            btnOpenShopEditor.TabIndex = 6;
+            btnOpenShopEditor.UseVisualStyleBackColor = true;
+            btnOpenShopEditor.Click += btnOpenShopEditor_Click;
             //
             // btnOpenFontViewer
             //
             btnOpenFontViewer.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            btnOpenFontViewer.Location = new Point(42, 395);
+            btnOpenFontViewer.Location = new Point(42, 460);
             btnOpenFontViewer.Name = "btnOpenFontViewer";
             btnOpenFontViewer.Size = new Size(300, 50);
-            btnOpenFontViewer.TabIndex = 6;
+            btnOpenFontViewer.TabIndex = 7;
             btnOpenFontViewer.UseVisualStyleBackColor = true;
             btnOpenFontViewer.Click += btnOpenFontViewer_Click;
             // 
@@ -124,9 +136,10 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(402, 585);
+            ClientSize = new Size(402, 650);
             Controls.Add(btnOpenFontViewer);
-            Controls.Add(btnOpenShop);
+            Controls.Add(btnOpenShopEditor);
+            Controls.Add(btnOpenUiEditor);
             Controls.Add(btnOpenLog);
             Controls.Add(btnOpenOptions);
             Controls.Add(btnOpenPakDiff);

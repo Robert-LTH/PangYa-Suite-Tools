@@ -1,0 +1,4 @@
+{
+  "schemaVersion": 2, "defaultRevision": 1, "fileName": "u_part_type.iff", "region": "JP", "minimumRecordSize": 4, "isEditable": true,
+  "fields": [ { "name": "PartType", "offset": 0, "width": 4, "type": "UInt32" } ]
+}

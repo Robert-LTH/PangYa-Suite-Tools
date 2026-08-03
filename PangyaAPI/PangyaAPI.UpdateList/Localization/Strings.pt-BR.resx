@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Crc32InputStreamMustNotBeNull" xml:space="preserve">
+    <value>O fluxo de entrada não pode ser nulo.</value>
+  </data>
+  <data name="Crc32DataBufferMustNotBeNull" xml:space="preserve">
+    <value>O buffer de dados não pode ser nulo.</value>
+  </data>
+  <data name="UpdateMakerTargetDirectoryNotFound" xml:space="preserve">
+    <value>Diretório de destino não existe: {0}</value>
+  </data>
+  <data name="UpdateMakerOutputPathMustIncludeDirectory" xml:space="preserve">
+    <value>O caminho de saída deve incluir um diretório.</value>
+  </data>
+  <data name="UpdateMakerInvalidZipPackageName" xml:space="preserve">
+    <value>O arquivo '{0}' não produz um nome de pacote ZIP simples válido.</value>
+  </data>
+  <data name="UpdateMakerZipPackageCollision" xml:space="preserve">
+    <value>Os arquivos '{0}' e '{1}' produzem o mesmo pacote '{2}', mas possuem conteúdos diferentes. Um único pacote ZIP não pode representar ambos.</value>
+  </data>
+  <data name="UpdateReaderFileNotFound" xml:space="preserve">
+    <value>Arquivo de atualização não encontrado: {0}</value>
+  </data>
+  <data name="UpdateReaderEncryptedListEmptyOrTruncated" xml:space="preserve">
+    <value>A UpdateList criptografada está vazia ou truncada.</value>
+  </data>
+  <data name="UpdateReaderDecryptedListMissingCompleteXml" xml:space="preserve">
+    <value>A UpdateList descriptografada não contém um XML completo.</value>
+  </data>
+  <data name="UpdateWriterNoChangesToSave" xml:space="preserve">
+    <value>Nenhuma alteração para salvar.</value>
+  </data>
+  <data name="UpdateWriterGeneratedSuccessfully" xml:space="preserve">
+    <value>UpdateList gerada com sucesso em: {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorKeyDetected" xml:space="preserve">
+    <value>[Sucesso] Chave detectada com sucesso: Região {0}</value>
+  </data>
+  <data name="UpdateKeyDetectorNoKnownKey" xml:space="preserve">
+    <value>[Aviso] Nenhuma das chaves conhecidas conseguiu descriptografar o arquivo.</value>
+  </data>
+  <data name="UpdateKeyDetectorPlainTextReadyToEncrypt" xml:space="preserve">
+    <value>[Info] Arquivo aberto em texto puro. Pronto para encriptar ({0}{1})</value>
+  </data>
+</root>

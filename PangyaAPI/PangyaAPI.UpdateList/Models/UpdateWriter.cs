@@ -1,4 +1,5 @@
 using PangyaAPI.Utilities.Cryptography;
+using PangyaAPI.UpdateList.Localization;
 using System.Text;
 
 namespace PangyaAPI.UpdateList.Models
@@ -16,7 +17,7 @@ namespace PangyaAPI.UpdateList.Models
         {
             if (entries == null || entries.Count == 0)
             {
-                Console.WriteLine("Nenhuma alteração para salvar.");
+                Console.WriteLine(UpdateListStrings.UpdateWriterNoChangesToSave);
                 return;
             }
 
@@ -35,12 +36,15 @@ namespace PangyaAPI.UpdateList.Models
             byte[] encryptedData = XteaEncrypt(rawXmlBytes);
             File.WriteAllBytes(outputPath, encryptedData);
 
-            Console.WriteLine($"UpdateList gerada com sucesso em: {outputPath}");
+            Console.WriteLine(UpdateListStrings.Format(
+                UpdateListStrings.UpdateWriterGeneratedSuccessfully,
+                outputPath));
         }
 
         /// <summary>
-        /// Monta o elemento &lt;fileinfo /&gt; iterando sobre UpdateEntryFieldMap.Fields —
-        /// espelha exatamente o ToString() do FileItem original (XMLParser.cs).
+        /// Builds the &lt;fileinfo /&gt; element by iterating over
+        /// UpdateEntryFieldMap.Fields, exactly mirroring the original FileItem.ToString()
+        /// implementation (XMLParser.cs).
         /// </summary>
         private static string BuildFileInfoElement(UpdateEntry entry)
         {

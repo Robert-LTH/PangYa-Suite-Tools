@@ -17,7 +17,7 @@ namespace PangYa_Suite_Tools
             Disposed += (_, _) =>
             {
                 LocalizationManager.CultureChanged -= LocalizationManager_CultureChanged;
-                btnOpenShop.Image?.Dispose();
+                btnOpenUiEditor.Image?.Dispose();
             };
         }
 
@@ -37,13 +37,14 @@ namespace PangYa_Suite_Tools
             btnOpenOptions.Text = Strings.Menu_Options;
             btnOpenPakDiff.Text = Strings.Menu_PakDiff;
             btnOpenLog.Text = Strings.Menu_Log;
-            btnOpenShop.Text = Strings.Menu_Shop;
+            btnOpenUiEditor.Text = Strings.Menu_UiEditor;
+            btnOpenShopEditor.Text = Strings.Menu_ShopEditor;
             btnOpenFontViewer.Text = Strings.Menu_FontViewer;
         }
 
         private void ConfigureUiEditorButtonIcon()
         {
-            btnOpenShop.Image = CreateUiEditorButtonIcon();
+            btnOpenUiEditor.Image = CreateUiEditorButtonIcon();
         }
 
         private static Bitmap CreateUiEditorButtonIcon()
@@ -119,11 +120,11 @@ namespace PangYa_Suite_Tools
             _logWindow.Activate();
         }
 
-        private async void btnOpenShop_Click(object? sender, EventArgs e)
+        private async void btnOpenUiEditor_Click(object? sender, EventArgs e)
         {
             using var dialog = new FolderBrowserDialog { Description = Strings.UiEditor_SelectDataFolder };
             if (dialog.ShowDialog(this) != DialogResult.OK) return;
-            btnOpenShop.Enabled = false;
+            btnOpenUiEditor.Enabled = false;
             try
             {
                 FrmPangyaUiEditor editor = await FrmPangyaUiEditor.CreateAsync(dialog.SelectedPath);
@@ -137,7 +138,46 @@ namespace PangYa_Suite_Tools
                 MessageBox.Show(this, string.Format(LocalizationManager.CurrentCulture, Strings.UiEditor_LoadFailed, ex.Message),
                     Strings.Common_Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-            finally { btnOpenShop.Enabled = true; }
+            finally { btnOpenUiEditor.Enabled = true; }
+        }
+
+        private async void btnOpenShopEditor_Click(object? sender, EventArgs e)
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = Strings.Shop_SelectDataFolder,
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            btnOpenShopEditor.Enabled = false;
+            try
+            {
+                FrmShopMockup editor =
+                    await FrmShopMockup.CreateAsync(dialog.SelectedPath);
+                OpenToolWindow(editor, hideMenu: true);
+            }
+            catch (OperationCanceledException)
+            {
+                AppLogger.Instance.Log("Shop",
+                    "Opening the PangYa shop editor was cancelled.");
+            }
+            catch (Exception ex) when (ex is IOException
+                       or UnauthorizedAccessException or InvalidDataException
+                       or ArgumentException or System.Xml.XmlException
+                       or OverflowException)
+            {
+                AppLogger.Instance.Log("Shop",
+                    $"Could not open the PangYa shop editor: {ex.GetType().Name}: {ex.Message}",
+                    AppLogLevel.Error);
+                MessageBox.Show(this, string.Format(
+                        LocalizationManager.CurrentCulture,
+                        Strings.Shop_LoadFailed, ex.Message),
+                    Strings.Common_Error, MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnOpenShopEditor.Enabled = true;
+            }
         }
 
         private void btnOpenFontViewer_Click(object? sender, EventArgs e)

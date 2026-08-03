@@ -44,6 +44,49 @@ jobs:
       - name: Test binary formats
         run: dotnet test "${{ env.SOLUTION_FILE }}" --configuration "${{ env.CONFIGURATION }}" --no-restore
 
+      - name: Determine NuGet package version
+        id: package-version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $tag = "${{ github.ref_name }}"
+            if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?)$') {
+              throw "Release tags must use vX.Y.Z or vX.Y.Z-prerelease format."
+            }
+
+            $version = $Matches.version
+          }
+          else {
+            $version = "1.0.0-ci.${{ github.run_number }}"
+          }
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Pack PangyaAPI NuGet packages
+        shell: pwsh
+        run: |
+          $projects = @(
+            "PangyaAPI/PangyaAPI.Utilities/PangyaAPI.Utilities.csproj",
+            "PangyaAPI/PangyaAPI.PAK/PangyaAPI.PAK.csproj",
+            "PangyaAPI/PangyaAPI.IFF/PangyaAPI.IFF.csproj",
+            "PangyaAPI/PangyaAPI.UpdateList/PangyaAPI.UpdateList.csproj",
+            "PangyaAPI/PangyaAPI.WFT/PangyaAPI.WFT.csproj",
+            "PangyaAPI/PangyaAPI.UI/PangyaAPI.UI.csproj"
+          )
+
+          foreach ($project in $projects) {
+            dotnet pack $project `
+              --configuration "${{ env.CONFIGURATION }}" `
+              --no-build `
+              --no-restore `
+              --output "${{ env.OUTPUT_DIR }}/nuget" `
+              -p:PackageVersion="${{ steps.package-version.outputs.version }}"
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Packing failed for $project."
+            }
+          }
+
       - name: Publish win-x64
         run: >
           dotnet publish "${{ env.APP_PROJECT }}"
@@ -68,8 +111,54 @@ jobs:
           name: PangYa-Suite-Tools-win-x64
           path: ${{ env.OUTPUT_DIR }}/packages/*.zip
 
+      - name: Upload NuGet artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PangyaAPI-NuGet-${{ steps.package-version.outputs.version }}
+          path: |
+            ${{ env.OUTPUT_DIR }}/nuget/*.nupkg
+            ${{ env.OUTPUT_DIR }}/nuget/*.snupkg
+
+      - name: Publish NuGet packages
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          $packageIds = @(
+            "PangyaAPI.Utilities",
+            "PangyaAPI.PAK",
+            "PangyaAPI.IFF",
+            "PangyaAPI.UpdateList",
+            "PangyaAPI.WFT",
+            "PangyaAPI.UI"
+          )
+
+          foreach ($packageId in $packageIds) {
+            $packages = @(
+              Get-ChildItem -LiteralPath "${{ env.OUTPUT_DIR }}/nuget" -Filter "$packageId.*.nupkg" |
+                Where-Object { $_.Name -notlike "*.snupkg" }
+            )
+            if ($packages.Count -ne 1) {
+              throw "Expected one package for $packageId, found $($packages.Count)."
+            }
+
+            $package = $packages[0]
+            dotnet nuget push $package.FullName `
+              --api-key $env:NUGET_API_KEY `
+              --source "https://api.nuget.org/v3/index.json" `
+              --skip-duplicate
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Publishing failed for $($package.Name)."
+            }
+          }
+
       - name: Create GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.OUTPUT_DIR }}/packages/*.zip
+          files: |
+            ${{ env.OUTPUT_DIR }}/packages/*.zip
+            ${{ env.OUTPUT_DIR }}/nuget/*.nupkg
+            ${{ env.OUTPUT_DIR }}/nuget/*.snupkg

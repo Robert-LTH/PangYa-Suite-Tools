@@ -98,7 +98,7 @@
       "isVisible": true
     },
     {
-      "name": "Condition",
+      "name": "UsedPrice",
       "offset": 100,
       "width": 4,
       "type": "UInt32",

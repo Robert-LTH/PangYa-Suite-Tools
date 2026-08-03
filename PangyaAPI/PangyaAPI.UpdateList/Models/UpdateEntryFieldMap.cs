@@ -1,10 +1,10 @@
 namespace PangyaAPI.UpdateList.Models;
 
 /// <summary>
-/// Define, em um único lugar, todos os atributos do elemento &lt;fileinfo&gt;
-/// da updatelist. UpdateReader e UpdateWriter iteram sobre esta lista —
-/// adicionar um campo aqui já propaga automaticamente para leitura e escrita,
-/// sem risco de divergência entre os dois lados.
+/// Defines all attributes of the update list's &lt;fileinfo&gt; element in one
+/// place. UpdateReader and UpdateWriter iterate over this list, so adding a
+/// field here automatically propagates it to both reading and writing without
+/// risking divergence between them.
 /// </summary>
 public static class UpdateEntryFieldMap
 {
@@ -24,7 +24,7 @@ public static class UpdateEntryFieldMap
     private static int  ParseInt(string v)  => int.TryParse(v,  out var r) ? r : 0;
 }
 
-/// <summary>Definição de um único atributo do &lt;fileinfo&gt;: nome XML + getter/setter tipados.</summary>
+/// <summary>Defines one &lt;fileinfo&gt; attribute: its XML name and typed getter/setter.</summary>
 public sealed class UpdateEntryField
 {
     public string XmlAttributeName { get; }

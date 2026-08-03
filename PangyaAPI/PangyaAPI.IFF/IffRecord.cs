@@ -29,6 +29,19 @@ public sealed class IffRecord
     public object? GetValue(string fieldName, Encoding? stringEncoding = null) =>
         Find(fieldName).GetValue(_bytes, stringEncoding);
 
+    public bool GetBoolean(string fieldName) => GetTyped<bool>(fieldName);
+    public byte GetByte(string fieldName) => GetTyped<byte>(fieldName);
+    public sbyte GetSByte(string fieldName) => GetTyped<sbyte>(fieldName);
+    public ushort GetUInt16(string fieldName) => GetTyped<ushort>(fieldName);
+    public short GetInt16(string fieldName) => GetTyped<short>(fieldName);
+    public uint GetUInt32(string fieldName) => GetTyped<uint>(fieldName);
+    public int GetInt32(string fieldName) => GetTyped<int>(fieldName);
+    public ulong GetUInt64(string fieldName) => GetTyped<ulong>(fieldName);
+    public long GetInt64(string fieldName) => GetTyped<long>(fieldName);
+    public float GetSingle(string fieldName) => GetTyped<float>(fieldName);
+    public string GetString(string fieldName, Encoding? stringEncoding = null) =>
+        GetTyped<string>(fieldName, stringEncoding);
+
     public bool TryGetValue(string fieldName, out object? value, Encoding? stringEncoding = null)
     {
         if (!TryGetField(fieldName, out IffField? field) || field is null)
@@ -77,6 +90,14 @@ public sealed class IffRecord
 
     private IffField Find(string name) => Schema?.Fields.FirstOrDefault(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
         ?? throw new KeyNotFoundException($"The IFF field '{name}' does not exist.");
+
+    private T GetTyped<T>(string fieldName, Encoding? stringEncoding = null)
+    {
+        object value = Find(fieldName).GetValue(_bytes, stringEncoding);
+        return value is T typed
+            ? typed
+            : throw new InvalidDataException($"IFF field '{fieldName}' is {value.GetType().Name}, not {typeof(T).Name}.");
+    }
 }
 
 public sealed record IffDocumentInfo(string FileName, string Region, int RecordSize, IffSchema? Schema, IffHeader Header,
