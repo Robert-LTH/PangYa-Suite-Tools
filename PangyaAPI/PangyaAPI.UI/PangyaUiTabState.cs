@@ -113,6 +113,10 @@ public sealed class PangyaUiTabState
         hovered[node] = HoveredIndex;
         return options with { Tabs = tabs, SelectedTabIndices = selected, SelectedTabIdentifiers = identifiers,
             UnselectedTabIdentifiers = unselected, SelectedTabInstances = instances,
+            SelectedTabsByInstance = options.SelectedTabsByInstance?.Where(pair => !ReferenceEquals(pair.Key.Node, node))
+                .ToDictionary(pair => pair.Key, pair => pair.Value),
+            HoveredTabInstance = options.HoveredTabInstance is { } instanceHover && ReferenceEquals(instanceHover.Instance.Node, node)
+                ? null : options.HoveredTabInstance,
             HoveredTab = options.HoveredTab is { } hover && ReferenceEquals(hover.Node, node) ? null : options.HoveredTab,
             WindowSizes = sizes, TabSeparatorWidths = separators,
             TabMouseEventsEnabled = mouseEvents, HoveredTabIndices = hovered };

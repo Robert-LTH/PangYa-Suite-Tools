@@ -1045,6 +1045,7 @@ Déclencheur :</value>
   <data name="UiEditor_XmlFilter" xml:space="preserve"><value>XML d’interface PangYa (*.xml)|*.xml|Tous les fichiers (*.*)|*.*</value></data>
   <data name="UiEditor_Reload" xml:space="preserve"><value>Recharger</value></data>
   <data name="UiEditor_DebugBounds" xml:space="preserve"><value>Cadres de débogage</value></data>
+  <data name="UiEditor_HighlightSelection" xml:space="preserve"><value>Mettre la sélection en évidence</value></data>
   <data name="UiEditor_Defines" xml:space="preserve"><value>Définitions :</value></data>
   <data name="UiEditor_ConditionalPreview" xml:space="preserve"><value>Aperçu conditionnel (lecture seule)</value></data>
   <data name="UiEditor_ButtonState" xml:space="preserve"><value>État du bouton :</value></data>
@@ -1220,4 +1221,6 @@ Déclencheur :</value>
   <data name="PakFile_AxisDragVertical" xml:space="preserve">
     <value>X verrouillé · Faites glisser verticalement</value>
   </data>
+  <data name="UiEditor_ShowInPreview" xml:space="preserve"><value>Afficher dans l’aperçu</value></data>
+  <data name="UiEditor_FitPreview" xml:space="preserve"><value>Ajuster l’aperçu</value></data>
 </root>

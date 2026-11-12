@@ -1086,6 +1086,7 @@ Cancel: Stop the extraction.</value></data>
   <data name="UiEditor_XmlFilter" xml:space="preserve"><value>PangYa UI XML (*.xml)|*.xml|All files (*.*)|*.*</value></data>
   <data name="UiEditor_Reload" xml:space="preserve"><value>Reload</value></data>
   <data name="UiEditor_DebugBounds" xml:space="preserve"><value>Debug bounds</value></data>
+  <data name="UiEditor_HighlightSelection" xml:space="preserve"><value>Highlight selection</value></data>
   <data name="UiEditor_Defines" xml:space="preserve"><value>Defines:</value></data>
   <data name="UiEditor_ConditionalPreview" xml:space="preserve"><value>Conditional preview (read-only)</value></data>
   <data name="UiEditor_ButtonState" xml:space="preserve"><value>Button state:</value></data>
@@ -1261,4 +1262,6 @@ Cancel: Stop the extraction.</value></data>
   <data name="PakFile_AxisDragVertical" xml:space="preserve">
     <value>X locked · Drag up or down</value>
   </data>
+  <data name="UiEditor_ShowInPreview" xml:space="preserve"><value>Show in preview</value></data>
+  <data name="UiEditor_FitPreview" xml:space="preserve"><value>Fit preview</value></data>
 </root>

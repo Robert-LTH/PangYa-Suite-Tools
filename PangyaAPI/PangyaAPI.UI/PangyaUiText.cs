@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace PangyaAPI.UI;
@@ -47,8 +48,26 @@ public static class PangyaUiText
         return longest;
     }
 
-    internal static string RemoveTags(string text) => Tokens.Replace(text, match =>
-        IsTag(match.Groups["tag"].Value) ? string.Empty : match.Value);
+    internal static string RemoveTags(string text, bool classifyPlainTokens = true)
+    {
+        var visible = new StringBuilder(text.Length);
+        int start = 0;
+        foreach (Match match in Tokens.Matches(text))
+        {
+            AppendPlain(text[start..match.Index]);
+            if (!IsTag(match.Groups["tag"].Value)) visible.Append(match.Value);
+            start = match.Index + match.Length;
+        }
+        AppendPlain(text[start..]);
+        return visible.ToString();
+
+        void AppendPlain(string token)
+        {
+            if (!classifyPlainTokens || !IsPlainTokenTag(token)) visible.Append(token);
+        }
+    }
+
+    internal static bool IsPlainTokenTag(string token) => token.Length >= 2 && IsTag(token);
 
     internal static uint ParseTagColor(string value)
     {
@@ -72,7 +91,9 @@ public static class PangyaUiText
         if (value.Length == 1 && "nNtToOsS".Contains(value[0])) return true;
         if (value.Length < 10 || !value.StartsWith("0x", StringComparison.Ordinal)) return false;
         int comma = value.IndexOf(',');
-        return comma < 0 || value.Length == 21 &&
+        return comma < 0 || value.Length != 21 ||
             value.AsSpan(comma + 1).StartsWith("0x", StringComparison.Ordinal);
     }
+
+    internal static int GetOutlineColorSeparator(string tag) => tag.Length == 21 ? tag.IndexOf(',') : -1;
 }

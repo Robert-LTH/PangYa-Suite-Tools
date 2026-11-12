@@ -1083,6 +1083,7 @@ Avbryt: Stoppa extraheringen.</value></data>
   <data name="UiEditor_XmlFilter" xml:space="preserve"><value>PangYa UI XML (*.xml)|*.xml|Alla filer (*.*)|*.*</value></data>
   <data name="UiEditor_Reload" xml:space="preserve"><value>Läs in igen</value></data>
   <data name="UiEditor_DebugBounds" xml:space="preserve"><value>Felsökningsramar</value></data>
+  <data name="UiEditor_HighlightSelection" xml:space="preserve"><value>Markera valt element</value></data>
   <data name="UiEditor_Defines" xml:space="preserve"><value>Definitioner:</value></data>
   <data name="UiEditor_ConditionalPreview" xml:space="preserve"><value>Villkorlig förhandsvisning (skrivskyddad)</value></data>
   <data name="UiEditor_ButtonState" xml:space="preserve"><value>Knappstatus:</value></data>
@@ -1258,4 +1259,6 @@ Avbryt: Stoppa extraheringen.</value></data>
   <data name="PakFile_AxisDragVertical" xml:space="preserve">
     <value>X låst · Dra uppåt eller nedåt</value>
   </data>
+  <data name="UiEditor_ShowInPreview" xml:space="preserve"><value>Visa i förhandsgranskningen</value></data>
+  <data name="UiEditor_FitPreview" xml:space="preserve"><value>Anpassa förhandsvisning</value></data>
 </root>

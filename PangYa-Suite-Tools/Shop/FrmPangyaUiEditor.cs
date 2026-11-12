@@ -24,8 +24,10 @@ internal sealed class FrmPangyaUiEditor : Form
     private readonly ToolStripLabel _stateLabel = new();
     private readonly ToolStripComboBox _stateSelector = new();
     private readonly ToolStripButton _debugButton = new();
+    private readonly ToolStripButton _highlightSelectionButton = new();
     private readonly ToolStripButton _zoomOutButton = new();
     private readonly ToolStripLabel _zoomLabel = new();
+    private readonly ToolStripButton _fitPreviewButton = new() { Name = "btnFitUiPreview", Enabled = false };
     private readonly ToolStripButton _zoomInButton = new();
     private readonly ToolStripSeparator _ifdefSeparator = new() { Visible = false };
     private readonly ToolStripLabel _ifdefLabel = new() { Visible = false };
@@ -34,6 +36,7 @@ internal sealed class FrmPangyaUiEditor : Form
     private readonly TreeView _elementTree = new();
     private readonly PangyaUiCanvas _canvas;
     private readonly PangyaUiPropertyPanel _properties;
+    private bool _fitDialog = true;
     private readonly ToolStripStatusLabel _statusLabel = new() { Spring = true, TextAlign = ContentAlignment.MiddleLeft };
     private readonly StatusStrip _status = new();
     private PangyaUiDocument? _document;
@@ -58,7 +61,13 @@ internal sealed class FrmPangyaUiEditor : Form
         _canvas = new PangyaUiCanvas(assets, resourceCatalog) { Dock = DockStyle.None };
         Activated += (_, _) => _canvas.SetViewFocused(true);
         Deactivate += (_, _) => _canvas.SetViewFocused(false);
-        _properties = new PangyaUiPropertyPanel(assets);
+        _properties = new PangyaUiPropertyPanel(assets, _canvas.IsElementShownInPreview);
+        _properties.PreviewVisibilityChanged += (_, _) =>
+        {
+            if (_properties.SelectedNode is not { } node) return;
+            _canvas.SetElementPreviewVisibility(node, _properties.ShowInPreview);
+            UpdatePreviewZoom();
+        };
 
         Name = "frmPangyaUiEditor";
         StartPosition = FormStartPosition.CenterParent;
@@ -73,6 +82,8 @@ internal sealed class FrmPangyaUiEditor : Form
         Controls.Add(_toolbar);
 
         _canvas.SelectionChanged += (_, node) => SelectNode(node, fromCanvas: true);
+        _canvas.MouseUp += (_, _) => UpdatePreviewZoom();
+        _canvas.PreviewGeometryChanged += (_, _) => UpdatePreviewZoom();
         _canvas.ElementChanged += (_, e) =>
         {
             MarkDirty();
@@ -84,6 +95,7 @@ internal sealed class FrmPangyaUiEditor : Form
             MarkDirty();
             RefreshSelectedTreeNode();
             _canvas.ResetViewerScroll(_properties.SelectedNode);
+            UpdatePreviewZoom();
             _canvas.Invalidate();
         };
         _elementTree.AfterSelect += (_, e) =>
@@ -101,7 +113,8 @@ internal sealed class FrmPangyaUiEditor : Form
         PopulateFileSelector();
     }
 
-    private static PangyaPreviewBitmapFont? ReadPreviewFont(string root, string filename, int height, CancellationToken cancellationToken)
+    private static PangyaPreviewBitmapFont? ReadPreviewFont(string root, string filename, int height,
+        CancellationToken cancellationToken, PangyaFileImageProvider assets)
     {
         string path = Path.Combine(root, "2d", "font", filename);
         if (!File.Exists(path)) path = Path.Combine(root, "data", "2d", "font", filename);
@@ -110,7 +123,7 @@ internal sealed class FrmPangyaUiEditor : Form
             using var font = PangyaAPI.WFT.WftFontReader.Open(path);
             if (font.CellSize != height) return null;
             using var korean = ReadKoreanPreviewFont(Path.GetDirectoryName(path)!, height);
-            return new PangyaPreviewBitmapFont(font, cancellationToken, korean);
+            return new PangyaPreviewBitmapFont(font, cancellationToken, korean, assets.GetImage);
         }
         catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException)
         {
@@ -181,8 +194,8 @@ internal sealed class FrmPangyaUiEditor : Form
                     Path.GetFileName(path).Equals("shop.xml", StringComparison.OrdinalIgnoreCase)) ?? discovered[0];
             PangyaUiResourceCatalog catalog = PangyaUiResourceCatalog.LoadEntry(entry, discovered, fullRoot);
             return (discovered, resolver, catalog,
-                ReadPreviewFont(fullRoot, "ms_ui_gothic_11_jp.wft", 11, cancellationToken),
-                ReadPreviewFont(fullRoot, "fnt_japan_12.wft", 12, cancellationToken),
+                ReadPreviewFont(fullRoot, "ms_ui_gothic_11_jp.wft", 11, cancellationToken, resolver),
+                ReadPreviewFont(fullRoot, "fnt_japan_12.wft", 12, cancellationToken, resolver),
                 ReadPreviewLanguageTable(fullRoot), Path.GetFullPath(entry));
         }, cancellationToken);
         var editor = new FrmPangyaUiEditor(fullRoot, files, assets, catalog);
@@ -262,6 +275,13 @@ internal sealed class FrmPangyaUiEditor : Form
             _canvas.ShowDebugBounds = _debugButton.Checked;
             _canvas.Invalidate();
         };
+        _highlightSelectionButton.Name = "btnHighlightUiSelection";
+        _highlightSelectionButton.CheckOnClick = true;
+        _highlightSelectionButton.CheckedChanged += (_, _) =>
+        {
+            _canvas.HighlightSelection = _highlightSelectionButton.Checked;
+            _canvas.Invalidate();
+        };
         _stateSelector.Name = "cboUiButtonState";
         _stateSelector.DropDownStyle = ComboBoxStyle.DropDownList;
         _stateSelector.AutoSize = false;
@@ -269,18 +289,20 @@ internal sealed class FrmPangyaUiEditor : Form
         _stateSelector.SelectedIndexChanged += (_, _) =>
         {
             _canvas.ButtonState = (PangyaUiButtonState)Math.Max(0, _stateSelector.SelectedIndex);
+            UpdatePreviewZoom();
             _canvas.Invalidate();
         };
         _zoomOutButton.Text = "−";
         _zoomOutButton.Click += (_, _) => ChangeZoom(-0.1f);
         _zoomInButton.Text = "+";
         _zoomInButton.Click += (_, _) => ChangeZoom(0.1f);
+        _fitPreviewButton.Click += (_, _) => FitPreview();
 
         _toolbar.Items.AddRange([
             _fileSelector, new ToolStripSeparator(),
             _openButton, _openReferenceButton, _saveButton, _reloadButton, _wallpaperButton, new ToolStripSeparator(),
-            _stateLabel, _stateSelector, _debugButton, new ToolStripSeparator(),
-            _zoomOutButton, _zoomLabel, _zoomInButton,
+            _stateLabel, _stateSelector, _highlightSelectionButton, _debugButton, new ToolStripSeparator(),
+            _zoomOutButton, _zoomLabel, _zoomInButton, _fitPreviewButton,
             _ifdefSeparator, _ifdefLabel
         ]);
     }
@@ -295,19 +317,20 @@ internal sealed class FrmPangyaUiEditor : Form
             BackColor = Color.FromArgb(30, 32, 36)
         };
         canvasHost.Controls.Add(_canvas);
-        canvasHost.ClientSizeChanged += (_, _) => _canvas.ViewportSize = canvasHost.ClientSize;
-        _canvas.ViewportSize = canvasHost.ClientSize;
-
-        var rightSplit = new SplitContainer
+        canvasHost.ClientSizeChanged += (_, _) =>
         {
-            Dock = DockStyle.Fill,
-            FixedPanel = FixedPanel.Panel2,
-            Size = new Size(900, 700),
-            SplitterDistance = 650,
-            Panel2MinSize = 260
+            _canvas.ViewportSize = canvasHost.ClientSize;
+            UpdatePreviewZoom();
         };
-        rightSplit.Panel1.Controls.Add(canvasHost);
-        rightSplit.Panel2.Controls.Add(_properties);
+        var previewWorkspace = new Panel { Dock = DockStyle.Fill };
+        _properties.Dock = DockStyle.Right;
+        previewWorkspace.Controls.Add(canvasHost);
+        previewWorkspace.Controls.Add(_properties);
+        void SizeProperties() => _properties.Width = Math.Min(_properties.ContentWidth,
+            Math.Max(1, previewWorkspace.ClientSize.Width / 2));
+        previewWorkspace.ClientSizeChanged += (_, _) => SizeProperties();
+        _properties.ContentWidthChanged += (_, _) => SizeProperties();
+        SizeProperties();
 
         _elementTree.Name = "treeUiElements";
         _elementTree.Dock = DockStyle.Fill;
@@ -323,7 +346,7 @@ internal sealed class FrmPangyaUiEditor : Form
             Panel1MinSize = 220
         };
         mainSplit.Panel1.Controls.Add(_elementTree);
-        mainSplit.Panel2.Controls.Add(rightSplit);
+        mainSplit.Panel2.Controls.Add(previewWorkspace);
         mainSplit.Location = new Point(0, _toolbar.Height);
 
         Controls.Add(mainSplit);
@@ -496,7 +519,8 @@ internal sealed class FrmPangyaUiEditor : Form
         {
             _elementTree.Nodes.Clear();
             if (_document is null) return;
-            foreach (PangyaUiNode node in _document.GetVisibleRoots(_enabledSymbols))
+            IReadOnlyList<PangyaUiNode> roots = _document.GetVisibleRoots(_enabledSymbols);
+            foreach (PangyaUiNode node in roots)
                 _elementTree.Nodes.Add(CreateTreeNode(node));
             _elementTree.ExpandAll();
             TreeNode? preferredTreeNode = preferredSelection is null
@@ -505,7 +529,11 @@ internal sealed class FrmPangyaUiEditor : Form
             if (preferredTreeNode is not null)
                 _elementTree.SelectedNode = preferredTreeNode;
             else if (_elementTree.Nodes.Count > 0)
-                _elementTree.SelectedNode = _elementTree.Nodes[0];
+            {
+                PangyaUiNode? firstForm = roots.FirstOrDefault(node => node.IsForm && _canvas.IsElementShownInPreview(node));
+                _elementTree.SelectedNode = firstForm is null ? _elementTree.Nodes[0] :
+                    FindTreeNode(_elementTree.Nodes, firstForm);
+            }
             else
                 SelectNode(null, fromCanvas: false);
         }
@@ -570,7 +598,7 @@ internal sealed class FrmPangyaUiEditor : Form
         PangyaUiNode? previous = _canvas.SelectedNode;
         PangyaUiNode? target = previous is not null && _document.IsVisible(previous, _enabledSymbols)
             ? previous
-            : previous?.FindContainingForm();
+            : FindPreviewForm(previous);
         if (target is not null && !_document.IsVisible(target, _enabledSymbols)) target = null;
 
         _canvas.EnabledSymbols = _enabledSymbols;
@@ -580,15 +608,31 @@ internal sealed class FrmPangyaUiEditor : Form
 
     private void SelectNode(PangyaUiNode? node, bool fromCanvas)
     {
-        _canvas.SelectedForm = node?.FindContainingForm();
+        PangyaUiNode? form = FindPreviewForm(node);
+        if (!ReferenceEquals(form, _canvas.SelectedForm) || ReferenceEquals(form, node) ||
+            form is null && !ReferenceEquals(node, _canvas.SelectedNode))
+        {
+            _fitDialog = true;
+            if (_canvas.Parent is ScrollableControl host)
+                host.AutoScrollPosition = Point.Empty;
+        }
+        _canvas.SelectedForm = form;
         _canvas.SelectedNode = node;
         _properties.SelectedNode = node;
+        UpdatePreviewZoom();
         UpdateActionState();
         if (fromCanvas && node is not null)
         {
             TreeNode? treeNode = FindTreeNode(_elementTree.Nodes, node);
             if (treeNode is not null) _elementTree.SelectedNode = treeNode;
         }
+    }
+
+    internal static PangyaUiNode? FindPreviewForm(PangyaUiNode? node)
+    {
+        for (; node is not null; node = node.Parent)
+            if (node.IsForm) return node;
+        return null;
     }
 
     private static TreeNode? FindTreeNode(TreeNodeCollection nodes, PangyaUiNode target)
@@ -638,7 +682,25 @@ internal sealed class FrmPangyaUiEditor : Form
 
     private void ChangeZoom(float delta)
     {
-        _canvas.Zoom = Math.Clamp(_canvas.Zoom + delta, 0.25f, 3f);
+        _fitDialog = false;
+        _canvas.Zoom = Math.Clamp(_canvas.Zoom + delta, 0.01f, 3f);
+        UpdatePreviewZoom();
+    }
+
+    private void FitPreview()
+    {
+        _fitDialog = true;
+        if (_canvas.Parent is ScrollableControl host)
+            host.AutoScrollPosition = Point.Empty;
+        UpdatePreviewZoom();
+    }
+
+    private void UpdatePreviewZoom()
+    {
+        _canvas.UpdateCanvasSize();
+        _fitPreviewButton.Enabled = _canvas.SelectedForm is not null || _canvas.HasStandaloneFramePreview;
+        if (_fitDialog && _fitPreviewButton.Enabled)
+            _canvas.Zoom = _canvas.GetDialogFitZoom();
         _zoomLabel.Text = $"{_canvas.Zoom:P0}";
     }
 
@@ -702,6 +764,8 @@ internal sealed class FrmPangyaUiEditor : Form
         _saveButton.Text = Strings.IFFManager_Save;
         _reloadButton.Text = Strings.UiEditor_Reload;
         _debugButton.Text = Strings.UiEditor_DebugBounds;
+        _highlightSelectionButton.Text = Strings.UiEditor_HighlightSelection;
+        _fitPreviewButton.Text = Strings.UiEditor_FitPreview;
         _ifdefLabel.Text = Strings.UiEditor_Defines;
         _stateLabel.Text = Strings.UiEditor_ButtonState;
         int state = Math.Max(0, _stateSelector.SelectedIndex);
@@ -770,26 +834,26 @@ internal sealed class PangyaUiCanvas : Control
         Invalidate();
     }
     private readonly Dictionary<PangyaUiNode, PangyaUiComboPreview> _combos = [];
-    private readonly Dictionary<(PangyaUiNode Node, Point Origin), int> _selectedTabs = [];
-    private readonly HashSet<PangyaUiNode> _makeRoomMatchForms = [];
-    private (PangyaUiNode Node, int Index, Rectangle Bounds, Point Origin)? _pressedTab, _hoveredTab;
-    private readonly List<(PangyaUiNode Node, int Index, Rectangle Bounds, Point Origin)> _renderedTabs = [];
+    private readonly Dictionary<PangyaUiTabInstance, int> _selectedTabs = [];
+    private (PangyaUiTabInstance Instance, int Index, Rectangle Bounds, Point Origin)? _pressedTab, _hoveredTab;
+    private readonly List<(PangyaUiTabInstance Instance, int Index, Rectangle Bounds, Point Origin)> _renderedTabs = [];
     private readonly Dictionary<PangyaUiNode, IReadOnlyList<string>> _editLines = [];
     private readonly Dictionary<PangyaUiNode, int> _editTopRows = [];
     private readonly Dictionary<PangyaUiNode, bool> _editFollowBottom = [];
-    private readonly System.Windows.Forms.Timer _editCaretTimer = new() { Interval = 50 };
     private PangyaUiNode? _focusedEdit;
-    private long _editCaretStart;
     private int _editCaretIndex;
     private PangyaUiNode? _openCombo;
+    internal event EventHandler? PreviewGeometryChanged;
 
     internal void SetComboPreview(PangyaUiNode node, PangyaUiComboPreview preview)
     {
+        PangyaUiNode? previousOpen = _openCombo;
         if (preview.IsOpen && _openCombo is not null && !ReferenceEquals(_openCombo, node))
             _combos[_openCombo] = _combos[_openCombo] with { IsOpen = false, HoveredIndex = -1 };
         _combos[node] = preview;
         if (preview.IsOpen) _openCombo = node;
         else if (ReferenceEquals(_openCombo, node)) _openCombo = null;
+        if (!ReferenceEquals(previousOpen, _openCombo)) PreviewGeometryChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
     }
     private (PangyaUiNode Node, float Travel, int PreviousY, float Offset, Point TrackPoint)? _comboThumbDrag;
@@ -798,33 +862,19 @@ internal sealed class PangyaUiCanvas : Control
     private int _viewerDragPreviousY;
     private float _viewerThumbOffset;
     private readonly Dictionary<PangyaUiNode, PangyaUiMenuState> _menuStates = [];
-    private readonly System.Windows.Forms.Timer _menuPulseTimer = new() { Interval = 33 };
-    private readonly System.Windows.Forms.Timer _layoutAnimationTimer = new() { Interval = 33 };
-    private readonly System.Windows.Forms.Timer _captionTimer = new() { Interval = 33 };
     private readonly System.Windows.Forms.Timer _tooltipTimer = new() { Interval = 500 };
     private bool _showTooltip;
-    private PangyaUiNode? _fadingTooltip;
-    private Point? _fadingTooltipPointer;
-    private long _tooltipFadeStart;
     private readonly System.Windows.Forms.Timer _buttonTimer = new() { Interval = 33 };
-    private readonly System.Windows.Forms.Timer _frameBlinkTimer = new() { Interval = 800 };
-    private readonly Dictionary<PangyaUiNode, TimeSpan> _frameBlinkElapsed = [];
     private readonly Dictionary<PangyaUiNode, long> _buttonPressTicks = [];
     private readonly Dictionary<PangyaUiNode, PangyaUiButtonInputState> _buttonInputs = [];
     private long _buttonInputTick = Environment.TickCount64;
     private PangyaUiNode? _pressedButton;
     private bool _pressedButtonInside;
     private readonly HashSet<PangyaUiNode> _latchedButtons = [];
-    private readonly Dictionary<PangyaUiNode, float> _captionOffsets = [];
-    private PangyaUiNode? _hoveredCaption;
-    private float _captionLimit;
-    private long _captionTick;
-    private long _menuPulseStart;
-    private long _layoutAnimationStart;
+    private readonly HashSet<PangyaUiNode> _previewHidden = [];
+    private readonly HashSet<PangyaUiNode> _previewShown = [];
     private PangyaUiNode? _hoveredTextControl;
     private PangyaUiCursorPreview? _cursorPreview;
-    private readonly System.Windows.Forms.Timer _cursorTimer = new() { Interval = 16 };
-    private long _cursorAnimationStart;
     private Point? _textControlPointer;
     internal const int FormPadding = 16;
     private PangyaUiRenderer _renderer;
@@ -838,6 +888,8 @@ internal sealed class PangyaUiCanvas : Control
     private Rectangle _dragStartBounds;
     private Size _viewportSize;
     private float _zoom = 1f;
+    private Rectangle _previewBounds;
+    internal bool HasStandaloneFramePreview { get; private set; }
 
     internal void SetResourceCatalog(PangyaUiResourceCatalog catalog)
     {
@@ -858,8 +910,6 @@ internal sealed class PangyaUiCanvas : Control
         MouseDown += (_, e) => RefreshCursorPreview(e.Location);
         MouseMove += CanvasMouseMove;
         Disposed += (_, _) => _startupWallpaperImage?.Dispose();
-        _editCaretTimer.Tick += (_, _) => Invalidate();
-        Disposed += (_, _) => _editCaretTimer.Dispose();
         LostFocus += (_, _) => FocusEdit(null);
         MouseLeave += (_, _) =>
         {
@@ -868,76 +918,42 @@ internal sealed class PangyaUiCanvas : Control
             _hoveredTab = null;
             Invalidate();
         };
-        MouseLeave += (_, _) => UpdateCaptionHover(null);
         MouseLeave += (_, _) => UpdateCursorPreview(null);
         MouseLeave += (_, _) => UpdateWheelPointer(null);
         MouseLeave += (_, _) =>
         {
             foreach (PangyaUiButtonInputState input in _buttonInputs.Values) input.SetCursor(false);
         };
-        _cursorTimer.Tick += (_, _) =>
-        {
-            if (_cursorPreview is not null)
-                RefreshCursorPreview(PointToClient(System.Windows.Forms.Cursor.Position));
-        };
-        Disposed += (_, _) =>
-        {
-            UpdateCursorPreview(null);
-            _cursorTimer.Dispose();
-        };
+        Disposed += (_, _) => UpdateCursorPreview(null);
         _tooltipTimer.Tick += (_, _) =>
         {
-            if (_fadingTooltip is null)
-            {
-                _tooltipTimer.Stop();
-                _showTooltip = true;
-            }
-            else if (GetTooltipAlpha() == 0)
-            {
-                _tooltipTimer.Stop();
-                _fadingTooltip = null;
-                _fadingTooltipPointer = null;
-            }
+            _tooltipTimer.Stop();
+            _showTooltip = true;
             Invalidate();
         };
         Disposed += (_, _) => _tooltipTimer.Dispose();
-        _captionTimer.Tick += (_, _) => AdvanceCaptions();
-        Disposed += (_, _) => _captionTimer.Dispose();
         _buttonTimer.Tick += (_, _) => ExpireButtonPresses();
         Disposed += (_, _) => _buttonTimer.Dispose();
-        _frameBlinkTimer.Tick += (_, _) =>
-        {
-            if (_selectedNode is not PangyaUiNode frame || !_frameBlinkElapsed.TryGetValue(frame, out TimeSpan elapsed))
-                return;
-            _frameBlinkElapsed[frame] = elapsed == TimeSpan.Zero ? TimeSpan.FromMilliseconds(800) : TimeSpan.Zero;
-            Invalidate();
-        };
-        Disposed += (_, _) => _frameBlinkTimer.Dispose();
-        _menuPulseTimer.Tick += (_, _) => UpdateMenuPulse();
-        Disposed += (_, _) => _menuPulseTimer.Dispose();
-        _layoutAnimationTimer.Tick += (_, _) => Invalidate();
-        Disposed += (_, _) => _layoutAnimationTimer.Dispose();
         MouseUp += (_, e) =>
         {
             if (e.Button != MouseButtons.Left) return;
             if (e.Button == MouseButtons.Left && _pressedTab is { } tab &&
-                tab.Bounds.Contains(LogicalPoint(e.Location)) && _renderedTabs.Contains(tab))
+                _renderedTabs.Contains(tab) && HitRenderedTab(tab.Instance.Node, LogicalPoint(e.Location)) == tab)
             {
-                if (tab.Node.Name == "gametype" && tab.Node.Parent is { } room &&
+                if (tab.Instance.Node.Name == "gametype" && tab.Instance.Node.Parent is { } room &&
                     string.Equals(room.Name, "makeroom", StringComparison.OrdinalIgnoreCase))
                 {
-                    bool changed = tab.Index == 1 ? _makeRoomMatchForms.Add(room) : _makeRoomMatchForms.Remove(room);
+                    bool changed = (tab.Index == 1) != (_selectedTabs.GetValueOrDefault(tab.Instance) == 1);
                     if (changed)
                     {
                         foreach (PangyaUiNode child in room.Children)
                         {
-                            foreach (var key in _selectedTabs.Keys.Where(key => ReferenceEquals(key.Node, child)).ToArray())
-                                _selectedTabs.Remove(key);
-                            if (child.Name == "picture") ResetViewerScroll(child);
+                            _selectedTabs.Remove(new PangyaUiTabInstance(child, tab.Instance.Resource));
+                            if (child.Name == "picture" && tab.Instance.Resource is null) ResetViewerScroll(child);
                         }
                     }
                 }
-                _selectedTabs[(tab.Node, tab.Origin)] = tab.Index;
+                _selectedTabs[tab.Instance] = tab.Index;
                 Invalidate();
             }
             _pressedTab = null;
@@ -1010,6 +1026,9 @@ internal sealed class PangyaUiCanvas : Control
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public bool ShowDebugBounds { get; set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    internal bool HighlightSelection { get; set; }
+
     [Browsable(false)]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public PangyaUiButtonState ButtonState { get; set; }
@@ -1021,6 +1040,7 @@ internal sealed class PangyaUiCanvas : Control
         get => _zoom;
         set
         {
+            if (_zoom == value) return;
             _zoom = value;
             UpdateCanvasSize();
             Invalidate();
@@ -1037,11 +1057,8 @@ internal sealed class PangyaUiCanvas : Control
             if (!ReferenceEquals(_selectedForm, value))
             {
                 ClearTabHitState();
-                _layoutAnimationStart = Environment.TickCount64;
-                _layoutAnimationTimer.Enabled = value is not null &&
-                    _renderer.HasAnimatedControls(value, _enabledSymbols);
+                UpdateCursorPreview(null);
             }
-            if (!ReferenceEquals(_selectedForm, value)) UpdateCursorPreview(null);
             _selectedForm = value;
             if (_selectedNode is not null && value is not null && !_selectedNode.IsWithin(value))
                 SelectedNode = null;
@@ -1057,17 +1074,8 @@ internal sealed class PangyaUiCanvas : Control
         get => _selectedNode;
         set
         {
-            if (!ReferenceEquals(_selectedNode, value))
-            {
-                _frameBlinkTimer.Stop();
-                _frameBlinkElapsed.Clear();
-                if (value is not null && _renderer.CanPreviewFrameBlink(value, _enabledSymbols))
-                {
-                    _frameBlinkElapsed[value] = TimeSpan.Zero;
-                    _frameBlinkTimer.Start();
-                }
-            }
             _selectedNode = value;
+            if (_selectedForm is null) UpdateCanvasSize();
             Invalidate();
         }
     }
@@ -1086,11 +1094,6 @@ internal sealed class PangyaUiCanvas : Control
             if (_selectedNode is not null && _document is not null &&
                 !_document.IsVisible(_selectedNode, _enabledSymbols))
                 SelectedNode = null;
-            bool animate = _selectedForm is not null &&
-                _renderer.HasAnimatedControls(_selectedForm, _enabledSymbols);
-            if (animate && !_layoutAnimationTimer.Enabled)
-                _layoutAnimationStart = Environment.TickCount64;
-            _layoutAnimationTimer.Enabled = animate;
             Invalidate();
         }
     }
@@ -1110,8 +1113,9 @@ internal sealed class PangyaUiCanvas : Control
     public void LoadDocument(PangyaUiDocument document)
     {
         UpdateCursorPreview(null);
-        _menuPulseStart = Environment.TickCount64;
         _document = document;
+        _previewHidden.Clear();
+        _previewShown.Clear();
         _viewerTopRows.Clear();
         _viewerScrollRows.Clear();
         _viewerFollowBottom.Clear();
@@ -1122,7 +1126,6 @@ internal sealed class PangyaUiCanvas : Control
         _renderedTabs.Clear();
         _hoveredTab = null;
         _selectedTabs.Clear();
-        _makeRoomMatchForms.Clear();
         _pressedTab = null;
         _editLines.Clear();
         _editTopRows.Clear();
@@ -1131,23 +1134,15 @@ internal sealed class PangyaUiCanvas : Control
         _openCombo = null;
         _draggedViewer = null;
         _menuStates.Clear();
-        _menuPulseTimer.Stop();
-        _layoutAnimationTimer.Stop();
-        _captionTimer.Stop();
         _buttonTimer.Stop();
-        _frameBlinkTimer.Stop();
-        _frameBlinkElapsed.Clear();
         _buttonPressTicks.Clear();
         _buttonInputs.Clear();
         _buttonInputTick = Environment.TickCount64;
         _latchedButtons.Clear();
         ClearPressedButton();
-        _captionOffsets.Clear();
-        _hoveredCaption = null;
         UpdateTextControlHover(null, null);
         _tooltipTimer.Stop();
-        _fadingTooltip = null;
-        _fadingTooltipPointer = null;
+        _showTooltip = false;
         _selectedForm = null;
         _selectedNode = null;
         UpdateCanvasSize();
@@ -1163,13 +1158,15 @@ internal sealed class PangyaUiCanvas : Control
         Capture = false;
     }
 
-    private (PangyaUiNode Node, int Index, Rectangle Bounds, Point Origin)? HitRenderedTab(PangyaUiNode hit, Point point)
+    private (PangyaUiTabInstance Instance, int Index, Rectangle Bounds, Point Origin)? HitRenderedTab(PangyaUiNode hit, Point point)
     {
+        PangyaUiRenderOptions options = RenderOptions();
         for (int index = _renderedTabs.Count - 1; index >= 0; index--)
         {
             var tab = _renderedTabs[index];
-            if ((ReferenceEquals(tab.Node, hit) || hit.IsForm ||
-                 hit.Type.Equals("MACROITEM", StringComparison.OrdinalIgnoreCase)) && tab.Bounds.Contains(point))
+            if ((ReferenceEquals(tab.Instance.Node, hit) || hit.IsForm ||
+                 hit.Type.Equals("MACROITEM", StringComparison.OrdinalIgnoreCase)) && tab.Bounds.Contains(point) &&
+                _renderer.HitTestTab(tab.Instance, point, tab.Origin, options) == tab.Index)
                 return tab;
         }
         return null;
@@ -1181,7 +1178,8 @@ internal sealed class PangyaUiCanvas : Control
         e.Graphics.Clear(Color.FromArgb(24, 26, 30));
         if (_document is null) return;
         using var transform = new System.Drawing.Drawing2D.Matrix(
-            Zoom, 0f, 0f, Zoom, FormPadding * Zoom, FormPadding * Zoom);
+            Zoom, 0f, 0f, Zoom,
+            (FormPadding - (float)_previewBounds.X) * Zoom, (FormPadding - (float)_previewBounds.Y) * Zoom);
         e.Graphics.Transform = transform;
         e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
         _renderedTabs.Clear();
@@ -1192,8 +1190,8 @@ internal sealed class PangyaUiCanvas : Control
         {
             WheelFocusedNode = wheelFocusedNode,
             CursorPreview = _cursorPreview,
-            HoveredTab = _hoveredTab is { } hover ? (hover.Node, hover.Index, hover.Bounds) : null,
-            OnTabInstanceRendered = (node, index, bounds, origin) => _renderedTabs.Add((node, index, bounds, origin))
+            HoveredTabInstance = _hoveredTab is { } hover ? (hover.Instance, hover.Index) : null,
+            OnTabRenderedWithInstance = (instance, index, bounds, origin) => _renderedTabs.Add((instance, index, bounds, origin))
         });
     }
 
@@ -1232,16 +1230,11 @@ internal sealed class PangyaUiCanvas : Control
             UpdateCursorPreview(null);
             return;
         }
-        long now = Environment.TickCount64;
-        if (_cursorPreview?.Index != index) _cursorAnimationStart = now;
-        int frame = frames > 1 ? (int)(((now - _cursorAnimationStart) % 350) * frames / 350) : 0;
-        _cursorTimer.Enabled = frames > 1;
-        UpdateCursorPreview(new PangyaUiCursorPreview(LogicalPoint(location), index, frame));
+        UpdateCursorPreview(new PangyaUiCursorPreview(LogicalPoint(location), index, 0));
     }
 
     private void UpdateCursorPreview(PangyaUiCursorPreview? cursor)
     {
-        if (cursor is null) _cursorTimer.Stop();
         if (_cursorPreview == cursor) return;
         if (_cursorPreview is null) Cursor.Hide();
         else if (cursor is null) Cursor.Show();
@@ -1252,8 +1245,6 @@ internal sealed class PangyaUiCanvas : Control
     {
         _focusedEdit = node;
         _editCaretIndex = node is null ? 0 : GetEditText(node).Length;
-        _editCaretStart = Environment.TickCount64;
-        _editCaretTimer.Enabled = node is not null;
         Invalidate();
     }
 
@@ -1311,7 +1302,6 @@ internal sealed class PangyaUiCanvas : Control
         }
         _editLines[node] = value.Split('\n');
         _editTopRows.Remove(node);
-        _editCaretStart = Environment.TickCount64;
         e.Handled = true;
         Invalidate();
     }
@@ -1350,7 +1340,6 @@ internal sealed class PangyaUiCanvas : Control
                     _editLines[edit] = text.Remove(_editCaretIndex, next - _editCaretIndex).Split('\n');
                     break;
             }
-            _editCaretStart = Environment.TickCount64;
             _editTopRows.Remove(edit);
             Invalidate();
             return true;
@@ -1504,13 +1493,12 @@ internal sealed class PangyaUiCanvas : Control
                 if (!track.Contains(logical)) continue;
                 if (logical.Y < thumb.Top || logical.Y > thumb.Bottom)
                 {
-                    // Fresh moves by half the visible row capacity for a track click.
-                    int step = viewport.Height / 20 / 2;
-                    int maximum = _renderer.GetViewerMaximumTopRow(viewer, _enabledSymbols, RenderOptions());
-                    int topRow = _viewerTopRows.GetValueOrDefault(viewer);
+                    PangyaUiRenderOptions current = RenderOptions();
+                    PangyaUiRenderOptions paged = _renderer.PageViewerScrollbar(viewer, logical.Y > thumb.Bottom, current);
+                    if (ReferenceEquals(current, paged)) return;
                     _viewerScrollRows.Remove(viewer);
-                    _viewerTopRows[viewer] = Math.Clamp(topRow + (logical.Y < thumb.Y ? -step : step), 0, maximum);
-                    _viewerFollowBottom[viewer] = logical.Y >= thumb.Y && _viewerTopRows[viewer] == maximum;
+                    _viewerTopRows[viewer] = paged.ViewerTopRows![viewer];
+                    _viewerFollowBottom[viewer] = paged.ViewerFollowBottom![viewer];
                     Invalidate();
                     return;
                 }
@@ -1611,11 +1599,7 @@ internal sealed class PangyaUiCanvas : Control
         {
             PangyaUiMenuState state = _menuStates.GetValueOrDefault(hit) ?? new PangyaUiMenuState();
             if (hit.Type.Equals("CONTEXTMENU", StringComparison.OrdinalIgnoreCase) && state.SelectedRow == row) return;
-            _menuStates[hit] = state with { SelectedRow = row, SelectionAlpha = GetMenuPulseAlpha() };
-            if (!_menuPulseTimer.Enabled)
-            {
-                _menuPulseTimer.Start();
-            }
+            _menuStates[hit] = state with { SelectedRow = row, SelectionAlpha = byte.MaxValue };
             Invalidate();
             return;
         }
@@ -1641,8 +1625,7 @@ internal sealed class PangyaUiCanvas : Control
         if (row < 0) return;
         PangyaUiMenuState state = _menuStates.GetValueOrDefault(hit) ?? new();
         if (state.SelectedRow == row) return;
-        _menuStates[hit] = state with { SelectedRow = row, SelectionAlpha = GetMenuPulseAlpha() };
-        if (!_menuPulseTimer.Enabled) _menuPulseTimer.Start();
+        _menuStates[hit] = state with { SelectedRow = row, SelectionAlpha = byte.MaxValue };
         Invalidate();
     }
 
@@ -1688,7 +1671,6 @@ internal sealed class PangyaUiCanvas : Control
                 SetComboPreview(open, combo with { HoveredIndex = item });
             if (_renderer.GetComboDropdownBounds(open, RenderOptions()).Contains(logical))
             {
-                UpdateCaptionHover(null);
                 UpdateTextControlHover(null, logical);
                 Cursor = item >= 0 ? Cursors.Hand : Cursors.Default;
                 RefreshCursorPreview(e.Location);
@@ -1734,7 +1716,6 @@ internal sealed class PangyaUiCanvas : Control
                 _renderer.HitTest(_document, SelectedForm, logical, RenderOptions());
             foreach (var pair in _buttonInputs)
                 pair.Value.SetCursor(ReferenceEquals(pair.Key, hit));
-            UpdateCaptionHover(hit is not null && PangyaUiRenderer.IsScrollingCaption(hit, RenderOptions()) ? hit : null);
             var hoveredTab = hit is null ? null : HitRenderedTab(hit, logical);
             if (_hoveredTab != hoveredTab)
             {
@@ -1776,49 +1757,6 @@ internal sealed class PangyaUiCanvas : Control
         Invalidate();
     }
 
-    private void UpdateCaptionHover(PangyaUiNode? caption)
-    {
-        if (ReferenceEquals(_hoveredCaption, caption)) return;
-        _hoveredCaption = caption;
-        _captionLimit = caption is null ? 0 : _renderer.GetCaptionScrollLimit(caption, _enabledSymbols, RenderOptions());
-        if (_captionTimer.Enabled || (_captionLimit <= 0 && _captionOffsets.Count == 0)) return;
-        _captionTick = Environment.TickCount64;
-        _captionTimer.Start();
-    }
-
-    private void AdvanceCaptions()
-    {
-        long now = Environment.TickCount64;
-        float distance = (now - _captionTick) * 0.1f;
-        _captionTick = now;
-        bool changed = false;
-        foreach (PangyaUiNode caption in _captionOffsets.Keys.ToArray())
-        {
-            if (ReferenceEquals(caption, _hoveredCaption)) continue;
-            float offset = _captionOffsets[caption] - distance;
-            if (offset <= 0) _captionOffsets.Remove(caption);
-            else _captionOffsets[caption] = offset;
-            changed = true;
-        }
-        if (_hoveredCaption is PangyaUiNode hovered)
-        {
-            float current = _captionOffsets.GetValueOrDefault(hovered);
-            float next = current;
-            if (current < _captionLimit)
-            {
-                next += distance;
-                if (next >= _captionLimit + hovered.Bounds.Width) next = _captionLimit;
-            }
-            if (next != current)
-            {
-                _captionOffsets[hovered] = next;
-                changed = true;
-            }
-        }
-        if (changed) Invalidate();
-        else _captionTimer.Stop();
-    }
-
     private void UpdateTextControlHover(PangyaUiNode? menu, Point? pointer)
     {
         if (menu is null) pointer = null;
@@ -1827,62 +1765,85 @@ internal sealed class PangyaUiCanvas : Control
         {
             _tooltipTimer.Stop();
             if (menu?.Parameters.GetValueOrDefault("tooltip") is { Length: > 0 })
-            {
-                _fadingTooltip = null;
-                _fadingTooltipPointer = null;
-                _tooltipTimer.Interval = 500;
-                _tooltipTimer.Start();
-            }
-            else if (_showTooltip && _hoveredTextControl is not null)
-            {
-                _fadingTooltip = _hoveredTextControl;
-                _fadingTooltipPointer = pointer ?? _textControlPointer;
-                _tooltipFadeStart = Environment.TickCount64;
-                _tooltipTimer.Interval = 33;
-                _tooltipTimer.Start();
-            }
-            else if (_fadingTooltip is not null)
                 _tooltipTimer.Start();
             _showTooltip = false;
         }
-        if (_fadingTooltip is not null && pointer.HasValue) _fadingTooltipPointer = pointer;
         _hoveredTextControl = menu;
         _textControlPointer = pointer;
         Invalidate();
     }
 
-    private byte GetMenuPulseAlpha()
+    internal Point LogicalPoint(Point point)
     {
-        double phase = ((Environment.TickCount64 - _menuPulseStart) % 3000) / 500.0;
-        return (byte)(255 * Math.Min(1.0, Math.Min(phase, 6.0 - phase)));
+        return new((int)Math.Floor(point.X / Zoom - FormPadding + _previewBounds.X),
+            (int)Math.Floor(point.Y / Zoom - FormPadding + _previewBounds.Y));
     }
 
-    private void UpdateMenuPulse()
+    internal bool IsElementShownInPreview(PangyaUiNode node) =>
+        !_previewHidden.Contains(node) && (_previewShown.Contains(node) || node.IsRenderVisible);
+
+    internal void SetElementPreviewVisibility(PangyaUiNode node, bool visible)
     {
-        byte alpha = GetMenuPulseAlpha();
-        bool changed = false;
-        foreach (PangyaUiNode node in _menuStates.Keys.ToArray())
+        _previewHidden.Remove(node);
+        _previewShown.Remove(node);
+        if (visible != node.IsRenderVisible)
+            (visible ? _previewShown : _previewHidden).Add(node);
+        UpdateCanvasSize();
+        Invalidate();
+    }
+
+    internal float GetDialogFitZoom()
+    {
+        if (_viewportSize.Width <= 0 || _viewportSize.Height <= 0) return 1f;
+        Size size = _previewBounds.Size;
+        float width = size.Width + 2f * FormPadding;
+        float height = size.Height + 2f * FormPadding;
+        float zoom = Math.Min(1f, Math.Min(_viewportSize.Width / width, _viewportSize.Height / height));
+        return width * zoom > _viewportSize.Width || height * zoom > _viewportSize.Height
+            ? MathF.BitDecrement(zoom)
+            : zoom;
+    }
+
+    private Rectangle LogicalCanvasBounds()
+    {
+        Size size = _selectedForm?.Bounds.Size is { Width: > 0, Height: > 0 } formSize
+            ? formSize
+            : _document?.CanvasSize ?? Size.Empty;
+        var bounds = new Rectangle(Point.Empty, size);
+        HasStandaloneFramePreview = false;
+        if (_document is null) return bounds;
+        if (_selectedForm is null)
         {
-            PangyaUiMenuState state = _menuStates[node];
-            if (state.SelectionAlpha == alpha) continue;
-            _menuStates[node] = state with { SelectionAlpha = alpha };
-            changed = true;
+            Rectangle? frameBounds = _renderer.GetStandaloneFramePreviewBounds(size,
+                new PangyaUiRenderOptions(ButtonState, _enabledSymbols, SelectedNode: _selectedNode)
+                { HiddenNodes = _previewHidden, VisibleNodes = _previewShown });
+            HasStandaloneFramePreview = frameBounds.HasValue;
+            return frameBounds ?? bounds;
         }
-        if (changed) Invalidate();
+        if (_selectedForm.Type.Equals("LAYOUT", StringComparison.OrdinalIgnoreCase))
+            return bounds;
+        PangyaUiRenderOptions options = RenderOptions() with { IncludeCaptionVisualBounds = true, ShowDebugBounds = false };
+        bounds = PangyaUiRenderer.GetPreviewCanvasBounds(_document, _selectedForm, options);
+        foreach (PangyaUiNode node in _renderer.GetRenderOrder(_document, _selectedForm, null,
+                     _enabledSymbols, null, options))
+        {
+            Rectangle rendered = _renderer.GetRenderedBounds(node, options);
+            if (rendered.Width > 0 && rendered.Height > 0)
+                bounds = Rectangle.Union(bounds, rendered);
+            Rectangle dropdown = _renderer.GetComboDropdownBounds(node, options, includeScrollbar: true);
+            if (dropdown.Width > 0 && dropdown.Height > 0)
+                bounds = Rectangle.Union(bounds, dropdown);
+        }
+        return bounds;
     }
 
-    internal Point LogicalPoint(Point point) =>
-        new((int)Math.Floor(point.X / Zoom - FormPadding),
-            (int)Math.Floor(point.Y / Zoom - FormPadding));
-
-    private void UpdateCanvasSize()
+    internal void UpdateCanvasSize()
     {
         if (_document is null) return;
-        Size logicalSize = _selectedForm?.Bounds.Size is { Width: > 0, Height: > 0 } formSize
-            ? formSize
-            : _document.CanvasSize;
-        int contentWidth = (int)Math.Ceiling((logicalSize.Width + FormPadding * 2) * Zoom);
-        int contentHeight = (int)Math.Ceiling((logicalSize.Height + FormPadding * 2) * Zoom);
+        _previewBounds = LogicalCanvasBounds();
+        Size logicalSize = _previewBounds.Size;
+        int contentWidth = (int)Math.Ceiling((logicalSize.Width + FormPadding * 2f) * Zoom);
+        int contentHeight = (int)Math.Ceiling((logicalSize.Height + FormPadding * 2f) * Zoom);
         Size = new Size(
             Math.Max(Math.Max(1, contentWidth), _viewportSize.Width),
             Math.Max(Math.Max(1, contentHeight), _viewportSize.Height));
@@ -1929,9 +1890,6 @@ internal sealed class PangyaUiCanvas : Control
         if (changed) Invalidate();
     }
 
-    private byte GetTooltipAlpha() => _fadingTooltip is null ? (byte)220 :
-        (byte)Math.Clamp(220 - (Environment.TickCount64 - _tooltipFadeStart) * 0.66, 0, 220);
-
     private IReadOnlyDictionary<PangyaUiNode, PangyaUiEditCaret>? GetEditCarets()
     {
         if (_focusedEdit is not PangyaUiNode node) return null;
@@ -1949,12 +1907,17 @@ internal sealed class PangyaUiCanvas : Control
         }
         return new Dictionary<PangyaUiNode, PangyaUiEditCaret>
         {
-            [node] = new(line, column,
-                TimeSpan.FromMilliseconds(Environment.TickCount64 - _editCaretStart))
+            [node] = new(line, column, TimeSpan.Zero) { Steady = true }
         };
     }
 
-    private string GetEditText(PangyaUiNode node) => string.Join("\n", _editLines.GetValueOrDefault(node) ?? []);
+    private string GetEditText(PangyaUiNode node)
+    {
+        if (_editLines.TryGetValue(node, out IReadOnlyList<string>? lines)) return string.Join("\n", lines);
+        return node.Element.OwnerDocument?.DocumentElement?.LocalName == "refresh"
+            ? node.Element["Text"]?.GetAttribute("val") ?? string.Empty
+            : string.Empty;
+    }
 
     private static int PreviousEditIndex(string text, int index) =>
         index <= 0 ? 0 : index - (index > 1 && char.IsSurrogatePair(text[index - 2], text[index - 1]) ? 2 : 1);
@@ -2006,21 +1969,25 @@ internal sealed class PangyaUiCanvas : Control
             DraggedViewerThumb = _draggedViewer is { } viewer ? (viewer, _viewerThumbOffset) : null,
             StartupWallpaperImage = _startupWallpaperImage,
             WheelEvents = _wheelEvents,
-            Combos = _combos, SelectedTabInstances = _selectedTabs, MakeRoomMatchForms = _makeRoomMatchForms,
+            Combos = _combos, SelectedTabsByInstance = _selectedTabs,
             EditLines = _editLines, EditCarets = GetEditCarets(), EditTopRows = _editTopRows,
             EditFollowBottom = _editFollowBottom,
             ComboViewportHeight = SelectedForm?.Bounds.Height ?? _document?.CanvasSize.Height ?? 0,
             IsViewFocused = _viewFocused,
-            FrameBlinkElapsed = _frameBlinkElapsed,
+            PreserveSelectionDrawOrder = true,
+            HiddenNodes = _previewHidden,
+            VisibleNodes = _previewShown,
+            HideSelectionOutline = !HighlightSelection,
+            TintSelection = HighlightSelection,
+            AnchorCanvasToSelectedForm = true,
             ButtonPressTicks = _buttonPressTicks.Where(pair => !_buttonInputs.ContainsKey(pair.Key))
                 .ToDictionary(pair => pair.Key, pair => pair.Value), CurrentTick = Environment.TickCount64,
             ImageButtonStates = GetButtonInputSnapshots(),
             PressedButton = _pressedButtonInside ? _pressedButton : null,
             LatchedButtons = _latchedButtons,
             HoveredNode = _draggedViewer ?? _hoveredTextControl, Pointer = _textControlPointer, MenuStates = _menuStates,
-            ShowTooltip = (_showTooltip || _fadingTooltip is not null) && _viewFocused && !Capture,
+            ShowTooltip = _showTooltip && _viewFocused && !Capture,
             CursorIndex = FreshCursorIndex,
-            TooltipAlpha = GetTooltipAlpha(),
             CaptionFontHeight = CaptionFont?.Height,
             MeasureCaptionText = CaptionFont is { } captionFont ? captionFont.Measure : null,
             DrawCaptionText = CaptionFont is { } captionBitmapFont ? captionBitmapFont.Draw : null,
@@ -2028,12 +1995,7 @@ internal sealed class PangyaUiCanvas : Control
             TooltipFontHeight = TooltipFont?.Height,
             MeasureTooltipText = TooltipFont is { } font ? font.Measure : null,
             DrawTooltipText = TooltipFont is { } bitmapFont ? bitmapFont.Draw : null,
-            TooltipNode = _fadingTooltip, TooltipPointer = _fadingTooltipPointer,
-            CaptionScrollOffsets = _captionOffsets,
-            EditEmoticonAnimationTime = _layoutAnimationTimer.Enabled
-                ? TimeSpan.FromMilliseconds(Environment.TickCount64 - _layoutAnimationStart) : null,
-            LayoutAnimationTime = _layoutAnimationTimer.Enabled
-                ? TimeSpan.FromMilliseconds(Environment.TickCount64 - _layoutAnimationStart) : TimeSpan.Zero
+            SkipAreaEntranceEffects = true
         };
         foreach (var pair in _gaugeInputs) options = pair.Value.ApplyTo(pair.Key, options);
         return options;
@@ -2047,11 +2009,14 @@ internal sealed class PangyaUiNodeEventArgs(PangyaUiNode node) : EventArgs
 
 internal sealed class PangyaUiPropertyPanel : UserControl
 {
+    private const int FixedRowCount = 8;
     private readonly PangyaFileImageProvider _assets;
+    private readonly Func<PangyaUiNode, bool> _isShownInPreview;
     private readonly GroupBox _group = new() { Dock = DockStyle.Fill };
+    private readonly Panel _scrollHost = new() { Name = "pnlUiPropertyScroll", Dock = DockStyle.Fill, AutoScroll = true };
     private readonly TableLayoutPanel _layout = new()
     {
-        Dock = DockStyle.Top,
+        Anchor = AnchorStyles.Top | AnchorStyles.Left,
         AutoSize = true,
         ColumnCount = 2,
         Padding = new Padding(8)
@@ -2063,6 +2028,8 @@ internal sealed class PangyaUiPropertyPanel : UserControl
     private readonly Label _widthLabel = new();
     private readonly Label _heightLabel = new();
     private readonly Label _resourceLabel = new();
+    private readonly Label _previewVisibilityLabel = new();
+    private readonly CheckBox _previewVisibility = new() { Name = "chkUiShowInPreview" };
     private readonly TextBox _name = new();
     private readonly TextBox _type = new();
     private readonly NumericUpDown _x = Numeric();
@@ -2080,13 +2047,15 @@ internal sealed class PangyaUiPropertyPanel : UserControl
     };
     private PangyaUiNode? _selectedNode;
     private bool _loading;
+    private readonly List<(Label Name, TextBox Value)> _xmlRows = [];
 
-    public PangyaUiPropertyPanel(PangyaFileImageProvider assets)
+    public PangyaUiPropertyPanel(PangyaFileImageProvider assets, Func<PangyaUiNode, bool>? isShownInPreview = null)
     {
         _assets = assets;
+        _isShownInPreview = isShownInPreview ?? (node => node.IsRenderVisible);
         Name = "pnlUiProperties";
         Dock = DockStyle.Fill;
-        _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+        _layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         _resourceEditor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         _resourceEditor.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 34));
@@ -2099,7 +2068,14 @@ internal sealed class PangyaUiPropertyPanel : UserControl
         AddRow(_widthLabel, _width, 4);
         AddRow(_heightLabel, _height, 5);
         AddRow(_resourceLabel, _resourceEditor, 6);
-        _group.Controls.Add(_layout);
+        AddRow(_previewVisibilityLabel, _previewVisibility, FixedRowCount - 1);
+        _previewVisibility.CheckedChanged += (_, _) =>
+        {
+            if (!_loading) PreviewVisibilityChanged?.Invoke(this, EventArgs.Empty);
+        };
+        _scrollHost.Controls.Add(_layout);
+        _scrollHost.ClientSizeChanged += (_, _) => UpdatePropertyTableWidth();
+        _group.Controls.Add(_scrollHost);
         Controls.Add(_group);
 
         _name.TextChanged += (_, _) => ApplyName();
@@ -2110,9 +2086,35 @@ internal sealed class PangyaUiPropertyPanel : UserControl
         _width.ValueChanged += (_, _) => ApplyBounds();
         _height.ValueChanged += (_, _) => ApplyBounds();
         _resourceBrowse.Click += (_, _) => BrowseForResource();
+        UpdateContentWidth();
     }
 
     public event EventHandler? ElementChanged;
+    internal event EventHandler? PreviewVisibilityChanged;
+    internal bool ShowInPreview => _previewVisibility.Checked;
+    internal event EventHandler? ContentWidthChanged;
+
+    internal int ContentWidth => Math.Max(TextRenderer.MeasureText(_group.Text, _group.Font).Width + 24,
+        _scrollHost.AutoScrollMinSize.Width + SystemInformation.VerticalScrollBarWidth + 12);
+
+    private void UpdateContentWidth()
+    {
+        int labelWidth = _layout.Controls.OfType<Label>()
+            .Max(label => label.GetPreferredSize(Size.Empty).Width + label.Margin.Horizontal);
+        int editableWidth = Math.Max(Math.Max(MeasureValue(_name), MeasureValue(_type)),
+            MeasureValue(_resource) + (int)_resourceEditor.ColumnStyles[1].Width);
+        int xmlWidth = _xmlRows.Select(row => MeasureValue(row.Value)).DefaultIfEmpty().Max();
+        int valueWidth = Math.Max(140, Math.Max(editableWidth, xmlWidth));
+        _scrollHost.AutoScrollMinSize = new Size(labelWidth + valueWidth + _layout.Padding.Horizontal, 0);
+        UpdatePropertyTableWidth();
+        ContentWidthChanged?.Invoke(this, EventArgs.Empty);
+
+        static int MeasureValue(TextBox value) => TextRenderer.MeasureText(value.Text, value.Font, Size.Empty,
+            TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine).Width + value.Margin.Horizontal + 6;
+    }
+
+    private void UpdatePropertyTableWidth() =>
+        _layout.Width = Math.Max(_scrollHost.ClientSize.Width, _scrollHost.AutoScrollMinSize.Width);
 
     [Browsable(false)]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -2121,8 +2123,11 @@ internal sealed class PangyaUiPropertyPanel : UserControl
         get => _selectedNode;
         set
         {
+            bool selectionChanged = !ReferenceEquals(_selectedNode, value);
             _selectedNode = value;
             LoadSelectedNode();
+            RefreshXmlRows();
+            if (selectionChanged) _scrollHost.AutoScrollPosition = Point.Empty;
         }
     }
 
@@ -2136,7 +2141,10 @@ internal sealed class PangyaUiPropertyPanel : UserControl
         _widthLabel.Text = Strings.UiEditor_Width;
         _heightLabel.Text = Strings.UiEditor_Height;
         _resourceLabel.Text = Strings.UiEditor_Resource;
+        _previewVisibilityLabel.Text = Strings.UiEditor_ShowInPreview;
+        _previewVisibility.AccessibleName = Strings.UiEditor_ShowInPreview;
         _resourceBrowse.AccessibleName = Strings.UiEditor_SelectResource;
+        UpdateContentWidth();
     }
 
     internal Point DisplayedLocation =>
@@ -2171,7 +2179,10 @@ internal sealed class PangyaUiPropertyPanel : UserControl
         try
         {
             bool enabled = _selectedNode?.IsEditable == true;
-            _layout.Enabled = enabled;
+            foreach (Control control in _layout.Controls)
+                if (_layout.GetRow(control) < FixedRowCount - 1) control.Enabled = enabled;
+            _previewVisibility.Enabled = _selectedNode is not null;
+            _previewVisibility.Checked = _selectedNode is not null && _isShownInPreview(_selectedNode);
             _name.Text = _selectedNode?.Name ?? string.Empty;
             _type.Text = _selectedNode?.Type ?? string.Empty;
             _resource.Text = _selectedNode?.GetResource(PangyaUiButtonState.Normal) ?? string.Empty;
@@ -2199,10 +2210,76 @@ internal sealed class PangyaUiPropertyPanel : UserControl
             : Strings.UiEditor_Properties;
     }
 
+    private void RefreshXmlRows()
+    {
+        _layout.SuspendLayout();
+        try
+        {
+            foreach ((Label name, TextBox value) in _xmlRows)
+            {
+                name.Dispose();
+                value.Dispose();
+            }
+            _xmlRows.Clear();
+            while (_layout.RowStyles.Count > FixedRowCount)
+                _layout.RowStyles.RemoveAt(_layout.RowStyles.Count - 1);
+            _layout.RowCount = FixedRowCount;
+            if (_selectedNode is not null)
+            {
+                foreach (XmlAttribute attribute in _selectedNode.Element.Attributes)
+                    AddXmlRow(attribute.Name, attribute.Value);
+
+                var treeElements = _selectedNode.Children.Select(node => node.Element)
+                    .ToHashSet(ReferenceEqualityComparer.Instance);
+                var layerIndex = 0;
+                foreach (XmlElement child in _selectedNode.Element.ChildNodes.OfType<XmlElement>())
+                {
+                    if (child.LocalName.Equals("param", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string name = child.GetAttribute("name");
+                        AddXmlRow(name.Length == 0 ? child.Name : $"{child.Name}[{name}]",
+                            child.GetAttribute("var"));
+                        continue;
+                    }
+
+                    bool isLayer = child.LocalName.Equals("layer", StringComparison.OrdinalIgnoreCase);
+                    if (!isLayer && treeElements.Contains(child)) continue;
+                    string prefix = isLayer ? $"{child.Name}[{++layerIndex}]" : child.Name;
+                    foreach (XmlAttribute attribute in child.Attributes)
+                        AddXmlRow($"{prefix}/@{attribute.Name}", attribute.Value);
+                    if (child.LocalName == "Assets")
+                    {
+                        foreach (XmlElement asset in child.ChildNodes.OfType<XmlElement>()
+                                     .Where(element => element.LocalName == "Asset"))
+                        {
+                            string state = asset.GetAttribute("Name");
+                            string assetPath = state.Length == 0
+                                ? $"{prefix}/{asset.Name}" : $"{prefix}/{asset.Name}[{state}]";
+                            foreach (XmlAttribute attribute in asset.Attributes)
+                                AddXmlRow($"{assetPath}/@{attribute.Name}", attribute.Value);
+                        }
+                    }
+                }
+            }
+        }
+        finally { _layout.ResumeLayout(); }
+        UpdateContentWidth();
+    }
+
+    private void AddXmlRow(string name, string text)
+    {
+        var label = new Label { Text = name, UseMnemonic = false };
+        var value = new TextBox { Name = name, Text = text, ReadOnly = true, AccessibleName = name };
+        _layout.RowCount++;
+        AddRow(label, value, _layout.RowCount - 1);
+        _xmlRows.Add((label, value));
+    }
+
     private void ApplyName()
     {
         if (_loading || _selectedNode is null) return;
         _selectedNode.SetName(_name.Text);
+        RefreshXmlRows();
         ElementChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -2210,6 +2287,7 @@ internal sealed class PangyaUiPropertyPanel : UserControl
     {
         if (_loading || _selectedNode is null) return;
         _selectedNode.SetType(_type.Text);
+        RefreshXmlRows();
         ElementChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -2217,6 +2295,7 @@ internal sealed class PangyaUiPropertyPanel : UserControl
     {
         if (_loading || _selectedNode is null) return;
         _selectedNode.SetResource(_resource.Text);
+        RefreshXmlRows();
         ElementChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -2236,12 +2315,14 @@ internal sealed class PangyaUiPropertyPanel : UserControl
         _selectedNode.SetBounds(new Rectangle(
             decimal.ToInt32(_x.Value), decimal.ToInt32(_y.Value),
             decimal.ToInt32(_width.Value), decimal.ToInt32(_height.Value)));
+        RefreshXmlRows();
         ElementChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void AddRow(Label label, Control editor, int row)
     {
         label.Dock = DockStyle.Fill;
+        label.AutoSize = true;
         label.TextAlign = ContentAlignment.MiddleLeft;
         editor.Dock = DockStyle.Fill;
         _layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));

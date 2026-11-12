@@ -63,6 +63,35 @@ compiled spatial and alpha fixtures remain unexecuted.
 
 ## Confirmed work still needed
 
+- The editor retains FrTabButton selection and hover by tab node and resource
+  host chain. Repeated copies keep independent state when their origins move.
+
+- FrTextButton caption replacement now retains the fractional width of the
+  segment layout for the next centering operation. Explicit resize supplies a
+  new width. Pixel-rounded bounds remain available for editor selection.
+
+- FrViewer now retains its scroll range in viewports shorter than a 20-pixel
+  row. FrScrollBar suppresses drawing at zero capacity but still updates its
+  top row. The viewer handles the resulting empty image slice at end of file.
+
+- FrWnd's late display pass now participates in the shared preview draw order.
+  Dialog fit excludes suppressed containers and editor hit testing picks the
+  visible late-pass child over overlapping ordinary artwork. A separately
+  registered topmost child in expanded XML now takes its own queue entry when
+  its parent draws. Inline and expanded registrations now share a queue. An
+  expanded child discovered after its own registration position, and hit testing
+  across the two kinds of registrations, still require instance-aware discovery.
+
+- FrWnd ancestry and measured bounds now treat a referenced macro definition
+  as a template. Its children draw under the host even if the definition carries
+  a visibility field. The editor can still hide an individual macro instance.
+  Instance-specific runtime movement and resizing remain open.
+
+- AREA initialization now reads decimal prefixes for `center`, `stretch`,
+  `visible`, `enable_clip`, and `mouse_event`, matching `FrArea::Init`'s `atoi`
+  calls. A regression fixture covers centered overflow, an absolute clip, and
+  stretched geometry. Native raster comparison remains open.
+
 - The `recycle_about` text-button labels and footer are Korean XML strings.
   JP983's `K2L_Compatibility` uses parallel NUL-terminated `korea.dat` and
   `japan.dat` tables. The preview loads that pair for XML captions and frame

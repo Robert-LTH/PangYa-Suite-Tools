@@ -15,6 +15,15 @@ public enum PangyaUiButtonState
 
 public static class PangyaUiDimensionHelper
 {
+    internal static int ReadDecimalPrefix(string? value)
+    {
+        ReadOnlySpan<char> number = value.AsSpan().TrimStart();
+        int length = !number.IsEmpty && number[0] is '+' or '-' ? 1 : 0;
+        while (length < number.Length && char.IsAsciiDigit(number[length])) length++;
+        return int.TryParse(number[..length], NumberStyles.AllowLeadingSign,
+            CultureInfo.InvariantCulture, out int parsed) ? parsed : 0;
+    }
+
     public static Point? ParsePoint(string? text)
     {
         int[]? values = ParseNumbers(text, 2);
@@ -87,7 +96,8 @@ public sealed class PangyaUiNode
     public Rectangle Bounds { get; private set; }
     public IReadOnlySet<string> RequiredSymbols { get; }
     public bool IsPreviewOnly { get; }
-    public bool IsEditable => !IsPreviewOnly;
+    public bool IsEditable => !IsPreviewOnly && !IsRefresh;
+    internal bool IsRefresh => Element.OwnerDocument?.DocumentElement?.LocalName == "refresh";
     public IReadOnlyDictionary<string, string> Parameters { get; private set; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     internal bool IsLayout => Type.Equals("LAYOUT", StringComparison.OrdinalIgnoreCase);
@@ -98,7 +108,8 @@ public sealed class PangyaUiNode
         ? Attribute("caption") : string.Empty;
     internal string ContextMenuCaption => Type.Equals("CONTEXTMENU", StringComparison.OrdinalIgnoreCase)
         ? Attribute("caption") : string.Empty;
-    public bool IsForm => IsLayout || Type.Equals("FORM", StringComparison.OrdinalIgnoreCase) ||
+    public bool IsForm => IsLayout || (IsRefresh && Element.LocalName == "base") ||
+                          Type.Equals("FORM", StringComparison.OrdinalIgnoreCase) ||
                           Element.LocalName.Equals("form", StringComparison.OrdinalIgnoreCase);
 
     public string DisplayName => string.IsNullOrWhiteSpace(Name)
@@ -126,16 +137,17 @@ public sealed class PangyaUiNode
     public bool IsVisible(IReadOnlySet<string> enabledSymbols) =>
         RequiredSymbols.All(enabledSymbols.Contains);
 
-    public bool IsRenderVisible =>
-        !Parameters.TryGetValue("visible", out string? value) ||
+    public bool IsRenderVisible => IsRefresh
+        ? !string.Equals(Element["Visible"]?.GetAttribute("val"), "False", StringComparison.OrdinalIgnoreCase)
+        : !Parameters.TryGetValue("visible", out string? value) ||
         (Type.Equals("AREA", StringComparison.OrdinalIgnoreCase)
-            ? int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int visible) && visible == 1
+            ? PangyaUiDimensionHelper.ReadDecimalPrefix(value) == 1
             : !value.Trim().Equals("0", StringComparison.OrdinalIgnoreCase));
 
     public bool IsExplicitlyStretched =>
         Parameters.TryGetValue("stretch", out string? value) &&
         (Type.Equals("AREA", StringComparison.OrdinalIgnoreCase)
-            ? int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int stretch) && stretch != 0
+            ? PangyaUiDimensionHelper.ReadDecimalPrefix(value) != 0
             : value.Trim().Equals("1", StringComparison.OrdinalIgnoreCase));
 
     public void SetName(string value)
@@ -238,6 +250,8 @@ public sealed class PangyaUiNode
     {
         if (IsPreviewOnly)
             throw new InvalidOperationException("Conditional preview elements are read-only.");
+        if (IsRefresh)
+            throw new InvalidOperationException("Refresh elements are read-only.");
     }
 
     private void Refresh()
@@ -272,6 +286,18 @@ public sealed class PangyaUiNode
 
     public static Rectangle ParseBounds(XmlElement element)
     {
+        if (element.OwnerDocument?.DocumentElement?.LocalName == "refresh" &&
+            element.LocalName is "base" or "child" or "control")
+        {
+            XmlElement? refreshPosition = element["pos"];
+            XmlElement? refreshRect = element["rect"];
+            int left = ReadCoordinate(refreshRect, "l"), top = ReadCoordinate(refreshRect, "t");
+            return new Rectangle(
+                (int)Math.Clamp((long)ReadCoordinate(refreshPosition, "x") + left, int.MinValue, int.MaxValue),
+                (int)Math.Clamp((long)ReadCoordinate(refreshPosition, "y") + top, int.MinValue, int.MaxValue),
+                (int)Math.Clamp((long)ReadCoordinate(refreshRect, "r") - left, 0, int.MaxValue),
+                (int)Math.Clamp((long)ReadCoordinate(refreshRect, "b") - top, 0, int.MaxValue));
+        }
         string rect = FirstAttribute(element, "rect", "bounds");
         string pos = FirstAttribute(element, "pos");
         if (element.LocalName.Equals("item", StringComparison.OrdinalIgnoreCase) &&
@@ -301,6 +327,10 @@ public sealed class PangyaUiNode
 
         return new Rectangle(point ?? Point.Empty,
             new Size(Math.Max(0, dimensions?.Width ?? 0), Math.Max(0, dimensions?.Height ?? 0)));
+
+        static int ReadCoordinate(XmlElement? node, string name) =>
+            int.TryParse(node?.GetAttribute(name), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
+                ? value : 0;
     }
 
     private static string FirstAttribute(XmlElement element, params string[] names)
@@ -344,6 +374,7 @@ public sealed class PangyaUiDocument
     public Size CanvasSize { get; }
     public IReadOnlySet<string> ConditionalSymbols { get; }
     public IReadOnlyList<string> Warnings { get; }
+    internal bool HasFreshResourceRoot => _document.DocumentElement?.Name == "resource";
 
     public IReadOnlyList<PangyaUiNode> GetVisibleRoots(IReadOnlySet<string>? enabledSymbols = null)
     {
@@ -564,6 +595,8 @@ public sealed class PangyaUiDocument
     private static bool IsRenderable(XmlElement element)
     {
         string localName = element.LocalName;
+        if (element.OwnerDocument?.DocumentElement?.LocalName == "refresh")
+            return localName is "base" or "child" or "control";
         if (localName.Equals("item", StringComparison.OrdinalIgnoreCase) ||
             localName.Equals("element", StringComparison.OrdinalIgnoreCase) ||
             localName.Equals("form", StringComparison.OrdinalIgnoreCase) ||
@@ -894,6 +927,7 @@ public sealed class PangyaUiResourceCatalog
         var activePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var documents = new Dictionary<string, PangyaUiDocument?>(StringComparer.OrdinalIgnoreCase);
         var conditionalSymbols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        string[][] failedIncludes = [];
         foreach (string path in entryPath is null ? orderedPaths : new[] { entryPath }) AddDocument(path, [], 0);
         PangyaUiEmoticons? emoticons = null;
         string? emoticonPath = orderedPaths.FirstOrDefault(path =>
@@ -930,11 +964,16 @@ public sealed class PangyaUiResourceCatalog
                     documents[path] = null;
                     documents[path] = document = PangyaUiDocument.Load(path);
                 }
-                if (document is null) return;
+                if (document is null || (entryPath is not null && depth > 0 && !document.HasFreshResourceRoot))
+                {
+                    RecordFailedInclude(requiredSymbols, depth);
+                    return;
+                }
                 conditionalSymbols.UnionWith(document.ConditionalSymbols);
                 foreach (PangyaUiNode root in document.Roots.Where(root =>
                              !string.IsNullOrWhiteSpace(root.Name)))
                 {
+                    if (failedIncludes.Any(condition => condition.Length == 0)) break;
                     if (root.Type.Equals("INCLUDE", StringComparison.OrdinalIgnoreCase))
                     {
                         if (Path.IsPathRooted(root.Name)) continue;
@@ -959,16 +998,23 @@ public sealed class PangyaUiResourceCatalog
                         matches = [];
                         definitions[root.Name] = matches;
                     }
-                    matches.Add(new ResourceDefinition(root, requiredSymbols, path));
+                    matches.Add(new ResourceDefinition(root, requiredSymbols, path, failedIncludes));
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
                                        XmlException or InvalidDataException or ArgumentException)
             {
-                // Some data trees mix legacy and newer XML dialects. Unsupported files do not
-                // prevent valid reusable definitions from being cataloged.
+                // A failed include stops FrElementDoc's entry traversal. Keep indexing
+                // later definitions for symbol sets in which that include is inactive.
+                RecordFailedInclude(requiredSymbols, depth);
             }
             finally { activePaths.Remove(path); }
+        }
+
+        void RecordFailedInclude(string[] requiredSymbols, int depth)
+        {
+            if (entryPath is not null && depth > 0)
+                failedIncludes = [.. failedIncludes, requiredSymbols];
         }
     }
 
@@ -981,7 +1027,8 @@ public sealed class PangyaUiResourceCatalog
 
         ResourceDefinition[] visible = matches
             .Where(match => match.Node.IsVisible(enabledSymbols) &&
-                match.IncludeSymbols.All(enabledSymbols.Contains))
+                match.IncludeSymbols.All(enabledSymbols.Contains) &&
+                !match.FailedIncludeConditions.Any(condition => condition.All(enabledSymbols.Contains)))
             .ToArray();
         if (visible.Length == 0) return null;
 
@@ -1015,5 +1062,6 @@ public sealed class PangyaUiResourceCatalog
             .FirstOrDefault(match => ReferenceEquals(match.Node, definition))?.SourcePath;
     }
 
-    private sealed record ResourceDefinition(PangyaUiNode Node, string[] IncludeSymbols, string SourcePath);
+    private sealed record ResourceDefinition(PangyaUiNode Node, string[] IncludeSymbols, string SourcePath,
+        string[][] FailedIncludeConditions);
 }

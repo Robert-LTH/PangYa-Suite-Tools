@@ -1086,6 +1086,7 @@ Cancelar: Interromper a extração.</value></data>
   <data name="UiEditor_XmlFilter" xml:space="preserve"><value>XML de UI do PangYa (*.xml)|*.xml|Todos os arquivos (*.*)|*.*</value></data>
   <data name="UiEditor_Reload" xml:space="preserve"><value>Recarregar</value></data>
   <data name="UiEditor_DebugBounds" xml:space="preserve"><value>Limites de depuração</value></data>
+  <data name="UiEditor_HighlightSelection" xml:space="preserve"><value>Destacar seleção</value></data>
   <data name="UiEditor_Defines" xml:space="preserve"><value>Definições:</value></data>
   <data name="UiEditor_ConditionalPreview" xml:space="preserve"><value>Visualização condicional (somente leitura)</value></data>
   <data name="UiEditor_ButtonState" xml:space="preserve"><value>Estado do botão:</value></data>
@@ -1261,4 +1262,6 @@ Cancelar: Interromper a extração.</value></data>
   <data name="PakFile_AxisDragVertical" xml:space="preserve">
     <value>X travado · Arraste para cima ou para baixo</value>
   </data>
+  <data name="UiEditor_ShowInPreview" xml:space="preserve"><value>Mostrar na prévia</value></data>
+  <data name="UiEditor_FitPreview" xml:space="preserve"><value>Ajustar prévia</value></data>
 </root>

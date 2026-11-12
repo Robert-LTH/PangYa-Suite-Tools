@@ -37,13 +37,52 @@ public sealed class PangyaUiFontState
     public PangyaUiRenderOptions ApplyTo(PangyaUiRenderOptions? options = null, bool smallFont = false)
     {
         options ??= new();
-        float scale = Scale;
-        Rectangle? clip = ClippingArea;
+        var snapshot = new Snapshot(_measure, _draw, Scale, ClippingArea);
         int height = _height; // WFixedFont::GetFontHeight returns the unscaled cell height.
-        float Measure(string text) => _measure(text) * scale;
-        void Draw(Graphics graphics, string text, Brush brush, PointF origin)
+        return smallFont ? options with
         {
-            if (scale == 1 && clip is null) { _draw(graphics, text, brush, origin); return; }
+            TooltipFontHeight = height, MeasureTooltipText = snapshot.Measure, DrawTooltipText = snapshot.Draw
+        } : options with
+        {
+            CaptionFontHeight = height, MeasureCaptionText = snapshot.Measure, DrawCaptionText = snapshot.Draw
+        };
+    }
+
+    private sealed class Snapshot(Func<string, float> measure, Action<Graphics, string, Brush, PointF> draw,
+        float scale, Rectangle? clip) : IPangyaUiBitmapTextPasses
+    {
+        private readonly IPangyaUiBitmapTextPasses? _bitmap = draw.Target as IPangyaUiBitmapTextPasses;
+
+        public float Measure(string text) => measure(text) * scale;
+
+        public float GetDrawAdvance(string text) => (_bitmap?.GetDrawAdvance(text) ?? measure(text)) * scale;
+
+        public RectangleF GetOverlayBounds(string text, PointF origin, float fontScale = 1) =>
+            _bitmap?.GetOverlayBounds(text, origin, fontScale * scale) ?? RectangleF.Empty;
+
+        public void Draw(Graphics graphics, string text, Brush brush, PointF origin)
+        {
+            if (_bitmap is not null && text.Contains(@"\<", StringComparison.Ordinal))
+            {
+                DrawOverlays(graphics, text, brush, origin);
+                DrawGlyphs(graphics, text, brush, origin);
+            }
+            else DrawWithState(draw, graphics, text, brush, origin);
+        }
+
+        public void DrawOverlays(Graphics graphics, string text, Brush brush, PointF origin, float fontScale = 1) =>
+            _bitmap?.DrawOverlays(graphics, text, brush, origin, fontScale * scale);
+
+        public void DrawGlyphs(Graphics graphics, string text, Brush brush, PointF origin)
+        {
+            if (_bitmap is null) Draw(graphics, text, brush, origin);
+            else DrawWithState(_bitmap.DrawGlyphs, graphics, text, brush, origin);
+        }
+
+        private void DrawWithState(Action<Graphics, string, Brush, PointF> callback,
+            Graphics graphics, string text, Brush brush, PointF origin)
+        {
+            if (scale == 1 && clip is null) { callback(graphics, text, brush, origin); return; }
             System.Drawing.Drawing2D.GraphicsState state = graphics.Save();
             try
             {
@@ -55,16 +94,9 @@ public sealed class PangyaUiFontState
                 graphics.TranslateTransform(origin.X, origin.Y);
                 graphics.ScaleTransform(scale, scale);
                 graphics.TranslateTransform(-origin.X, -origin.Y);
-                _draw(graphics, text, brush, origin);
+                callback(graphics, text, brush, origin);
             }
             finally { graphics.Restore(state); }
         }
-        return smallFont ? options with
-        {
-            TooltipFontHeight = height, MeasureTooltipText = Measure, DrawTooltipText = Draw
-        } : options with
-        {
-            CaptionFontHeight = height, MeasureCaptionText = Measure, DrawCaptionText = Draw
-        };
     }
 }

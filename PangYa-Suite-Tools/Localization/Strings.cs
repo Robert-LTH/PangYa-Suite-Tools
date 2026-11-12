@@ -686,6 +686,9 @@ internal static class Strings
     public static string UiEditor_XmlFilter => ResourceManager.GetString(nameof(UiEditor_XmlFilter), Culture) ?? "";
     public static string UiEditor_Reload => ResourceManager.GetString(nameof(UiEditor_Reload), Culture) ?? "";
     public static string UiEditor_DebugBounds => ResourceManager.GetString(nameof(UiEditor_DebugBounds), Culture) ?? "";
+    public static string UiEditor_HighlightSelection => ResourceManager.GetString(nameof(UiEditor_HighlightSelection), Culture) ?? "";
+    public static string UiEditor_FitPreview => ResourceManager.GetString(nameof(UiEditor_FitPreview), Culture) ?? "";
+    public static string UiEditor_ShowInPreview => ResourceManager.GetString(nameof(UiEditor_ShowInPreview), Culture) ?? "";
     public static string UiEditor_Defines => ResourceManager.GetString(nameof(UiEditor_Defines), Culture) ?? "";
     public static string UiEditor_ConditionalPreview => ResourceManager.GetString(nameof(UiEditor_ConditionalPreview), Culture) ?? "";
     public static string UiEditor_ButtonState => ResourceManager.GetString(nameof(UiEditor_ButtonState), Culture) ?? "";

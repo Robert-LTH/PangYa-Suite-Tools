@@ -160,7 +160,7 @@ frelement.cpp,254,FrElementDoc,GetBitmap,const Bitmap* FrElementDoc::GetBitmap(c
 frelement.cpp,268,FrElementDoc,ClearBitmaps,void FrElementDoc::ClearBitmaps(),unreviewed,,,
 frelement.cpp,277,FrElementDoc,LoadPic,int FrElementDoc::LoadPic(const char* filename),unreviewed,,,
 frelement.cpp,362,FrElementDoc,Load,bool FrElementDoc::Load(const char* pszXmlFilename),unreviewed,,,
-frelement.cpp,383,FrElementDoc,LoadXml,"bool FrElementDoc::LoadXml(const char* pszXmlFilename, std::list<FrElement*>& tempList)",unreviewed,,,
+frelement.cpp,383,FrElementDoc,LoadXml,"bool FrElementDoc::LoadXml(const char* pszXmlFilename, std::list<FrElement*>& tempList)",partial,PangyaUiResourceCatalog.LoadEntry,Native source and regression fixture,An active unreadable include stops entry lookup at its position. The editor guards include cycles.
 frelement.cpp,466,FrElementDoc,~FrElementDoc,FrElementDoc::~FrElementDoc(),unreviewed,,,
 frelement.cpp,474,FrElementDoc,GetLayout,FrElementLayout* FrElementDoc::GetLayout(const std::string& resID),unreviewed,,,
 frelement.cpp,484,FrElementDoc,GetFrame,FrElementFrame* FrElementDoc::GetFrame(const std::string& resID),unreviewed,,,
@@ -422,14 +422,14 @@ frtext.cpp,255,FrTEXT,FrTEXT,FrTEXT::FrTEXT(const char* text),unreviewed,,,
 frtext.cpp,261,FrTEXT,operator=,void FrTEXT::operator=(const char* text),unreviewed,,,
 frtext.cpp,266,FrTEXT,~FrTEXT,FrTEXT::~FrTEXT(),unreviewed,,,
 frtext.cpp,271,FrTEXT,Clear,void FrTEXT::Clear(),unreviewed,,,
-frtext.cpp,280,FrTEXT,GetTokenList,void FrTEXT::GetTokenList(std::list<FrTextToken>& output),unreviewed,,,
+frtext.cpp,280,FrTEXT,GetTokenList,void FrTEXT::GetTokenList(std::list<FrTextToken>& output),partial,PangyaUiRenderer.DrawTaggedCaption,Native source and regression fixture,Tooltip printing preserves delimited literal runs. Adjacent delimiter parsing still needs native comparison.
 frtext.cpp,294,FrTEXT,GetPrintData,std::string FrTEXT::GetPrintData(),unreviewed,,,
 frtext.cpp,310,FrTEXT,ComposeData,void FrTEXT::ComposeData(const std::string& src),unreviewed,,,
 frtext.cpp,362,FrTEXT,GetWidthLong,float FrTEXT::GetWidthLong(FrGraphicInterface* pGDI),unreviewed,,,
 frtextbutton.cpp,47,FrTextButton,FrTextButton,FrTextButton::FrTextButton(),unreviewed,,,
 frtextbutton.cpp,64,FrTextButton,~FrTextButton,FrTextButton::~FrTextButton(),unreviewed,,,
 frtextbutton.cpp,68,FrTextButton,Init,"void FrTextButton::Init(FrGuiItem& item, FrWndManager* manager, FrWnd* parent)",unreviewed,,,
-frtextbutton.cpp,92,FrTextButton,SetCaption,void FrTextButton::SetCaption(const char* caption),unreviewed,,,
+frtextbutton.cpp,92,FrTextButton,SetCaption,void FrTextButton::SetCaption(const char* caption),partial,PangyaUiRenderer.SetTextButtonCaption,Native source and regression fixtures,Retains fractional layout width and honors explicit window rectangles. Native font metrics and token edge cases remain open.
 frtextbutton.cpp,127,FrTextButton,GetCaption,const char* FrTextButton::GetCaption(),unreviewed,,,
 frtextbutton.cpp,132,FrTextButton,SetClippingArea,void FrTextButton::SetClippingArea(WRect* rectangle),partial,PangyaAPI/PangyaAPI.UI/PangyaUiRenderer.cs:SetCaptionClippingArea,Source comparison; existing snapshot fixture unrun,Absolute clip replacement and null disable preserve geometry; raster validation remains open
 frtextbutton.cpp,155,FrTextButton,GetUnderCursor,const char* FrTextButton::GetUnderCursor(),unreviewed,,,
@@ -462,7 +462,7 @@ frviewer.cpp,33,FrViewer,~FrViewer,FrViewer::~FrViewer(),unreviewed,,,
 frviewer.cpp,42,FrViewer,Init,"void FrViewer::Init(FrGuiItem& item, FrWndManager* pManager, FrWnd* pParent)",unreviewed,,,
 frviewer.cpp,75,FrViewer,Open,bool FrViewer::Open(const char* fileName),unreviewed,,,
 frviewer.cpp,101,FrViewer,OnDraw,void FrViewer::OnDraw(),unreviewed,,,
-frviewer.cpp,118,FrViewer,OnResize,void FrViewer::OnResize(),unreviewed,,,
+frviewer.cpp,118,FrViewer,OnResize,void FrViewer::OnResize(),partial,PangyaUiRenderer.SetWindowRectangle,Native source and regression fixtures,The scrollbar child updates its rectangle on unloaded resize and keeps its row capacity. Loaded resize rebuilds capacity and rows. Native visual comparison remains open.
 frviewer.cpp,130,FrViewer,SetMouseEvent,void FrViewer::SetMouseEvent(bool active),partial,PangyaAPI/PangyaAPI.UI/PangyaUiRenderer.cs:SetViewerMouseEvent+ViewerAcceptsMouse,Source comparison; compiled mouse-event fixtures unrun,Independent runtime mouse eligibility preserves scrollbar range; full native event routing remains open
 frviewer.cpp,139,FrViewer,OnSetCursor,"void FrViewer::OnSetCursor(bool bInClient, const WPoint& mousePos)",partial,PangYa-Suite-Tools/Shop/FrmPangyaUiEditor.cs:ViewerAcceptsMouse+CanvasMouseMove,Source comparison; compiled eligibility fixtures unrun,Editor hand cursor uses shared visibility/enablement/view-focus/mouse predicate; native cursor-resource comparison remains open
 frviewer.cpp,152,FrViewer,OnLButtonDown,bool FrViewer::OnLButtonDown(const WPoint& mousePos),unreviewed,,,
@@ -495,12 +495,12 @@ frwnd.cpp,302,FrWnd,SetOwner,void FrWnd::SetOwner(FrCmdTarget* pOwner),unreviewe
 frwnd.cpp,307,FrWnd,IsChild,bool FrWnd::IsChild(const FrWnd* pWnd),unreviewed,,,
 frwnd.cpp,319,FrWnd,CloseChild,"void FrWnd::CloseChild(FrWnd* pChildWnd, bool bFade, bool force)",unreviewed,,,
 frwnd.cpp,348,FrWnd,CloseChildForm,"void FrWnd::CloseChildForm(bool bFade, bool force)",unreviewed,,,
-frwnd.cpp,363,FrWnd,GetClientRect,void FrWnd::GetClientRect(WRect& rect),unreviewed,,,
-frwnd.cpp,369,FrWnd,SetClientRect,void FrWnd::SetClientRect(const WRect& rect),unreviewed,,,
-frwnd.cpp,376,FrWnd,ClientToScreen,void FrWnd::ClientToScreen(WRect& rect),unreviewed,,,
-frwnd.cpp,386,FrWnd,ClientToScreen,void FrWnd::ClientToScreen(WPoint& point),unreviewed,,,
-frwnd.cpp,396,FrWnd,ScreenToClient,void FrWnd::ScreenToClient(WRect& rect),unreviewed,,,
-frwnd.cpp,406,FrWnd,ScreenToClient,void FrWnd::ScreenToClient(WPoint& point),unreviewed,,,
+frwnd.cpp,363,FrWnd,GetClientRect,void FrWnd::GetClientRect(WRect& rect),partial,PangyaUiRenderer.GetWindowClientRectangle,Native source and compiled fixture,Resource-expanded instances still need audit
+frwnd.cpp,369,FrWnd,SetClientRect,void FrWnd::SetClientRect(const WRect& rect),partial,PangyaUiRenderer.SetWindowClientRectangle,Native source and compiled fixture,Resource-expanded instances still need audit
+frwnd.cpp,376,FrWnd,ClientToScreen,void FrWnd::ClientToScreen(WRect& rect),partial,PangyaUiRenderer.SetWindowClientRectangle,Native source and compiled fixture,Resource-expanded instances still need audit
+frwnd.cpp,386,FrWnd,ClientToScreen,void FrWnd::ClientToScreen(WPoint& point),partial,PangyaUiRenderer.ClientToScreen,Native source and compiled fixture,Resource-expanded instances still need audit
+frwnd.cpp,396,FrWnd,ScreenToClient,void FrWnd::ScreenToClient(WRect& rect),partial,PangyaUiRenderer.GetWindowClientRectangle,Native source and compiled fixture,Resource-expanded instances still need audit
+frwnd.cpp,406,FrWnd,ScreenToClient,void FrWnd::ScreenToClient(WPoint& point),partial,PangyaUiRenderer.ScreenToClient,Native source and compiled fixture,Resource-expanded instances still need audit
 frwnd.cpp,416,FrWnd,SetWindowTextA,void FrWnd::SetWindowTextA(const char* lpszText),unreviewed,,,
 frwnd.cpp,422,FrWnd,GetWindowTextA,"void FrWnd::GetWindowTextA(char* lpszTextBuf, unsigned int nBuffMax)",unreviewed,,,
 frwnd.cpp,427,FrWnd,GetWindowTextA,void FrWnd::GetWindowTextA(std::string& outText),unreviewed,,,
@@ -519,7 +519,7 @@ frwnd.cpp,507,FrWnd,GetToolTipWndPos,const WPoint& FrWnd::GetToolTipWndPos(),unr
 frwnd.cpp,514,FrWnd,SetToolTipFrameStyle,void FrWnd::SetToolTipFrameStyle(unsigned long style),unreviewed,,,
 frwnd.cpp,520,FrWnd,GetToolTipFrameStyle,unsigned long FrWnd::GetToolTipFrameStyle(),unreviewed,,,
 frwnd.cpp,529,FrWnd,DisplayFlag4000_983,void FrWnd::DisplayFlag4000_983(),unreviewed,,,
-frwnd.cpp,566,FrWnd,OnDisplay,"void FrWnd::OnDisplay(bool checkTopmost, bool drawChild, bool drawOneself, bool checkFlag4000)",unreviewed,,,
+frwnd.cpp,566,FrWnd,OnDisplay,"void FrWnd::OnDisplay(bool checkTopmost, bool drawChild, bool drawOneself, bool checkFlag4000)",partial,PangyaUiRenderer.DrawNode and GetReferencedBounds,Native source and regression fixtures,Initialized and destroyed gates use snapshots. Generated instance ordering remains open.
 frwnd.cpp,602,FrWnd,OnDraw,void FrWnd::OnDraw(),unreviewed,,,
 frwnd.cpp,606,FrWnd,DoFadeProcess,"void FrWnd::DoFadeProcess(const float deltaTime, bool bExtend)",unreviewed,,,
 frwnd.cpp,677,FrWnd,DoFadeDisplay,void FrWnd::DoFadeDisplay(),unreviewed,,,

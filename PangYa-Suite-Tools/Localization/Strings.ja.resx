@@ -1061,6 +1061,7 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="UiEditor_XmlFilter" xml:space="preserve"><value>PangYa UI XML (*.xml)|*.xml|すべてのファイル (*.*)|*.*</value></data>
   <data name="UiEditor_Reload" xml:space="preserve"><value>再読み込み</value></data>
   <data name="UiEditor_DebugBounds" xml:space="preserve"><value>境界を表示</value></data>
+  <data name="UiEditor_HighlightSelection" xml:space="preserve"><value>選択項目を強調表示</value></data>
   <data name="UiEditor_Defines" xml:space="preserve"><value>定義:</value></data>
   <data name="UiEditor_ConditionalPreview" xml:space="preserve"><value>条件付きプレビュー (読み取り専用)</value></data>
   <data name="UiEditor_ButtonState" xml:space="preserve"><value>ボタン状態:</value></data>
@@ -1236,4 +1237,6 @@ IFFファイルのディレクトリを選択してください。</value>
   <data name="PakFile_AxisDragVertical" xml:space="preserve">
     <value>X 軸に固定中 · 上下にドラッグ</value>
   </data>
+  <data name="UiEditor_ShowInPreview" xml:space="preserve"><value>プレビューに表示</value></data>
+  <data name="UiEditor_FitPreview" xml:space="preserve"><value>プレビューに合わせる</value></data>
 </root>

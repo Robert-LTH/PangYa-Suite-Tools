@@ -349,6 +349,30 @@ public sealed class LocalizationTests : IDisposable
             CultureInfo.GetCultureInfo(culture)));
     }
 
+    [Theory]
+    [InlineData("en", "Highlight selection")]
+    [InlineData("pt-BR", "Destacar seleção")]
+    [InlineData("sv", "Markera valt element")]
+    [InlineData("fr", "Mettre la sélection en évidence")]
+    [InlineData("ja", "選択項目を強調表示")]
+    public void UiEditor_HighlightSelectionIsLocalized(string culture, string expected)
+    {
+        Assert.Equal(expected, Strings.ResourceManager.GetString(nameof(Strings.UiEditor_HighlightSelection),
+            CultureInfo.GetCultureInfo(culture)));
+    }
+
+    [Theory]
+    [InlineData("en", "Show in preview")]
+    [InlineData("pt-BR", "Mostrar na prévia")]
+    [InlineData("sv", "Visa i förhandsgranskningen")]
+    [InlineData("fr", "Afficher dans l’aperçu")]
+    [InlineData("ja", "プレビューに表示")]
+    public void UiEditor_PreviewVisibilityIsLocalized(string culture, string expected)
+    {
+        Assert.Equal(expected, Strings.ResourceManager.GetString(nameof(Strings.UiEditor_ShowInPreview),
+            CultureInfo.GetCultureInfo(culture)));
+    }
+
     private readonly string _tempDirectory = Path.Combine(Path.GetTempPath(), "PangYaLocalizationTests", Guid.NewGuid().ToString("N"));
 
     public LocalizationTests()
