@@ -312,6 +312,7 @@ public sealed class ShopCatalogItem
     }
     public string Category { get; }
     public uint ItemId { get; }
+    public byte? PartCategory { get; init; }
     public string Name { get; }
     public string IconId { get; set; }
     public uint Price { get; set; }

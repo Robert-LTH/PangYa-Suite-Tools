@@ -24,7 +24,18 @@ public sealed record ShopRenderState(
     string Filter,
     string? HoveredElement,
     ShopSession Session,
-    ShopRenderMode Mode = ShopRenderMode.Simulation);
+    ShopRenderMode Mode = ShopRenderMode.Simulation)
+{
+    public IReadOnlyList<ShopTab> MainTabs { get; init; } = [];
+    public IReadOnlyList<ShopTab> SubTabs { get; init; } = [];
+    public int SubTabIndex { get; init; } = -1;
+    public Point? Pointer { get; init; }
+    public Func<ShopCatalogItem, bool>? TabFilter { get; init; }
+}
+
+public sealed record ShopTab(string Normal, string Hover, string Selected);
+
+public sealed record ShopVisibleTab(bool IsMain, int Index, Rectangle Bounds);
 
 public sealed record ShopVisibleItem(
     ShopCatalogItem Item,
@@ -35,7 +46,10 @@ public sealed record ShopRenderResult(
     int CategoryIndex,
     int Page,
     int MaximumPage,
-    IReadOnlyList<ShopVisibleItem> VisibleItems);
+    IReadOnlyList<ShopVisibleItem> VisibleItems)
+{
+    public IReadOnlyList<ShopVisibleTab> VisibleTabs { get; init; } = [];
+}
 
 public sealed class ShopRenderer
 {
@@ -59,23 +73,32 @@ public sealed class ShopRenderer
         ArgumentNullException.ThrowIfNull(text);
         culture ??= CultureInfo.CurrentCulture;
         graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+        var tabs = new List<ShopVisibleTab>();
+        bool useTabs = state.MainTabs.Count != 0;
         foreach (ShopLayoutElement element in layout.Elements.Where(element =>
                      IsRenderableElement(element.Type)))
-            DrawElement(graphics, element, state);
+        {
+            bool isMain = element.Name.Equals("tab_main", StringComparison.OrdinalIgnoreCase);
+            if (useTabs && (isMain || element.Name.Equals("tab_sub", StringComparison.OrdinalIgnoreCase)))
+                DrawTabs(graphics, element, state, isMain, tabs);
+            else
+                DrawElement(graphics, element, state);
+        }
 
-        string[] categories = Categories(catalog);
+        string[] categories = useTabs ? [] : Categories(catalog);
         var visible = new List<ShopVisibleItem>();
-        int categoryIndex = categories.Length == 0
+        int categoryIndex = useTabs ? state.CategoryIndex : categories.Length == 0
             ? 0
             : Math.Clamp(state.CategoryIndex, 0, categories.Length - 1);
         int page = 0;
         int maximumPage = 0;
-        if (categories.Length == 0)
+        ShopCatalogItem[] filtered = Filter(catalog, state);
+        if (useTabs ? filtered.Length == 0 : categories.Length == 0)
         {
             DrawText(graphics, text.NoItems, new Rectangle(400, 180, 360, 80),
                 Color.White, 11, ContentAlignment.MiddleCenter);
         }
-        else
+        if (!useTabs && categories.Length != 0)
         {
             string category = categories[categoryIndex];
             var categoryBounds = new Rectangle(392, 82, 330, 33);
@@ -88,7 +111,9 @@ public sealed class ShopRenderer
                 $"{category}  ({categoryIndex + 1}/{categories.Length})",
                 new Rectangle(401, 84, 310, 28), Color.White, 11,
                 ContentAlignment.MiddleLeft);
-            ShopCatalogItem[] filtered = Filter(catalog, category, state.Filter);
+        }
+        if (useTabs || categories.Length != 0)
+        {
             maximumPage = GetMaximumPage(filtered.Length);
             page = Math.Clamp(state.Page, 0, maximumPage);
             ShopCatalogItem[] pageItems = filtered.Skip(page * ItemsPerPage)
@@ -154,7 +179,48 @@ public sealed class ShopRenderer
                 ContentAlignment.MiddleLeft);
         DrawText(graphics, text.EditHint, new Rectangle(20, 360, 330, 35),
             Color.LightSkyBlue, 8, ContentAlignment.MiddleLeft);
-        return new ShopRenderResult(categoryIndex, page, maximumPage, visible);
+        return new ShopRenderResult(categoryIndex, page, maximumPage, visible)
+        {
+            VisibleTabs = tabs,
+        };
+    }
+
+    private void DrawTabs(Graphics graphics, ShopLayoutElement element, ShopRenderState state,
+        bool isMain, List<ShopVisibleTab> visibleTabs)
+    {
+        IReadOnlyList<ShopTab> tabs = isMain ? state.MainTabs : state.SubTabs;
+        int selectedIndex = isMain ? state.CategoryIndex : state.SubTabIndex;
+        string? separatorResource = element.Parameters.GetValueOrDefault("sepImg");
+        Image? separator = separatorResource is null ? null : _images.GetImage(separatorResource);
+        int x = element.Bounds.X;
+        for (int index = 0; index < tabs.Count; index++)
+        {
+            if (index > 0 && separator is not null)
+            {
+                graphics.DrawImage(separator, new Rectangle(new Point(x, element.Bounds.Y), separator.Size));
+                x += separator.Width;
+            }
+
+            ShopTab tab = tabs[index];
+            Image? normal = _images.GetImage(tab.Normal);
+            var bounds = new Rectangle(new Point(x, element.Bounds.Y),
+                normal?.Size ?? (isMain ? new Size(55, 33) : new Size(49, 26)));
+            x += bounds.Width;
+            visibleTabs.Add(new ShopVisibleTab(isMain, index, bounds));
+            bool selected = index == selectedIndex;
+            bool hovered = state.Pointer is Point pointer && bounds.Contains(pointer);
+            if (selected || hovered)
+            {
+                string key = selected ? "below_selected" : "below_over";
+                if (element.Parameters.GetValueOrDefault(key) is { } resource &&
+                    _images.GetImage(resource) is { } background)
+                    graphics.DrawImage(background, new Rectangle(bounds.Location, background.Size));
+            }
+            Image? foreground = selected ? _images.GetImage(tab.Selected) :
+                hovered ? _images.GetImage(tab.Hover) : normal;
+            if ((foreground ?? normal) is { } image)
+                graphics.DrawImage(image, new Rectangle(bounds.Location, image.Size));
+        }
     }
 
     public ShopLayoutElement? HitTestElement(ShopLayout layout, Point point)
@@ -254,13 +320,21 @@ public sealed class ShopRenderer
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToArray();
 
-    private static ShopCatalogItem[] Filter(IReadOnlyList<ShopCatalogItem> catalog,
-        string category, string filter)
+    public static ShopCatalogItem[] Filter(IReadOnlyList<ShopCatalogItem> catalog,
+        ShopRenderState state)
     {
-        IEnumerable<ShopCatalogItem> query = catalog.Where(item =>
-            item.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
-        if (filter.Length != 0)
-            query = query.Where(item => item.Name.Contains(filter,
+        IEnumerable<ShopCatalogItem> query = catalog;
+        if (state.TabFilter is { } matchesTab)
+            query = query.Where(matchesTab);
+        else
+        {
+            string[] categories = Categories(catalog);
+            if (categories.Length == 0) return [];
+            string category = categories[Math.Clamp(state.CategoryIndex, 0, categories.Length - 1)];
+            query = query.Where(item => item.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
+        }
+        if (state.Filter.Length != 0)
+            query = query.Where(item => item.Name.Contains(state.Filter,
                 StringComparison.CurrentCultureIgnoreCase));
         return query.ToArray();
     }

@@ -1,5 +1,6 @@
 using PangYa_Suite_Tools.Localization;
 using PangYa_Suite_Tools.Logging;
+using PangyaAPI.IFF;
 using PangyaAPI.PAK.Models;
 using PangyaAPI.UI;
 
@@ -62,6 +63,17 @@ internal sealed class FrmShopMockup : Form
             try
             {
                 LogMissingSkinAssets(parsedLayout, resolver);
+                if (schemaRegion == IffHeader.Japan983Region)
+                {
+                    foreach (string resource in Japan983ShopTabs.Main.Concat(Japan983ShopTabs.Sub.SelectMany(tabs => tabs))
+                                 .SelectMany(tab => new[] { tab.Normal, tab.Hover, tab.Selected })
+                                 .Distinct(StringComparer.OrdinalIgnoreCase))
+                    {
+                        if (resolver.GetImage(resource) is null)
+                            AppLogger.Instance.Log("Shop", string.Format(LocalizationManager.CurrentCulture,
+                                Strings.Shop_MissingSkinResourceSkipped, resource), AppLogLevel.Warning);
+                    }
+                }
                 ShopCatalogLoadResult loadedCatalog =
                     await ShopCatalogLoader.LoadAsync(files.IffPath, resolver,
                         schemaRegion,
@@ -225,10 +237,13 @@ internal sealed class ShopCanvas : Control
     private readonly ShopSession _emptySession = new();
     private readonly string _iffPath;
     private readonly string? _schemaRegion;
+    private readonly bool _useJapan983Tabs;
     private ShopRenderResult _renderResult = new(0, 0, 0, []);
     private string? _hoveredElement;
+    private Point? _pointer;
     private string _filter = string.Empty;
     private int _categoryIndex;
+    private int _subTabIndex;
     private int _page;
     private bool _rental;
     private bool _editing;
@@ -244,13 +259,16 @@ internal sealed class ShopCanvas : Control
         _catalog = catalog;
         _iffPath = iffPath;
         _schemaRegion = schemaRegion;
+        _useJapan983Tabs = string.Equals(schemaRegion, IffHeader.Japan983Region, StringComparison.OrdinalIgnoreCase) &&
+            layout.Elements.Any(element => element.Name.Equals("tab_main", StringComparison.OrdinalIgnoreCase)) &&
+            layout.Elements.Any(element => element.Name.Equals("tab_sub", StringComparison.OrdinalIgnoreCase));
         DoubleBuffered = true;
         TabStop = true;
         SetStyle(ControlStyles.Selectable, true);
         Cursor = Cursors.Default;
         MouseEnter += (_, _) => Focus();
         MouseMove += ShopCanvas_MouseMove;
-        MouseLeave += (_, _) => { _hoveredElement = null; Invalidate(); };
+        MouseLeave += (_, _) => { _hoveredElement = null; _pointer = null; Invalidate(); };
         MouseClick += ShopCanvas_MouseClick;
         MouseWheel += ShopCanvas_MouseWheel;
     }
@@ -268,8 +286,7 @@ internal sealed class ShopCanvas : Control
         e.Graphics.ScaleTransform(FrmShopMockup.ZoomFactor, FrmShopMockup.ZoomFactor);
         e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
         _renderResult = _renderer.Render(e.Graphics, _layout, _catalog,
-            new ShopRenderState(_categoryIndex, _page, _rental, _filter,
-                _hoveredElement, _emptySession, ShopRenderMode.Editor),
+            CreateRenderState(),
             new ShopRenderText(Strings.Shop_NoItems, Strings.Shop_CartSummary,
                 Strings.Shop_Balances, Strings.Shop_Filter, Strings.Shop_EditHint),
             LocalizationManager.CurrentCulture);
@@ -277,21 +294,26 @@ internal sealed class ShopCanvas : Control
         _page = _renderResult.Page;
     }
 
-    private ShopCatalogItem[] GetFilteredItems(string category)
+    private ShopRenderState CreateRenderState()
     {
-        IEnumerable<ShopCatalogItem> query = _catalog.Where(item => item.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
-        if (_filter.Length != 0) query = query.Where(item => item.Name.Contains(_filter, StringComparison.CurrentCultureIgnoreCase));
-        return query.ToArray();
+        var state = new ShopRenderState(_categoryIndex, _page, _rental, _filter,
+            _hoveredElement, _emptySession, ShopRenderMode.Editor);
+        if (!_useJapan983Tabs) return state;
+
+        int main = _categoryIndex;
+        int sub = _subTabIndex;
+        return state with
+        {
+            MainTabs = Japan983ShopTabs.Main,
+            SubTabs = Japan983ShopTabs.Sub[main],
+            SubTabIndex = sub,
+            Pointer = _pointer,
+            TabFilter = item => Japan983ShopTabs.Matches(item, main, sub),
+        };
     }
 
-    private int CurrentMaximumPage()
-    {
-        string[] categories = _catalog.Select(item => item.Category).Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToArray();
-        if (categories.Length == 0) return 0;
-        int categoryIndex = Math.Clamp(_categoryIndex, 0, categories.Length - 1);
-        return ShopRenderer.GetMaximumPage(GetFilteredItems(categories[categoryIndex]).Length);
-    }
+    private int CurrentMaximumPage() =>
+        ShopRenderer.GetMaximumPage(ShopRenderer.Filter(_catalog, CreateRenderState()).Length);
 
     internal static string? GetBannerResource(ShopCatalogItem item) =>
         ShopRenderer.GetBannerResource(item);
@@ -299,13 +321,16 @@ internal sealed class ShopCanvas : Control
     private void ShopCanvas_MouseMove(object? sender, MouseEventArgs e)
     {
         Point logicalPoint = ToLogical(e.Location);
+        ShopVisibleTab? oldTab = _pointer is Point previous ? HitTab(previous) : null;
+        _pointer = logicalPoint;
+        ShopVisibleTab? tab = HitTab(logicalPoint);
         string? hovered = HitElement(logicalPoint)?.Name;
-        if (hovered == _hoveredElement) return;
-        _hoveredElement = hovered;
-        Cursor = hovered is null &&
+        Cursor = hovered is null && tab is null &&
                  !_renderResult.VisibleItems.Any(item => item.Bounds.Contains(logicalPoint))
             ? Cursors.Default
             : Cursors.Hand;
+        if (hovered == _hoveredElement && oldTab == tab) return;
+        _hoveredElement = hovered;
         Invalidate();
     }
 
@@ -313,6 +338,29 @@ internal sealed class ShopCanvas : Control
     {
         if (_editing) return;
         Point logicalPoint = ToLogical(e.Location);
+        if (HitTab(logicalPoint) is { } tab)
+        {
+            if (e.Button != MouseButtons.Left) return;
+            if (tab.IsMain)
+            {
+                if (_categoryIndex == tab.Index) return;
+                _categoryIndex = tab.Index;
+                _subTabIndex = 0;
+                _renderResult = _renderResult with
+                {
+                    VisibleTabs = _renderResult.VisibleTabs.Where(value => value.IsMain).ToArray(),
+                    VisibleItems = [],
+                };
+            }
+            else
+            {
+                _subTabIndex = tab.Index;
+                _renderResult = _renderResult with { VisibleItems = [] };
+            }
+            _page = 0;
+            Invalidate();
+            return;
+        }
         if (ShopRenderer.ScrollBarBounds.Contains(logicalPoint))
         {
             int maximumPage = CurrentMaximumPage();
@@ -339,7 +387,7 @@ internal sealed class ShopCanvas : Control
             case "sidetab_rental": _rental = true; _page = 0; Invalidate(); break;
             case "scroll_up": ScrollByPage(-1); break;
             case "scroll_down": ScrollByPage(1); break;
-            case "tab_main": CycleCategory(); break;
+            case "tab_main" when !_useJapan983Tabs: CycleCategory(); break;
             case "item_search_btn":
             case "searchgoods": SetSearchFilter(); break;
         }
@@ -451,8 +499,14 @@ internal sealed class ShopCanvas : Control
         Invalidate();
     }
 
-    private ShopLayoutElement? HitElement(Point point) =>
-        _renderer.HitTestElement(_layout, point);
+    private ShopLayoutElement? HitElement(Point point)
+    {
+        ShopLayoutElement? element = _renderer.HitTestElement(_layout, point);
+        return _useJapan983Tabs && element?.Name is "tab_main" or "tab_sub" ? null : element;
+    }
+
+    private ShopVisibleTab? HitTab(Point point) =>
+        _renderResult.VisibleTabs.LastOrDefault(tab => tab.Bounds.Contains(point));
 
     internal void SetEditItemHandler(Func<ShopCatalogItem, Task> handler) =>
         _editItemHandler = handler;

@@ -172,7 +172,8 @@ public sealed class PangyaUiNode
             layoutBase.SetAttribute("width", Math.Max(0, bounds.Width).ToString(CultureInfo.InvariantCulture));
             layoutBase.SetAttribute("height", Math.Max(0, bounds.Height).ToString(CultureInfo.InvariantCulture));
         }
-        else if (HasAttribute("rect") || HasAttribute("bounds"))
+        else if (!(IsFreshForm && Element.LocalName.Equals("element", StringComparison.OrdinalIgnoreCase) &&
+                   HasAttribute("size")) && (HasAttribute("rect") || HasAttribute("bounds")))
         {
             string attribute = HasAttribute("rect") ? "rect" : "bounds";
             long right = (long)bounds.X + bounds.Width;
@@ -201,6 +202,8 @@ public sealed class PangyaUiNode
     {
         if (Type.Equals("VIEWER", StringComparison.OrdinalIgnoreCase))
             return Parameters.GetValueOrDefault("image") ?? string.Empty;
+        if (IsFreshForm && HasAttribute("resource"))
+            return Attribute("resource");
         if (UsesDefinitionResource)
             return Parameters.GetValueOrDefault("resource") ?? string.Empty;
         if (Type.Equals("AREA", StringComparison.OrdinalIgnoreCase))
@@ -231,17 +234,31 @@ public sealed class PangyaUiNode
             .LastOrDefault(child =>
                 child.LocalName.Equals("param", StringComparison.OrdinalIgnoreCase) &&
                 child.GetAttribute("name").Equals(parameterName, StringComparison.OrdinalIgnoreCase));
-        if (parameter is null)
+        if (IsFreshForm)
         {
-            parameter = Element.OwnerDocument!.CreateElement("param");
-            parameter.SetAttribute("name", parameterName);
-            Element.AppendChild(parameter);
+            // Fresh reads form and form-item references from the XML attribute.
+            XmlAttribute? attribute = Element.Attributes.OfType<XmlAttribute>().FirstOrDefault(attribute =>
+                attribute.LocalName.Equals("resource", StringComparison.OrdinalIgnoreCase));
+            Element.SetAttribute(attribute?.Name ?? "resource", value.Trim());
+            parameter?.SetAttribute("var", value.Trim());
         }
-        parameter.SetAttribute("var", value.Trim());
+        else
+        {
+            if (parameter is null)
+            {
+                parameter = Element.OwnerDocument!.CreateElement("param");
+                parameter.SetAttribute("name", parameterName);
+                Element.AppendChild(parameter);
+            }
+            parameter.SetAttribute("var", value.Trim());
+        }
         Refresh();
     }
 
+    private bool IsFreshForm => IsForm && !IsLayout && !IsRefresh;
+
     private bool UsesDefinitionResource =>
+        IsFreshForm ||
         Type.Equals("MACROITEM", StringComparison.OrdinalIgnoreCase) ||
         Type.Equals("FRAME", StringComparison.OrdinalIgnoreCase) ||
         Type.Equals("CONTEXTMENU", StringComparison.OrdinalIgnoreCase);
@@ -300,6 +317,15 @@ public sealed class PangyaUiNode
         }
         string rect = FirstAttribute(element, "rect", "bounds");
         string pos = FirstAttribute(element, "pos");
+        string size = FirstAttribute(element, "size");
+        if (element.LocalName.Equals("element", StringComparison.OrdinalIgnoreCase) &&
+            FirstAttribute(element, "type").Equals("FORM", StringComparison.OrdinalIgnoreCase) &&
+            PangyaUiDimensionHelper.ParseSize(size) is Size formSize)
+        {
+            Point formOrigin = PangyaUiDimensionHelper.ParsePoint(pos) ??
+                PangyaUiDimensionHelper.ParseWindowRectangle(rect)?.Location ?? Point.Empty;
+            return new Rectangle(formOrigin, new Size(Math.Max(0, formSize.Width), Math.Max(0, formSize.Height)));
+        }
         if (element.LocalName.Equals("item", StringComparison.OrdinalIgnoreCase) &&
             FirstAttribute(element, "rect").Length > 0 &&
             PangyaUiDimensionHelper.ParsePoint(pos) is Point position &&
@@ -310,7 +336,6 @@ public sealed class PangyaUiNode
 
         Point? point = PangyaUiDimensionHelper.ParsePoint(
             pos.Length > 0 ? pos : FirstAttribute(element, "position"));
-        string size = FirstAttribute(element, "size");
         Size? dimensions = PangyaUiDimensionHelper.ParseSize(size);
         if (dimensions is null)
         {
@@ -970,9 +995,10 @@ public sealed class PangyaUiResourceCatalog
                     return;
                 }
                 conditionalSymbols.UnionWith(document.ConditionalSymbols);
-                foreach (PangyaUiNode root in document.Roots.Where(root =>
-                             !string.IsNullOrWhiteSpace(root.Name)))
+                for (int rootIndex = 0; rootIndex < document.Roots.Count; rootIndex++)
                 {
+                    PangyaUiNode root = document.Roots[rootIndex];
+                    if (string.IsNullOrWhiteSpace(root.Name)) continue;
                     if (failedIncludes.Any(condition => condition.Length == 0)) break;
                     if (root.Type.Equals("INCLUDE", StringComparison.OrdinalIgnoreCase))
                     {
@@ -998,7 +1024,7 @@ public sealed class PangyaUiResourceCatalog
                         matches = [];
                         definitions[root.Name] = matches;
                     }
-                    matches.Add(new ResourceDefinition(root, requiredSymbols, path, failedIncludes));
+                    matches.Add(new ResourceDefinition(root, requiredSymbols, path, failedIncludes, rootIndex));
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
@@ -1062,6 +1088,19 @@ public sealed class PangyaUiResourceCatalog
             .FirstOrDefault(match => ReferenceEquals(match.Node, definition))?.SourcePath;
     }
 
+    public PangyaUiNode? FindSourceRoot(PangyaUiNode definition, PangyaUiDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(document);
+        ResourceDefinition? source = _definitions.GetValueOrDefault(definition.Name)?
+            .Find(match => ReferenceEquals(match.Node, definition));
+        if (source is null || !string.Equals(source.SourcePath, document.Path, StringComparison.OrdinalIgnoreCase) ||
+            source.RootIndex >= document.Roots.Count) return null;
+        PangyaUiNode root = document.Roots[source.RootIndex];
+        return root.Name == definition.Name && root.Type == definition.Type &&
+            root.RequiredSymbols.SetEquals(definition.RequiredSymbols) ? root : null;
+    }
+
     private sealed record ResourceDefinition(PangyaUiNode Node, string[] IncludeSymbols, string SourcePath,
-        string[][] FailedIncludeConditions);
+        string[][] FailedIncludeConditions, int RootIndex);
 }

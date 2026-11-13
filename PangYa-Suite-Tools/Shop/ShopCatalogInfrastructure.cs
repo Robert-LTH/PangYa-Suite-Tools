@@ -108,7 +108,13 @@ internal static class ShopCatalogLoader
                     Convert.ToByte(record.GetValue("TimeFlag", encoding)),
                     Convert.ToByte(record.GetValue("Time", encoding)),
                     record.GetValue("StartDate", encoding) as DateTime?,
-                    record.GetValue("EndDate", encoding) as DateTime?));
+                    record.GetValue("EndDate", encoding) as DateTime?)
+                {
+                    PartCategory = PangyaIffQueries.GetItemGroup(itemId) == IffItemGroup.Part &&
+                        record.TryGetField("Category", out _)
+                        ? Convert.ToByte(record.GetValue("Category", encoding))
+                        : null,
+                });
             }
         }
         return new ShopCatalogLoadResult(items, missingIconCount);

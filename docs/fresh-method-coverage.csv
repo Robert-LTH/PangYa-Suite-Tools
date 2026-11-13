@@ -20,7 +20,7 @@ frarea.cpp,403,FrArea,OnLButtonUp,bool FrArea::OnLButtonUp(const WPoint& mousePo
 frarea.cpp,409,FrArea,ClippingArea,"bool FrArea::ClippingArea(WRect& src, WRect& dst)",partial,PangyaAPI/PangyaAPI.UI/PangyaUiRenderer.cs:ImageBounds+ClipImageBounds,Source comparison; compiled spatial fixtures,Intrinsic sizing and absolute clip intersection implemented; native raster comparison remains open
 frbutton.cpp,27,FrButton,FrButton,FrButton::FrButton(),unreviewed,,,
 frbutton.cpp,46,FrButton,~FrButton,FrButton::~FrButton(),unreviewed,,,
-frbutton.cpp,50,FrButton,Init,"void FrButton::Init(FrGuiItem& item, FrWndManager* pManager, FrWnd* pParent, bool bParseParam)",unreviewed,,,
+frbutton.cpp,50,FrButton,Init,"void FrButton::Init(FrGuiItem& item, FrWndManager* pManager, FrWnd* pParent, bool bParseParam)",partial,PangyaUiRenderer.DrawButton and GetButtonPushStyle and GetButtonPushDelay,Native source and regression fixtures,Style and push delay accept decimal prefixes. Native timing precision and raster comparison remain open.
 frbutton.cpp,103,FrButton,InitExtern,"void FrButton::InitExtern(const Bitmap* pBmpNormal, const Bitmap* pBmpOver, const Bitmap* pBmpSelected, eButStyle style, eButPushStyle pushStyle)",unreviewed,,,
 frbutton.cpp,117,FrButton,SetButtonImg,"void FrButton::SetButtonImg(const char* name, eButMode mode)",unreviewed,,,
 frbutton.cpp,136,FrButton,SetButtonBelowImg,"void FrButton::SetButtonBelowImg(const char* name, eButMode mode)",unreviewed,,,
@@ -30,7 +30,7 @@ frbutton.cpp,237,FrButton,OnLButtonDown,bool FrButton::OnLButtonDown(const WPoin
 frbutton.cpp,266,FrButton,OnLButtonUp,bool FrButton::OnLButtonUp(const WPoint& mousePos),partial,PangyaAPI/PangyaAPI.UI/PangyaUiButtonInputState.cs:ButtonUp,Source comparison; compiled release fixtures unrun,Models outside-release rules and clears press/capture; host owns capture and commands
 frbutton.cpp,278,FrButton,OnRButtonDown,bool FrButton::OnRButtonDown(const WPoint& mousePos),partial,PangyaAPI/PangyaAPI.UI/PangyaUiButtonInputState.cs:ButtonDown,Source comparison; compiled right-button fixture unrun,Right-button gate shares native down transition; host owns routing and commands
 frbutton.cpp,310,FrButton,OnRButtonUp,bool FrButton::OnRButtonUp(const WPoint& mousePos),partial,PangyaAPI/PangyaAPI.UI/PangyaUiButtonInputState.cs:ButtonUp,Source comparison; compiled right-button fixture unrun,Right-button gate shares native release transition; host owns routing and commands
-frbutton.cpp,325,FrButton,OnDraw,void FrButton::OnDraw(),unreviewed,,,
+frbutton.cpp,325,FrButton,OnDraw,void FrButton::OnDraw(),partial,PangyaUiRenderer.DrawButton,Native source and regression fixture,Owner drawing runs without a normal bitmap. Callback artwork bounds and native raster comparison remain open.
 frbutton.cpp,400,FrButton,OnProc,void FrButton::OnProc(const float deltaTime),unreviewed,,,
 frbutton.cpp,419,FrButton,PreCreateWindow,"void FrButton::PreCreateWindow(FrWndManager* pManager, unsigned long dwStyle, const WRect& rect, FrWnd* pParentWnd)",unreviewed,,,
 frbutton.cpp,455,FrButton,SetStatus,void FrButton::SetStatus(eButMode status),partial,PangyaAPI/PangyaAPI.UI/PangyaUiButtonInputState.cs:SetStatus,Source comparison; compiled radio fixture unrun,Updates radio previous-pressed latch and renderer snapshot; BLINK status enum remains unrepresented
@@ -44,7 +44,7 @@ frcombobox.cpp,38,FrComboBox,FrComboBox,FrComboBox::FrComboBox(),unreviewed,,,
 frcombobox.cpp,48,FrComboBox,~FrComboBox,FrComboBox::~FrComboBox(),unreviewed,,,
 frcombobox.cpp,54,FrComboBox,Init,"void FrComboBox::Init(FrGuiItem& item, FrWndManager* pManager, FrWnd* pParent)",unreviewed,,,
 frcombobox.cpp,114,FrComboBox,IncreaseMaxListNum,void FrComboBox::IncreaseMaxListNum(int maxListNum),unreviewed,,,
-frcombobox.cpp,123,FrComboBox,ResizeListRect,void FrComboBox::ResizeListRect(),unreviewed,,,
+frcombobox.cpp,123,FrComboBox,ResizeListRect,void FrComboBox::ResizeListRect(),partial,PangyaAPI/PangyaAPI.UI/PangyaUiRenderer.cs:GetComboListGeometry,Source comparison and resize fixture,Dropdown retains its initialized width; native OnResize timing remains open
 frcombobox.cpp,157,FrComboBox,AddString,void FrComboBox::AddString(const char* string),unreviewed,,,
 frcombobox.cpp,170,FrComboBox,DelString,void FrComboBox::DelString(int index),unreviewed,,,
 frcombobox.cpp,190,FrComboBox,FindString,int FrComboBox::FindString(const char* string),unreviewed,,,
@@ -88,7 +88,7 @@ frcontextmenuctrl.cpp,368,FrContextMenuCtrl,Select,void FrContextMenuCtrl::Selec
 frcontextmenuctrl.cpp,379,FrContextMenuCtrl,Unselect,void FrContextMenuCtrl::Unselect(MENU_LIST::iterator i),unreviewed,,,
 frcontextmenuctrl.cpp,388,FrContextMenuCtrl,UpdateRectInfo,"void FrContextMenuCtrl::UpdateRectInfo(int layer, const Bitmap** bmp)",unreviewed,,,
 frcontextmenuctrl.cpp,430,FrContextMenuCtrl,DrawFrame,"void FrContextMenuCtrl::DrawFrame(int layer, float x, float y, const Bitmap** bmp)",unreviewed,,,
-frcontextmenuctrl.cpp,487,FrContextMenuCtrl,DrawIcon,"void FrContextMenuCtrl::DrawIcon(WPoint& pt, const Bitmap* bmp, float fHeight, bool bEnable)",unreviewed,,,
+frcontextmenuctrl.cpp,487,FrContextMenuCtrl,DrawIcon,"void FrContextMenuCtrl::DrawIcon(WPoint& pt, const Bitmap* bmp, float fHeight, bool bEnable)",partial,PangyaAPI/PangyaAPI.UI/PangyaUiRenderer.cs:RenderContextMenu,Source comparison and icon edge fixture,Shared icon placement for draw and bounds with native disabled opacity; GPU raster comparison remains open
 frcursor.cpp,4,FrCursor,FrCursor,FrCursor::FrCursor(),unreviewed,,,
 frcursor.cpp,8,FrCursor,~FrCursor,FrCursor::~FrCursor(),unreviewed,,,
 frcursor.cpp,12,FrCursor,Init,void FrCursor::Init(),unreviewed,,,
@@ -150,7 +150,7 @@ frelement.cpp,76,FrGuiItem,Init,void FrGuiItem::Init(const TiXmlNode* pSrc),unre
 frelement.cpp,130,FrGuiItemNested,~FrGuiItemNested,FrGuiItemNested::~FrGuiItemNested(),unreviewed,,,
 frelement.cpp,136,FrGuiItemNested,Init,void FrGuiItemNested::Init(const TiXmlNode* pSrc),unreviewed,,,
 frelement.cpp,143,FrGuiItemNested,GetChildList,const std::list<FrGuiItem*>* FrGuiItemNested::GetChildList(),unreviewed,,,
-frelement.cpp,148,FrElementFrame,Init,void FrElementFrame::Init(const TiXmlNode* pSrc),unreviewed,,,
+frelement.cpp,148,FrElementFrame,Init,void FrElementFrame::Init(const TiXmlNode* pSrc),partial,PangyaAPI/PangyaAPI.UI/PangyaUiRenderer.cs:ReadLayerValue+GetFrameLayerBounds,Source comparison and layer-anchor fixtures,Decimal prefixes and bottompos precedence modeled; missing attributes use preview defaults and raster comparison remains open
 frelement.cpp,184,FrElementLayout,Init,void FrElementLayout::Init(const TiXmlNode* pSrc),unreviewed,,,
 frelement.cpp,216,FrElementForm,Init,void FrElementForm::Init(const TiXmlNode* pSrc),unreviewed,,,
 frelement.cpp,240,FrElementBitmap,Init,void FrElementBitmap::Init(const TiXmlNode* pSrc),unreviewed,,,
@@ -233,7 +233,7 @@ frform.cpp,544,FrForm,SetFrameCaptionFocus,void FrForm::SetFrameCaptionFocus(boo
 frframe.cpp,26,FrFrame,FrFrame,FrFrame::FrFrame(),unreviewed,,,
 frframe.cpp,45,FrFrame,~FrFrame,FrFrame::~FrFrame(),unreviewed,,,
 frframe.cpp,50,FrFrame,Release,void FrFrame::Release(),unreviewed,,,
-frframe.cpp,54,FrFrame,Init,"void FrFrame::Init(FrGuiItem& item, FrWndManager* pManager, FrWnd* pParent)",unreviewed,,,
+frframe.cpp,54,FrFrame,Init,"void FrFrame::Init(FrGuiItem& item, FrWndManager* pManager, FrWnd* pParent)",partial,PangyaAPI/PangyaAPI.UI/PangyaUiRenderer.cs:DrawFrame+DrawFrameLayer,Source comparison and dotted-prefix alias fixture,Numbered bitmap names take precedence including dotted prefixes; preview retains direct bitmap fallback and native raster comparison remains open
 frframe.cpp,109,FrFrame,OnDraw,void FrFrame::OnDraw(),partial,PangyaAPI/PangyaAPI.UI/PangyaUiRenderer.cs:DrawFrame,Source comparison; compiled description-height fixture,Description uses initialized layer height including zero when absent; partial-image geometry and native raster comparison remain open
 frframe.cpp,154,FrFrame,UpdateRectInfo,"void FrFrame::UpdateRectInfo(int layer, const Bitmap** bmp)",unreviewed,,,
 frframe.cpp,200,FrFrame,DrawFrame,"void FrFrame::DrawFrame(int layer, float x, float y, const Bitmap** bmp)",partial,PangyaAPI/PangyaAPI.UI/PangyaUiRenderer.cs:DrawFrame+DrawFrameLayer,Source comparison; compiled layer-anchor fixtures,Position signs and type branches compared; complete geometry and raster comparison remain open
@@ -407,7 +407,7 @@ frtabbutton.cpp,296,FrTabButton,OnProc,void FrTabButton::OnProc(const float delt
 frtabbutton.cpp,300,FrTabButton,OnMouseMove,void FrTabButton::OnMouseMove(const WPoint& mousePos),unreviewed,,,
 frtabbutton.cpp,321,FrTabButton,OnSetCursor,"void FrTabButton::OnSetCursor(bool bInClient, const WPoint& mousePos)",unreviewed,,,
 frtabbutton.cpp,340,FrTabButton,OnLButtonDown,bool FrTabButton::OnLButtonDown(const WPoint& mousePos),unreviewed,,,
-frtabbutton.cpp,360,FrTabButton,OnLButtonUp,bool FrTabButton::OnLButtonUp(const WPoint& mousePos),unreviewed,,,
+frtabbutton.cpp,360,FrTabButton,OnLButtonUp,bool FrTabButton::OnLButtonUp(const WPoint& mousePos),partial,PangyaAPI/PangyaAPI.UI/PangyaUiTabState.cs:ButtonUp,Source comparison and activation fixture,Release updates hover only in button-up activation mode; native command dispatch remains open
 frtext.cpp,29,FrTextToken,RunTag,void FrTextToken::RunTag(FrGraphicInterface* pGDI),unreviewed,,,
 frtext.cpp,62,FrTextToken,IsTag,bool FrTextToken::IsTag(),unreviewed,,,
 frtext.cpp,67,FrTextToken,GetColorValue,"bool FrTextToken::GetColorValue(unsigned long* textcolor, unsigned long* outcolor)",unreviewed,,,

@@ -66,7 +66,6 @@ internal sealed class FrmPangyaUiEditor : Form
         {
             if (_properties.SelectedNode is not { } node) return;
             _canvas.SetElementPreviewVisibility(node, _properties.ShowInPreview);
-            UpdatePreviewZoom();
         };
 
         Name = "frmPangyaUiEditor";
@@ -83,7 +82,11 @@ internal sealed class FrmPangyaUiEditor : Form
 
         _canvas.SelectionChanged += (_, node) => SelectNode(node, fromCanvas: true);
         _canvas.MouseUp += (_, _) => UpdatePreviewZoom();
-        _canvas.PreviewGeometryChanged += (_, _) => UpdatePreviewZoom();
+        _canvas.PreviewGeometryChanged += (_, _) =>
+        {
+            UpdatePreviewZoom();
+            UpdateActionState();
+        };
         _canvas.ElementChanged += (_, e) =>
         {
             MarkDirty();
@@ -326,8 +329,8 @@ internal sealed class FrmPangyaUiEditor : Form
         _properties.Dock = DockStyle.Right;
         previewWorkspace.Controls.Add(canvasHost);
         previewWorkspace.Controls.Add(_properties);
-        void SizeProperties() => _properties.Width = Math.Min(_properties.ContentWidth,
-            Math.Max(1, previewWorkspace.ClientSize.Width / 2));
+        void SizeProperties() => _properties.Width = GetPropertiesPaneWidth(
+            previewWorkspace.ClientSize.Width, _properties.ContentWidth);
         previewWorkspace.ClientSizeChanged += (_, _) => SizeProperties();
         _properties.ContentWidthChanged += (_, _) => SizeProperties();
         SizeProperties();
@@ -351,6 +354,13 @@ internal sealed class FrmPangyaUiEditor : Form
 
         Controls.Add(mainSplit);
         mainSplit.BringToFront();
+    }
+
+    internal static int GetPropertiesPaneWidth(int workspaceWidth, int contentWidth)
+    {
+        const int preferredPreviewWidth = 320;
+        int reservedPreviewWidth = Math.Min(preferredPreviewWidth, workspaceWidth / 2);
+        return Math.Min(contentWidth, Math.Max(1, workspaceWidth - reservedPreviewWidth));
     }
 
     private void PopulateFileSelector()
@@ -398,8 +408,7 @@ internal sealed class FrmPangyaUiEditor : Form
                 return null;
             }
         }
-        PangyaUiNode? definition = _resourceCatalog.TryResolve(node.GetResource(_canvas.ButtonState),
-            node.Type, _enabledSymbols);
+        PangyaUiNode? definition = _canvas.ResolvePreviewReference(node);
         return definition is null ? null : _resourceCatalog.GetSourcePath(definition);
     }
 
@@ -408,9 +417,9 @@ internal sealed class FrmPangyaUiEditor : Form
         string? path = GetSelectedReferencePath();
         if (path is null) return;
         string[] symbols = _enabledSymbols.ToArray();
+        PangyaUiResourceCatalog catalog = _resourceCatalog;
         PangyaUiNode? selected = _properties.SelectedNode;
-        PangyaUiNode? definition = selected is null ? null : _resourceCatalog.TryResolve(
-            selected.GetResource(_canvas.ButtonState), selected.Type, _enabledSymbols);
+        PangyaUiNode? definition = selected is null ? null : _canvas.ResolvePreviewReference(selected);
         _openReferenceButton.Enabled = false;
         try
         {
@@ -423,9 +432,8 @@ internal sealed class FrmPangyaUiEditor : Form
             editor.RefreshConditionalView();
             if (definition is not null && editor._document is not null)
             {
-                PangyaUiNode? target = editor._document.Roots.FirstOrDefault(root =>
-                    root.Name == definition.Name && root.Type == definition.Type && root.IsVisible(editor._enabledSymbols));
-                if (target is not null) editor.BuildElementTree(target);
+                PangyaUiNode? target = catalog.FindSourceRoot(definition, editor._document);
+                if (target?.IsVisible(editor._enabledSymbols) == true) editor.BuildElementTree(target);
             }
             editor.Show();
         }
@@ -848,13 +856,23 @@ internal sealed class PangyaUiCanvas : Control
     internal void SetComboPreview(PangyaUiNode node, PangyaUiComboPreview preview)
     {
         PangyaUiNode? previousOpen = _openCombo;
+        Rectangle previousBounds = MeasureCombo();
         if (preview.IsOpen && _openCombo is not null && !ReferenceEquals(_openCombo, node))
             _combos[_openCombo] = _combos[_openCombo] with { IsOpen = false, HoveredIndex = -1 };
         _combos[node] = preview;
         if (preview.IsOpen) _openCombo = node;
         else if (ReferenceEquals(_openCombo, node)) _openCombo = null;
-        if (!ReferenceEquals(previousOpen, _openCombo)) PreviewGeometryChanged?.Invoke(this, EventArgs.Empty);
+        if (!ReferenceEquals(previousOpen, _openCombo) || previousBounds != MeasureCombo())
+            PreviewGeometryChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
+
+        Rectangle MeasureCombo()
+        {
+            PangyaUiRenderOptions options = RenderOptions() with { IncludeCaptionVisualBounds = true, ShowDebugBounds = false };
+            Rectangle bounds = _renderer.GetRenderedBounds(node, options);
+            Rectangle dropdown = _renderer.GetComboDropdownBounds(node, options, includeScrollbar: true);
+            return dropdown.IsEmpty ? bounds : bounds.IsEmpty ? dropdown : Rectangle.Union(bounds, dropdown);
+        }
     }
     private (PangyaUiNode Node, float Travel, int PreviousY, float Offset, Point TrackPoint)? _comboThumbDrag;
     private PangyaUiNode? _draggedViewer;
@@ -937,8 +955,9 @@ internal sealed class PangyaUiCanvas : Control
         MouseUp += (_, e) =>
         {
             if (e.Button != MouseButtons.Left) return;
-            if (e.Button == MouseButtons.Left && _pressedTab is { } tab &&
-                _renderedTabs.Contains(tab) && HitRenderedTab(tab.Instance.Node, LogicalPoint(e.Location)) == tab)
+            if (_pressedTab is { } pressedTab &&
+                HitRenderedTab(pressedTab.Instance.Node, LogicalPoint(e.Location), pressedTab.Instance) is { } tab &&
+                tab.Index == pressedTab.Index)
             {
                 if (tab.Instance.Node.Name == "gametype" && tab.Instance.Node.Parent is { } room &&
                     string.Equals(room.Name, "makeroom", StringComparison.OrdinalIgnoreCase))
@@ -953,7 +972,10 @@ internal sealed class PangyaUiCanvas : Control
                         }
                     }
                 }
+                int previousIndex = _selectedTabs.GetValueOrDefault(tab.Instance, -1);
                 _selectedTabs[tab.Instance] = tab.Index;
+                if (previousIndex != tab.Index)
+                    PreviewGeometryChanged?.Invoke(this, EventArgs.Empty);
                 Invalidate();
             }
             _pressedTab = null;
@@ -1158,12 +1180,14 @@ internal sealed class PangyaUiCanvas : Control
         Capture = false;
     }
 
-    private (PangyaUiTabInstance Instance, int Index, Rectangle Bounds, Point Origin)? HitRenderedTab(PangyaUiNode hit, Point point)
+    private (PangyaUiTabInstance Instance, int Index, Rectangle Bounds, Point Origin)? HitRenderedTab(
+        PangyaUiNode hit, Point point, PangyaUiTabInstance? capturedInstance = null)
     {
         PangyaUiRenderOptions options = RenderOptions();
         for (int index = _renderedTabs.Count - 1; index >= 0; index--)
         {
             var tab = _renderedTabs[index];
+            if (capturedInstance is { } captured && tab.Instance != captured) continue;
             if ((ReferenceEquals(tab.Instance.Node, hit) || hit.IsForm ||
                  hit.Type.Equals("MACROITEM", StringComparison.OrdinalIgnoreCase)) && tab.Bounds.Contains(point) &&
                 _renderer.HitTestTab(tab.Instance, point, tab.Origin, options) == tab.Index)
@@ -1444,6 +1468,9 @@ internal sealed class PangyaUiCanvas : Control
     internal Rectangle GetRenderedBounds(PangyaUiNode node)
         => _renderer.GetRenderedBounds(node, RenderOptions());
 
+    internal PangyaUiNode? ResolvePreviewReference(PangyaUiNode node) =>
+        _renderer.ResolvePreviewReference(node, RenderOptions());
+
     internal void CanvasMouseDown(object? sender, MouseEventArgs e)
     {
         UpdateWheelPointer(LogicalPoint(e.Location));
@@ -1473,6 +1500,8 @@ internal sealed class PangyaUiCanvas : Control
                 return;
             }
             if (item < 0 && _renderer.GetComboDropdownBounds(open, RenderOptions()).Contains(logical)) return;
+            if (item >= 0 && PangyaUiRenderer.IsImageCombo(open))
+                combo = _renderer.SelectComboImage(open, item, RenderOptions()).Combos![open];
             SetComboPreview(open, combo with
             {
                 IsOpen = false, HoveredIndex = -1,
@@ -1482,18 +1511,18 @@ internal sealed class PangyaUiCanvas : Control
         }
         if (SelectedForm is not null)
         {
+            PangyaUiRenderOptions current = RenderOptions();
             foreach (PangyaUiNode viewer in RenderOrderedNodes().Reverse())
             {
-                if (!viewer.IsRenderVisible)
+                if (!IsElementShownInPreview(viewer))
                     continue;
-                RectangleF thumb = _renderer.GetViewerScrollThumbGeometry(viewer, RenderOptions());
+                RectangleF thumb = _renderer.GetViewerScrollThumbGeometry(viewer, current);
                 if (thumb.IsEmpty) continue;
-                Rectangle viewport = _renderer.GetViewerViewport(viewer, RenderOptions());
+                Rectangle viewport = _renderer.GetViewerViewport(viewer, current);
                 var track = new RectangleF(thumb.X - 3, viewport.Y, thumb.Width, viewport.Height);
                 if (!track.Contains(logical)) continue;
                 if (logical.Y < thumb.Top || logical.Y > thumb.Bottom)
                 {
-                    PangyaUiRenderOptions current = RenderOptions();
                     PangyaUiRenderOptions paged = _renderer.PageViewerScrollbar(viewer, logical.Y > thumb.Bottom, current);
                     if (ReferenceEquals(current, paged)) return;
                     _viewerScrollRows.Remove(viewer);
@@ -1784,11 +1813,13 @@ internal sealed class PangyaUiCanvas : Control
 
     internal void SetElementPreviewVisibility(PangyaUiNode node, bool visible)
     {
+        if (IsElementShownInPreview(node) == visible) return;
         _previewHidden.Remove(node);
         _previewShown.Remove(node);
         if (visible != node.IsRenderVisible)
             (visible ? _previewShown : _previewHidden).Add(node);
         UpdateCanvasSize();
+        PreviewGeometryChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
     }
 
@@ -1820,21 +1851,23 @@ internal sealed class PangyaUiCanvas : Control
             HasStandaloneFramePreview = frameBounds.HasValue;
             return frameBounds ?? bounds;
         }
-        if (_selectedForm.Type.Equals("LAYOUT", StringComparison.OrdinalIgnoreCase))
-            return bounds;
         PangyaUiRenderOptions options = RenderOptions() with { IncludeCaptionVisualBounds = true, ShowDebugBounds = false };
         bounds = PangyaUiRenderer.GetPreviewCanvasBounds(_document, _selectedForm, options);
         foreach (PangyaUiNode node in _renderer.GetRenderOrder(_document, _selectedForm, null,
                      _enabledSymbols, null, options))
         {
             Rectangle rendered = _renderer.GetRenderedBounds(node, options);
-            if (rendered.Width > 0 && rendered.Height > 0)
-                bounds = Rectangle.Union(bounds, rendered);
+            Include(rendered);
             Rectangle dropdown = _renderer.GetComboDropdownBounds(node, options, includeScrollbar: true);
-            if (dropdown.Width > 0 && dropdown.Height > 0)
-                bounds = Rectangle.Union(bounds, dropdown);
+            Include(dropdown);
         }
         return bounds;
+
+        void Include(Rectangle artwork)
+        {
+            if (artwork.Width <= 0 || artwork.Height <= 0) return;
+            bounds = bounds.Width <= 0 || bounds.Height <= 0 ? artwork : Rectangle.Union(bounds, artwork);
+        }
     }
 
     internal void UpdateCanvasSize()

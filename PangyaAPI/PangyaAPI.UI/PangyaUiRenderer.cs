@@ -147,6 +147,8 @@ public sealed record PangyaUiRenderOptions(
     public IReadOnlyDictionary<PangyaUiNode, bool>? ViewerFollowBottom { get; init; }
     public IReadOnlyDictionary<PangyaUiNode, byte>? ButtonOpacity { get; init; }
     public IReadOnlyDictionary<PangyaUiNode, Action<Graphics, Rectangle, PangyaUiButtonState>>? ButtonOwnerDraw { get; init; }
+    /// <summary>Owner-drawn artwork bounds relative to the button origin.</summary>
+    public IReadOnlyDictionary<PangyaUiNode, Rectangle>? ButtonOwnerDrawBounds { get; init; }
     public IReadOnlyDictionary<PangyaUiNode, int>? SelectedTabIndices { get; init; }
     public IReadOnlyDictionary<(PangyaUiNode Node, Point Origin), int>? SelectedTabInstances { get; init; }
     public IReadOnlyDictionary<PangyaUiTabInstance, int>? SelectedTabsByInstance { get; init; }
@@ -1110,6 +1112,8 @@ public sealed class PangyaUiRenderer
                 ? GetViewerScrollRange(resized, image, options) : 0;
             rows[resized] = top;
             fractionalRows[resized] = top;
+            if (options.DraggedViewerThumb is { } drag && ReferenceEquals(drag.Node, resized))
+                options = options with { DraggedViewerThumb = null };
         }
         return options with { ViewerTopRows = rows, ViewerScrollRows = fractionalRows, RetainedViewerScrollbarCapacities = retainedCapacities };
     }
@@ -1280,8 +1284,7 @@ public sealed class PangyaUiRenderer
                 return true;
 
             foreach (PangyaUiNode child in node.Children) pending.Push(child);
-            if (_resources.TryResolve(GetRenderResource(node, PangyaUiButtonState.Normal),
-                    node.Type, symbols) is PangyaUiNode definition)
+            if (ResolvePreviewReference(node, PangyaUiButtonState.Normal, symbols) is PangyaUiNode definition)
                 pending.Push(definition);
         }
         return false;
@@ -1291,6 +1294,7 @@ public sealed class PangyaUiRenderer
         Point point, PangyaUiRenderOptions? options = null)
     {
         options ??= new PangyaUiRenderOptions();
+        if (options.ButtonOwnerDrawBounds is not null) options = options with { ButtonOwnerDrawBounds = null };
         return GetRenderOrder(document, selectedForm, options.SelectedNode,
                 options.EnabledSymbols, options.TopmostNodes, options)
             .LastOrDefault(node =>
@@ -1347,8 +1351,8 @@ public sealed class PangyaUiRenderer
             caption.Length > 0 && !IsPrivacyHidden(node, options) &&
             node.Type.Equals("STATIC", StringComparison.OrdinalIgnoreCase))
             return MeasureStaticCaptionBounds(node, absoluteBounds, caption, options);
-        if (node.LayoutBase is not null || caption.Length > 0 ||
-            GetTextButtonCaption(node, options).Length > 0)
+        if (!(node is { IsForm: true, IsLayout: false }) && !node.Type.Equals("FRAME", StringComparison.OrdinalIgnoreCase) &&
+            (node.LayoutBase is not null || caption.Length > 0 || GetTextButtonCaption(node, options).Length > 0))
             return absoluteBounds;
         if (IsAreaEntranceFinished(node, options)) return Rectangle.Empty;
         bool hasAreaOwner = IsArea(node) && options.AreaOwnerDraw?.ContainsKey(node) == true;
@@ -1359,10 +1363,10 @@ public sealed class PangyaUiRenderer
         if (IsImageGauge(node))
             return RenderImageGauge(null, node, absoluteBounds.Location, symbols, options);
         if (HasButtonSkin(node, options))
-            return GetButtonBounds(node, absoluteBounds, symbols, options);
+            return MeasureButtonBounds(node, absoluteBounds, symbols, options);
 
         string resource = GetRenderResource(node, options.ButtonState, options.AreaImages);
-        string resourceType = IsArea(node) && options.AreaImages?.ContainsKey(node) == true ? "BITMAP" : node.Type;
+        string resourceType = IsArea(node) && options.AreaImages?.ContainsKey(node) == true ? "BITMAP" : GetPreviewReferenceType(node);
         Image? areaBitmap = IsArea(node) ? options.AreaBitmapImages?.GetValueOrDefault(node) : null;
         PangyaUiNode? definition = areaBitmap is null
             ? _resources.TryResolve(resource, resourceType, symbols) : null;
@@ -1386,10 +1390,9 @@ public sealed class PangyaUiRenderer
             if (definition.Type.Equals("FRAME", StringComparison.OrdinalIgnoreCase))
                 return GetBaseFrameBounds(bounds, definition, symbols, node.Parameters.GetValueOrDefault("bgimg"),
                     node, options);
-            if (definition.IsForm && !definition.IsLayout &&
-                definition.Bounds.Size is { Width: > 0, Height: > 0 } formSize)
-                return GetInstantiatedFormBounds(definition, new Rectangle(bounds.Location,
-                    options.WindowSizes?.ContainsKey(node) == true ? bounds.Size : formSize), ForResourceChildren(node, options),
+            if (definition.IsForm && !definition.IsLayout)
+                return GetInstantiatedFormBounds(definition, GetInstantiatedFormRectangle(node, definition, bounds, options),
+                    ForResourceChildren(node, options),
                     new HashSet<PangyaUiNode>(ReferenceEqualityComparer.Instance));
             if (bounds.Width > 0 && bounds.Height > 0) return bounds;
             Rectangle referenced = GetReferencedBounds(definition, options,
@@ -1402,6 +1405,7 @@ public sealed class PangyaUiRenderer
         Rectangle destination = ImageBounds(node, absoluteBounds, image);
         Rectangle? entranceClip = ApplyAreaEntrance(node, absoluteBounds, image, options, ref destination);
         Rectangle visibleImage = entranceClip ?? ClipImageBounds(node, absoluteBounds, destination, options);
+        if (IsArea(node) && GetAreaTint(node, options).A == 0) visibleImage = Rectangle.Empty;
         if (!hasAreaOwner) return visibleImage;
         Rectangle? rendered = entranceClip.HasValue ? destination : absoluteBounds;
         IncludeBounds(ref rendered, visibleImage);
@@ -1526,15 +1530,12 @@ public sealed class PangyaUiRenderer
                             buttonOptions = options with { ButtonState = PangyaUiButtonState.Hover };
                     }
                     DrawButton(graphics, node, buttonBounds, buttonOptions);
-                    string? selectedImage = combo?.ImageSelection is { } selection
-                        ? selection.Image : selected?.Image;
-                    if (imageSelection && selectedImage is { Length: > 0 } filename &&
-                        GetBitmap(filename, symbols) is Image icon)
-                        DrawGraphicsImage(graphics, icon, GetComboIconBounds(node, buttonBounds.Location, GetGaugeImage(node, "normal", symbols)?.Width ?? editBounds.Width, icon.Size));
+                    if (GetSelectedComboArtwork(node, buttonBounds, combo, symbols) is { } artwork)
+                        DrawGraphicsImage(graphics, artwork.Image, artwork.Bounds);
                 }
             }
             if (queueDropdown && combo?.IsOpen == true)
-                dropdowns.Add((node, editBounds, combo));
+                dropdowns.Add((node, editBounds, ResolveReferencedComboSide(combo, editBounds.Y, options)));
             return;
         }
         if (IsTextButton(node))
@@ -1556,7 +1557,9 @@ public sealed class PangyaUiRenderer
                 else if (ReferenceEquals(options.HoveredNode, node))
                     buttonOptions = options with { ButtonState = PangyaUiButtonState.Hover };
             }
-            DrawButton(graphics, node, GetButtonBounds(node, nodeBounds, symbols, options), buttonOptions);
+            Rectangle buttonBounds = GetButtonBounds(node, nodeBounds, symbols, options);
+            if (buttonBounds == Rectangle.Empty) buttonBounds.Location = nodeBounds.Location;
+            DrawButton(graphics, node, buttonBounds, buttonOptions);
             return;
         }
         if (IsViewer(node))
@@ -1605,7 +1608,7 @@ public sealed class PangyaUiRenderer
 
         Rectangle areaOwnerBounds = nodeBounds;
         string resource = GetRenderResource(node, options.ButtonState, options.AreaImages);
-        string resourceType = IsArea(node) && options.AreaImages?.ContainsKey(node) == true ? "BITMAP" : node.Type;
+        string resourceType = IsArea(node) && options.AreaImages?.ContainsKey(node) == true ? "BITMAP" : GetPreviewReferenceType(node);
         Image? areaBitmap = IsArea(node) ? options.AreaBitmapImages?.GetValueOrDefault(node) : null;
         PangyaUiNode? definition = areaBitmap is null
             ? _resources.TryResolve(resource, resourceType, symbols) : null;
@@ -1625,9 +1628,7 @@ public sealed class PangyaUiRenderer
             {
                 if (definition.IsForm && !definition.IsLayout)
                 {
-                    if (options.WindowSizes?.ContainsKey(node) != true &&
-                        definition.Bounds.Size is { Width: > 0, Height: > 0 } formSize)
-                        nodeBounds.Size = formSize;
+                    nodeBounds = GetInstantiatedFormRectangle(node, definition, nodeBounds, options);
                     string frameResource = definition.GetResource(options.ButtonState);
                     PangyaUiNode? frame = _resources.TryResolve(frameResource, "FRAME", symbols);
                     if (frame?.Type.Equals("FRAME", StringComparison.OrdinalIgnoreCase) == true)
@@ -1663,12 +1664,11 @@ public sealed class PangyaUiRenderer
                     graphics.SetClip(clip, CombineMode.Intersect);
                     if (IsArea(node))
                     {
-                        Color tint = ParseColor(node.Parameters.GetValueOrDefault("color"), Color.White, implicitAlpha: false);
-                        byte opacity = options.AreaOpacity?.GetValueOrDefault(node, byte.MaxValue) ?? byte.MaxValue;
-                        tint = Color.FromArgb((int)(tint.A * GetWindowAlphaScale(node, options) * opacity / 255), tint);
+                        Color tint = GetAreaTint(node, options);
                         Rectangle visible = Rectangle.Intersect(clip, destination);
                         if (visible.Width > 0 && visible.Height > 0)
                         {
+                            graphics.PixelOffsetMode = PixelOffsetMode.Half;
                             float scaleX = (float)image.Width / destination.Width;
                             float scaleY = (float)image.Height / destination.Height;
                             DrawTintedImage(graphics, image, visible, (visible.Y - destination.Y) * scaleY,
@@ -2170,6 +2170,7 @@ public sealed class PangyaUiRenderer
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(caption);
         if (!IsTextButton(node)) throw new ArgumentException("Expected a text button.", nameof(node));
+        caption = ReadNullTerminatedText(caption);
         options ??= new();
         var captions = options.TextButtonCaptions?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
         var states = options.MenuStates?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
@@ -2279,7 +2280,7 @@ public sealed class PangyaUiRenderer
 
     private static string GetTextButtonCaption(PangyaUiNode node, PangyaUiRenderOptions? options) =>
         IsTextButton(node)
-            ? options?.TextButtonCaptions?.GetValueOrDefault(node) ?? TranslateXmlText(node.TextButtonCaption, options)
+            ? ReadNullTerminatedText(options?.TextButtonCaptions?.GetValueOrDefault(node) ?? TranslateXmlText(node.TextButtonCaption, options))
             : node.TextButtonCaption;
 
     private static string GetTextButtonSeparator(PangyaUiRenderOptions? options) =>
@@ -2682,6 +2683,83 @@ public sealed class PangyaUiRenderer
         IsContextMenu(node)
             ? options.ContextMenuCaptions?.GetValueOrDefault(node) ?? node.ContextMenuCaption
             : node.ContextMenuCaption;
+
+    public static PangyaUiRenderOptions DisableContextMenuItems(PangyaUiNode node, string text,
+        PangyaUiRenderOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(text);
+        if (!IsContextMenu(node)) throw new ArgumentException("Expected a context menu.", nameof(node));
+        options ??= new();
+        var states = options.MenuStates?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
+        PangyaUiMenuState state = states.GetValueOrDefault(node) ?? new();
+        var disabled = state.DisabledRows?.ToHashSet() ?? [];
+        string target = ReadNullTerminatedText(text);
+        int index = 0;
+        foreach (var (label, _) in GetMenuEntries(node, options))
+        {
+            if (string.Equals(GetMenuRowText(node, options, state, index, label), target, StringComparison.Ordinal))
+                disabled.Add(index);
+            index++;
+        }
+        states[node] = state with { DisabledRows = disabled };
+        return options with { MenuStates = states };
+    }
+
+    private static string ReadNullTerminatedText(string text) =>
+        text.IndexOf('\0') is int end and >= 0 ? text[..end] : text;
+
+    public static PangyaUiRenderOptions ReplaceContextMenuItems(PangyaUiNode node, string source, string destination,
+        PangyaUiRenderOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        if (!IsContextMenu(node)) throw new ArgumentException("Expected a context menu.", nameof(node));
+        options ??= new();
+        source = ReadNullTerminatedText(source);
+        destination = ReadNullTerminatedText(destination);
+        var states = options.MenuStates?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
+        PangyaUiMenuState state = states.GetValueOrDefault(node) ?? new();
+        var disabled = state.DisabledRows?.ToHashSet() ?? [];
+        var rows = new Dictionary<int, string>();
+        int index = 0;
+        foreach (var (label, _) in GetMenuEntries(node, options))
+        {
+            string text = GetMenuRowText(node, options, state, index, label);
+            if (state.DisabledTexts?.Contains(text, StringComparer.Ordinal) == true)
+                disabled.Add(index);
+            rows[index++] = string.Equals(text, source, StringComparison.Ordinal) ? destination : text;
+        }
+        var texts = options.ContextMenuItemTexts?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
+        texts[node] = rows;
+        states[node] = state with { DisabledRows = disabled, DisabledTexts = null, TextReplacements = null };
+        return options with { ContextMenuItemTexts = texts, MenuStates = states };
+    }
+
+    private static IEnumerable<(string Label, string Icon)> GetMenuEntries(PangyaUiNode node, PangyaUiRenderOptions options)
+    {
+        foreach (string entry in ReadNullTerminatedText(GetContextMenuCaption(node, options)).Split('|'))
+        {
+            if (entry.Length == 0) yield break;
+            int split = entry.IndexOf('@');
+            yield return split < 0 ? (entry, string.Empty) : (entry[..split], entry[split..]);
+        }
+    }
+
+    private static bool IsMenuSeparator(string label) => label.Contains("separator", StringComparison.Ordinal) ||
+        label.Contains("seperator", StringComparison.Ordinal);
+
+    private static string GetMenuRowText(PangyaUiNode node, PangyaUiRenderOptions options,
+        PangyaUiMenuState? state, int index, string label)
+    {
+        string text = options.ContextMenuItemTexts?.GetValueOrDefault(node)?.TryGetValue(index, out string? replacement) == true
+                ? ReadNullTerminatedText(replacement) : TruncateShiftJis(label, 31);
+        if (state?.TextReplacements is { } replacements)
+            foreach (var pair in replacements)
+                if (string.Equals(text, pair.Key, StringComparison.Ordinal)) return ReadNullTerminatedText(pair.Value);
+        return text;
+    }
     public int HitTestMenuRow(PangyaUiNode node, Point point, PangyaUiRenderOptions options)
     {
         if (IsRuntimeHidden(node, options) || !IsRenderVisible(node, options) || GetContextMenuCaption(node, options).Length == 0) return -1;
@@ -2702,29 +2780,15 @@ public sealed class PangyaUiRenderer
         float width = 0;
         float y = 8;
         PangyaUiMenuState? menuState = options.MenuStates?.GetValueOrDefault(node);
-        foreach (string entry in GetContextMenuCaption(node, options).Split('|'))
+        foreach (var (label, iconToken) in GetMenuEntries(node, options))
         {
-            if (entry.Length == 0) break;
-            int split = entry.IndexOf('@');
-            string label = split < 0 ? entry : entry[..split];
-            hasIcons |= split >= 0;
-            Image? icon = split >= 0 && split + 1 < entry.Length ? GetBitmap(entry[(split + 1)..], Symbols(options)) : null;
-            bool separator = label.Contains("separator", StringComparison.Ordinal) ||
-                label.Contains("seperator", StringComparison.Ordinal);
+            hasIcons |= iconToken.Length > 0;
+            Image? icon = iconToken.Length > 1 ? GetBitmap(iconToken[1..], Symbols(options)) : null;
+            bool separator = IsMenuSeparator(label);
             if (!separator) y += 4;
             float height = separator ? 10 : (options.CaptionFontHeight ?? font.GetHeight(graphics)) + 3;
-            string displayText = !separator &&
-                options.ContextMenuItemTexts?.GetValueOrDefault(node)?.TryGetValue(rows.Count,
-                    out string? replacementText) == true ? replacementText : label;
-            if (menuState?.TextReplacements is { } replacements)
-                foreach (var replacement in replacements)
-                    if (string.Equals(TruncateShiftJis(displayText, 31), replacement.Key,
-                            StringComparison.Ordinal))
-                    {
-                        displayText = replacement.Value;
-                        break;
-                    }
-            rows.Add((TruncateShiftJis(displayText, 31), icon, separator, y, height));
+            string displayText = GetMenuRowText(node, options, menuState, rows.Count, label);
+            rows.Add((displayText, icon, separator, y, height));
             y += height;
             float labelWidth = options.MeasureCaptionText?.Invoke(label) ??
                 graphics.MeasureString(label, font, PointF.Empty, format).Width;
@@ -2804,6 +2868,7 @@ public sealed class PangyaUiRenderer
                     GraphicsState iconState = graphics.Save();
                     try
                     {
+                        graphics.PixelOffsetMode = PixelOffsetMode.Half;
                         graphics.TranslateTransform(iconOrigin.X, iconOrigin.Y);
                         DrawTintedImage(graphics, icon, new Rectangle(Point.Empty, icon.Size),
                             0, icon.Width, icon.Height, enabled ? Color.White : Color.FromArgb(51, Color.White));
@@ -2826,6 +2891,7 @@ public sealed class PangyaUiRenderer
         PointF GetLabelOrigin(float rowTop) => new(origin.X + (hasIcons ? 30f : 10f), origin.Y + rowTop);
 
         int GetRowStyle(int index) => !IsDisabled(index) && (activeRow == index || menuState?.SelectedRow == index) ? 1 : 0;
+
     }
 
     private static PangyaUiListPreview? GetList(PangyaUiNode node, PangyaUiRenderOptions options) =>
@@ -3145,15 +3211,18 @@ public sealed class PangyaUiRenderer
                 var separatorBounds = new Rectangle(ClampCoordinate(separatorLeft), origin.Y,
                     separatorPixels, separator.Height);
                 DrawSlice(separator, separatorBounds);
-                IncludeBounds(ref result, separatorBounds);
+                if (alpha > 0) IncludeBounds(ref result, separatorBounds);
 
             }
             if (index > 0) x += separatorWidth;
-            if (size.Width <= 0 || size.Height <= 0) continue;
-            float layoutWidth = tab.LayoutWidth is > 0 and <= int.MaxValue ? tab.LayoutWidth.Value : size.Width;
+            float layoutWidth = tab.LayoutWidth is > 0 and <= int.MaxValue ? tab.LayoutWidth.Value : Math.Max(0, size.Width);
             long left = (long)Math.Floor(x + 0.5);
             int pixelWidth = ClampCoordinate((long)Math.Floor(x + layoutWidth + 0.5) - left);
-            var bounds = new Rectangle(ClampCoordinate(left), origin.Y, pixelWidth, size.Height);
+            var bounds = new Rectangle(ClampCoordinate(left), origin.Y, pixelWidth, Math.Max(0, size.Height));
+            // The tab can draw beyond the bar, but mouse dispatch uses the bar's client area.
+            Rectangle hitBounds = bounds with { Height = Math.Clamp(inputHeight, 0, bounds.Height) };
+            if (inputSize is Size explicitSize)
+                hitBounds = Rectangle.Intersect(hitBounds, new Rectangle(origin, explicitSize));
             PangyaUiButtonState state = selectedIndex is int selected
                 ? selected == index ? PangyaUiButtonState.Selected : PangyaUiButtonState.Normal
                 : tab.State;
@@ -3164,8 +3233,9 @@ public sealed class PangyaUiRenderer
                 ? instanceHit == (instance, index) : options.HoveredTab is { } tabHit
                 ? tabHit == (node, index, bounds)
                 : options.TabMouseEventsEnabled?.GetValueOrDefault(node, true) != false &&
+                  options.DisabledNodes?.Contains(node) != true &&
                   ReferenceEquals(options.HoveredNode, node) &&
-                  options.Pointer is Point pointer && bounds.Contains(pointer);
+                  options.Pointer is Point pointer && hitBounds.Contains(pointer);
             if (state == PangyaUiButtonState.Normal && hovered)
                 state = PangyaUiButtonState.Hover;
             Image? variant = GetImage(state switch
@@ -3181,25 +3251,37 @@ public sealed class PangyaUiRenderer
             if ((variant ?? normal) is Image foreground)
                 DrawSlice(foreground, bounds);
             IncludeBounds(ref result, bounds);
-            if (graphics is not null && tab.Caption is { Length: > 0 } caption)
+            if (bounds.Width > 0 && bounds.Height > 0 && alpha > 0 && tab.Caption is { Length: > 0 } caption &&
+                (graphics is not null || options.IncludeCaptionVisualBounds))
             {
                 using var font = new Font(SystemFonts.DefaultFont.FontFamily, 11, GraphicsUnit.Pixel);
-                using var brush = new SolidBrush(Color.FromArgb(alpha, Color.White));
-                using var format = new StringFormat { Alignment = StringAlignment.Center };
-                DrawTaggedCaption(graphics, caption, brush, brush,
-                    new PointF(bounds.X + bounds.Width / 2f, bounds.Y + 5), format, 0, font,
-                    lineHeight: options.TooltipFontHeight, measureText: options.MeasureTooltipText,
-                    drawText: options.DrawTooltipText, parseTags: false);
+                var captionOrigin = new PointF(bounds.X + bounds.Width / 2f, bounds.Y + 5);
+                if (graphics is not null)
+                {
+                    using var brush = new SolidBrush(Color.FromArgb(alpha, Color.White));
+                    using var format = new StringFormat { Alignment = StringAlignment.Center };
+                    DrawTaggedCaption(graphics, caption, brush, brush, captionOrigin, format, 0, font,
+                        lineHeight: options.TooltipFontHeight, measureText: options.MeasureTooltipText,
+                        drawText: options.DrawTooltipText, parseTags: false);
+                }
+                else
+                {
+                    using var bitmap = new Bitmap(1, 1);
+                    using Graphics metrics = Graphics.FromImage(bitmap);
+                    using var format = new StringFormat { FormatFlags = StringFormatFlags.MeasureTrailingSpaces };
+                    var bitmapText = options.DrawTooltipText?.Target as IPangyaUiBitmapTextPasses;
+                    float height = options.TooltipFontHeight ?? font.GetHeight(metrics);
+                    foreach (string line in caption.Replace("\r\n", "\n").Split('\n'))
+                    {
+                        float width = MeasureCaptionLine(metrics, line, font, format, null, null, options.MeasureTooltipText);
+                        var start = new PointF(captionOrigin.X - width / 2, captionOrigin.Y);
+                        IncludeBounds(ref result, MeasureGlyphExtent(start, bitmapText?.GetDrawAdvance(line) ?? width, height, 0));
+                        IncludeBounds(ref result, MeasureCaptionArtwork(bitmapText, line, start, style: 0));
+                        captionOrigin.Y += height;
+                    }
+                }
             }
-            if (visitTab is not null && inputHeight > 0)
-            {
-                // FrWnd dispatches mouse events inside the bar's client rectangle.
-                // Later tabs can draw below the height set by the first tab.
-                Rectangle hitBounds = bounds with { Height = Math.Min(bounds.Height, inputHeight) };
-                if (inputSize is Size explicitSize)
-                    hitBounds = Rectangle.Intersect(hitBounds, new Rectangle(origin, explicitSize));
-                visitTab(index, hitBounds);
-            }
+            if (hitBounds.Width > 0 && hitBounds.Height > 0) visitTab?.Invoke(index, hitBounds);
             if (graphics is not null)
             {
                 options.OnTabRendered?.Invoke(node, index, bounds);
@@ -3291,12 +3373,12 @@ public sealed class PangyaUiRenderer
             float.IsFinite(bar.Left) && float.IsFinite(bar.Top) && float.IsFinite(bar.Right) && float.IsFinite(bar.Bottom))
         {
             bar.Offset(bounds.X, bounds.Y);
-            IncludeBounds(ref measured, EncloseScrollbarBounds(bar));
+            IncludeBounds(ref measured, EncloseBounds(bar));
         }
         if (extended && GetGaugeDividers(node, interior, options) is { } dividers)
         {
-            IncludeBounds(ref measured, EncloseScrollbarBounds(GetGaugeDivider(interior, 1, dividers.Pitch)));
-            IncludeBounds(ref measured, EncloseScrollbarBounds(GetGaugeDivider(interior, dividers.Count, dividers.Pitch)));
+            IncludeBounds(ref measured, EncloseBounds(GetGaugeDivider(interior, 1, dividers.Pitch)));
+            IncludeBounds(ref measured, EncloseBounds(GetGaugeDivider(interior, dividers.Count, dividers.Pitch)));
         }
         return measured ?? bounds;
     }
@@ -3606,7 +3688,7 @@ public sealed class PangyaUiRenderer
     private static bool IsExtendedCombo(PangyaUiNode node) =>
         node.Type.Equals("COMBOCTLEX", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsImageCombo(PangyaUiNode node) =>
+    public static bool IsImageCombo(PangyaUiNode node) =>
         IsExtendedCombo(node) && int.TryParse(node.Parameters.GetValueOrDefault("liststyle"),
             NumberStyles.Integer, CultureInfo.InvariantCulture, out int style) && style == 1;
 
@@ -3615,36 +3697,61 @@ public sealed class PangyaUiRenderer
     {
         if (bounds.Width <= 0 || bounds.Height <= 0) return Rectangle.Empty;
         IReadOnlyDictionary<string, string> parameters = node.Parameters;
-        int Read(string name, int fallback) => int.TryParse(parameters.GetValueOrDefault(name),
-            NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) ? value : fallback;
+        int leftMargin = ReadComboInteger(node, "leftmargin", 0);
         bool extended = IsExtendedCombo(node);
         var (listBounds, lineHeight, capacity, topRow, margin) =
             GetComboListGeometry(node, bounds, combo, options.ComboViewportHeight, symbols);
-        if (graphics is null)
-        {
-            Rectangle? measured = listBounds;
-            IncludeBounds(ref measured, DrawListScrollbar(measure: true));
-            return measured ?? listBounds;
-        }
-        int y = listBounds.Y;
-        Color background = ParseColor(parameters.GetValueOrDefault("bgcolor"), Color.Transparent, implicitAlpha: false);
-        var textColors = GetEditTextColors(node, options);
-        Color foreground = textColors.Foreground;
+        if (listBounds.Height == 0) return Rectangle.Empty;
+        Image? normalSkin = extended ? GetGaugeImage(node, "normal", symbols) : null;
+        Image? hoverSkin = extended ? GetGaugeImage(node, "over", symbols) : null;
+        bool imageRows = extended && IsImageCombo(node);
         int fontStyle = ReadHexTextStyle(parameters.GetValueOrDefault("font"));
-        using var back = new SolidBrush(background);
-        using var text = new SolidBrush(foreground);
-        using var selectedText = new SolidBrush(background);
-        using var outline = new SolidBrush(textColors.Outline);
+        Color background = ParseColor(parameters.GetValueOrDefault("bgcolor"), Color.Transparent, implicitAlpha: false);
         Color highlightColor = ParseColor(parameters.GetValueOrDefault("selectcolor"),
             Color.FromArgb(0), implicitAlpha: false);
         if (highlightColor.ToArgb() == 0)
             highlightColor = Color.FromArgb(unchecked((int)0xff000000) | (~background.ToArgb() & 0xffffff));
+        Rectangle highlightBounds = Rectangle.Empty;
+        int hoveredRow = combo.HoveredIndex - topRow;
+        if (!extended && highlightColor.A > 0 && (uint)hoveredRow < (uint)capacity)
+        {
+            int scrollbarWidth = GetBitmap("scroll_n_1", symbols)?.Width ?? 0;
+            highlightBounds = new Rectangle(listBounds.X,
+                ClampCoordinate((long)listBounds.Y + hoveredRow * (long)lineHeight + margin / 2),
+                Math.Max(0, listBounds.Width - scrollbarWidth), lineHeight);
+        }
+        if (graphics is null)
+        {
+            Rectangle? measured = listBounds;
+            IncludeBounds(ref measured, highlightBounds);
+            if (extended || options.IncludeCaptionVisualBounds)
+            {
+                var bitmapText = options.DrawCaptionText?.Target as IPangyaUiBitmapTextPasses;
+                for (int row = 0; row < capacity; row++)
+                {
+                    foreach (var artwork in GetRowArtwork(row))
+                        IncludeBounds(ref measured, EncloseBounds(artwork.Bounds));
+                    if (imageRows || !options.IncludeCaptionVisualBounds) continue;
+                    string caption = LimitComboText(node, combo.Items[topRow + row].Text);
+                    var (origin, style) = GetRowTextLayout(row);
+                    IncludeBounds(ref measured, MeasureFrameText(caption, origin, options, bitmapText, style));
+                    IncludeBounds(ref measured, MeasureCaptionArtwork(bitmapText, caption, origin, style));
+                }
+            }
+            IncludeBounds(ref measured, DrawListScrollbar(measure: true));
+            return measured ?? listBounds;
+        }
+        var textColors = GetEditTextColors(node, options);
+        Color foreground = textColors.Foreground;
+        using var back = new SolidBrush(background);
+        using var text = new SolidBrush(foreground);
+        using var selectedText = new SolidBrush(background);
+        using var outline = new SolidBrush(textColors.Outline);
         using var highlight = new SolidBrush(highlightColor);
         using var format = (StringFormat)StringFormat.GenericTypographic.Clone();
         GraphicsState state = graphics.Save();
         try
         {
-            graphics.SetClip(listBounds, CombineMode.Intersect);
             if (!extended)
             {
                 graphics.FillRectangle(back, listBounds);
@@ -3655,45 +3762,49 @@ public sealed class PangyaUiRenderer
             for (int row = 0; row < capacity; row++)
             {
                 int index = topRow + row;
-                int rowY = ClampCoordinate((long)y + row * (long)lineHeight);
-                bool hovered = combo.HoveredIndex == index;
                 PangyaUiComboItem item = combo.Items[index];
                 if (extended)
                 {
-                    if (GetGaugeImage(node, "normal", symbols) is Image skin)
-                        DrawGraphicsImage(graphics, skin, new Rectangle(new Point(bounds.X, ClampCoordinate((long)rowY + margin)), skin.Size));
-                    if (hovered && GetGaugeImage(node, "over", symbols) is Image hover)
-                        DrawGraphicsImage(graphics, hover, new Rectangle(new Point(bounds.X, ClampCoordinate((long)rowY + margin)), hover.Size));
-                    if (IsImageCombo(node))
-                    {
-                        string? rowImage = combo.TextureImages is { } textures
-                            ? index < textures.Count ? textures[index] : null : item.Image;
-                        if (rowImage is { Length: > 0 } filename && GetBitmap(filename, symbols) is Image icon)
-                            DrawGraphicsImage(graphics, icon, GetComboIconBounds(node,
-                                new Point(bounds.X, ClampCoordinate((long)rowY + margin)),
-                                GetGaugeImage(node, "normal", symbols)?.Width ?? bounds.Width, icon.Size));
-                        continue;
-                    }
+                    foreach (var artwork in GetRowArtwork(row))
+                        DrawGraphicsImage(graphics, artwork.Image, artwork.Bounds);
+                    if (imageRows) continue;
                 }
-                bool highlightText = hovered && !extended;
-                if (highlightText)
-                {
-                    int scrollbarWidth = GetBitmap("scroll_n_1", symbols)?.Width ?? 0;
-                    graphics.FillRectangle(highlight, bounds.X, rowY + margin / 2,
-                        Math.Max(0, bounds.Width - scrollbarWidth), lineHeight);
-                }
-                int hoverOffset = highlightText ? -2 : 0;
+                bool highlightText = row == hoveredRow && !extended;
+                if (highlightText && highlightBounds.Width > 0)
+                    graphics.FillRectangle(highlight, highlightBounds);
+                var (origin, style) = GetRowTextLayout(row);
                 DrawStyledText(graphics, LimitComboText(node, item.Text), highlightText ? selectedText : text, outline,
-                    extended ? new PointF(bounds.X + 0.5f, rowY + 0.5f)
-                        : new PointF(bounds.X + (float)Read("leftmargin", 0) + hoverOffset,
-                            rowY + margin + hoverOffset),
-                    format, hovered && !extended ? 2 : fontStyle, drawText: options.DrawCaptionText);
+                    origin, format, style, drawText: options.DrawCaptionText);
             }
         }
         finally { graphics.Restore(state); }
-        // The scrollbar is a child window and draws after the list's row clip.
+        // The scrollbar is a child window and draws after the rows.
         DrawListScrollbar(measure: false);
         return listBounds;
+
+        (PointF Origin, int Style) GetRowTextLayout(int row)
+        {
+            int rowY = ClampCoordinate((long)listBounds.Y + row * (long)lineHeight);
+            if (extended) return (new PointF(bounds.X + 0.5f, rowY + 0.5f), fontStyle);
+            bool hovered = combo.HoveredIndex == topRow + row;
+            int offset = hovered ? -2 : 0;
+            return (new PointF(bounds.X + (float)leftMargin + offset,
+                rowY + (float)margin + offset), hovered ? 2 : fontStyle);
+        }
+
+        IEnumerable<(Image Image, RectangleF Bounds)> GetRowArtwork(int row)
+        {
+            int index = topRow + row;
+            var origin = new Point(bounds.X, ClampCoordinate((long)listBounds.Y + row * (long)lineHeight + margin));
+            if (normalSkin is not null) yield return (normalSkin, new Rectangle(origin, normalSkin.Size));
+            if (combo.HoveredIndex == index && hoverSkin is not null)
+                yield return (hoverSkin, new Rectangle(origin, hoverSkin.Size));
+            if (!imageRows) yield break;
+            string? filename = combo.TextureImages is { } textures
+                ? index < textures.Count ? textures[index] : null : combo.Items[index].Image;
+            if (filename is { Length: > 0 } && GetBitmap(filename, symbols) is Image icon)
+                yield return (icon, GetComboIconBounds(node, origin, normalSkin?.Width ?? bounds.Width, icon.Size));
+        }
 
         Rectangle DrawListScrollbar(bool measure) =>
             DrawScrollBar(graphics, listBounds, Math.Max(1, capacity), combo.Items.Count,
@@ -3704,10 +3815,10 @@ public sealed class PangyaUiRenderer
                 opacity: GetScrollbarOpacity(node, options), thumbOffset: combo.ScrollThumbOffset, measure: measure);
     }
 
+
     private static RectangleF GetComboIconBounds(PangyaUiNode node, Point origin, int itemWidth, Size icon)
     {
-        int.TryParse(node.Parameters.GetValueOrDefault("leftmargin"), NumberStyles.Integer,
-            CultureInfo.InvariantCulture, out int margin);
+        int margin = ReadComboInteger(node, "leftmargin", 0);
         int.TryParse(node.Parameters.GetValueOrDefault("align"), NumberStyles.Integer,
             CultureInfo.InvariantCulture, out int alignment);
         double offset = alignment switch
@@ -3718,6 +3829,16 @@ public sealed class PangyaUiRenderer
         };
         return new RectangleF((float)Math.Clamp(origin.X + offset - icon.Width / 2, int.MinValue, int.MaxValue),
             ClampCoordinate((long)origin.Y + 2), icon.Width, icon.Height);
+    }
+
+    private (Image Image, RectangleF Bounds)? GetSelectedComboArtwork(PangyaUiNode node, Rectangle button,
+        PangyaUiComboPreview? combo, IReadOnlySet<string> symbols)
+    {
+        if (button.IsEmpty || combo is null || !IsImageCombo(node)) return null;
+        string? filename = combo.ImageSelection is { } selection ? selection.Image :
+            (uint)combo.SelectedIndex < (uint)combo.Items.Count ? combo.Items[combo.SelectedIndex].Image : null;
+        if (filename is not { Length: > 0 } || GetBitmap(filename, symbols) is not Image image) return null;
+        return (image, GetComboIconBounds(node, button.Location, button.Width, image.Size));
     }
 
     public int HitTestComboRow(PangyaUiNode node, Point point, PangyaUiRenderOptions options,
@@ -3771,7 +3892,7 @@ public sealed class PangyaUiRenderer
         out int rowDelta, out Rectangle thumbBounds, out Rectangle trackBounds)
     {
         bool hit = TryGetComboScrollbarGeometry(node, point, options, out rowDelta, out RectangleF thumb, out trackBounds);
-        thumbBounds = EncloseScrollbarBounds(thumb);
+        thumbBounds = EncloseBounds(thumb);
         return hit;
     }
 
@@ -3789,9 +3910,14 @@ public sealed class PangyaUiRenderer
             GetComboListGeometry(node, edit, combo, options.ComboViewportHeight, symbols);
         DrawScrollBarCore(null, bounds, capacity, combo.Items.Count, combo.ScrollThumbRow ?? topRow,
             symbols, false, out RectangleF thumb, thumbOffset: combo.ScrollThumbOffset);
-        if (thumb.IsEmpty || !bounds.Contains(point) || point.X < (long)bounds.X + bounds.Width - thumb.Width) return false;
+        if (thumb.IsEmpty) return false;
+        trackBounds = EncloseBounds(new RectangleF(thumb.X, bounds.Y, thumb.Width, bounds.Height));
+        if (!trackBounds.Contains(point))
+        {
+            trackBounds = Rectangle.Empty;
+            return false;
+        }
         thumbBounds = thumb;
-        trackBounds = bounds;
         rowDelta = point.Y < thumb.Top ? -capacity / 2 : point.Y > thumb.Bottom ? capacity / 2 : 0;
         return true;
     }
@@ -3816,8 +3942,12 @@ public sealed class PangyaUiRenderer
     {
         Rectangle button = GetButtonBounds(node, editBounds, symbols);
         if (button.IsEmpty) return button;
-        button.X = ClampCoordinate((long)editBounds.X + editBounds.Width - button.Width);
-        button.Y = ClampCoordinate((long)bounds.Y + ((long)bounds.Height - button.Height + 1) / 2);
+        int width = IsExtendedCombo(node) ? button.Width : node.Bounds.Width;
+        // Fresh places the child button during Init. Parent SetRect moves it
+        // with the parent but does not recenter it within the new size.
+        int height = node.Bounds.Height;
+        button.X = ClampCoordinate((long)editBounds.X + width - button.Width);
+        button.Y = ClampCoordinate((long)bounds.Y + ((long)height - button.Height + 1) / 2);
         return button;
     }
 
@@ -3825,19 +3955,17 @@ public sealed class PangyaUiRenderer
         GetComboListGeometry(PangyaUiNode node, Rectangle bounds, PangyaUiComboPreview combo, int viewportHeight,
             IReadOnlySet<string> symbols)
     {
-        int Read(string name, int fallback) => int.TryParse(node.Parameters.GetValueOrDefault(name),
-            NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) ? value : fallback;
         bool extended = IsExtendedCombo(node);
-        int margin = Math.Clamp(Read("topmargin", 0), 0, 4096);
+        int margin = Math.Clamp(ReadComboInteger(node, "topmargin", 0), -4096, 4096);
         Image? rowSkin = extended ? GetGaugeImage(node, "normal", symbols) : null;
         int lineHeight = (int)Math.Clamp(rowSkin is not null
-            ? rowSkin.Height + (long)margin : Read("lineheight", 16),
+            ? rowSkin.Height + (long)margin : ReadComboInteger(node, "lineheight", 16),
             1, 8192);
         int capacity = GetComboRowCapacity(node, combo);
         int topRow = Math.Clamp(combo.TopRow, 0, combo.Items.Count - capacity);
         int viewportRows = rowSkin is not null ? GetComboRowLimit(node, combo) :
             Math.Max(1, Math.Min(combo.Items.Count, GetComboRowLimit(node, combo)));
-        int height = viewportRows * lineHeight + (extended ? 0 : margin * 2);
+        int height = Math.Max(0, viewportRows * lineHeight + (extended ? 0 : margin * 2));
         bool lowerHalf = combo.AutomaticOpensAbove ??
             (viewportHeight > 0 && GetAbsoluteBounds(node, null).Y > viewportHeight * 0.5);
         bool above = combo.Direction == PangyaUiComboDirection.Above ||
@@ -3845,9 +3973,15 @@ public sealed class PangyaUiRenderer
         long y = extended
             ? (long)bounds.Y + (rowSkin is not null ? rowSkin.Height + margin : lowerHalf ? -5 : 5)
             : above ? (long)bounds.Y - height - 2 : (long)bounds.Y + bounds.Height + 2;
-        int width = rowSkin?.Width ?? bounds.Width;
+        // ResizeListRect starts from the child list's rectangle and changes only height and Y.
+        int width = rowSkin?.Width ?? (node.Bounds.Width > 0 ? node.Bounds.Width : bounds.Width);
         return (new Rectangle(bounds.X, ClampCoordinate(y), width, height), lineHeight, capacity, topRow, margin);
     }
+
+    private static PangyaUiComboPreview ResolveReferencedComboSide(PangyaUiComboPreview combo, int y,
+        PangyaUiRenderOptions options) => options.ResourceInstance is null || combo.AutomaticOpensAbove.HasValue
+            ? combo
+            : combo with { AutomaticOpensAbove = options.ComboViewportHeight > 0 && y > options.ComboViewportHeight * 0.5 };
 
     public PangyaUiRenderOptions AddComboTexture(PangyaUiNode node, string filename,
         PangyaUiRenderOptions options)
@@ -3917,19 +4051,24 @@ public sealed class PangyaUiRenderer
     {
         int rows = Math.Min(combo.Items.Count, GetComboRowLimit(node, combo));
         if (IsExtendedCombo(node)) return rows;
-        int margin = int.TryParse(node.Parameters.GetValueOrDefault("topmargin"), NumberStyles.Integer,
-            CultureInfo.InvariantCulture, out int topMargin) ? Math.Clamp(topMargin, 0, 4096) : 0;
-        int lineHeight = int.TryParse(node.Parameters.GetValueOrDefault("lineheight"), NumberStyles.Integer,
-            CultureInfo.InvariantCulture, out int height) ? Math.Clamp(height, 1, 8192) : 16;
-        return Math.Min(combo.Items.Count, Math.Max(1, rows) + margin * 2 / lineHeight);
+        int margin = Math.Clamp(ReadComboInteger(node, "topmargin", 0), -4096, 4096);
+        int lineHeight = Math.Clamp(ReadComboInteger(node, "lineheight", 16), 1, 8192);
+        return Math.Min(combo.Items.Count, Math.Max(0, (Math.Max(1, rows) * lineHeight + margin * 2) / lineHeight));
     }
 
     private static int GetComboRowLimit(PangyaUiNode node, PangyaUiComboPreview combo)
     {
-        int configured = int.TryParse(node.Parameters.GetValueOrDefault("maxlistnum"), NumberStyles.Integer,
-            CultureInfo.InvariantCulture, out int value) ? Math.Clamp(value, 1, 256) : 10;
+        int configured = Math.Clamp(ReadComboInteger(node, "maxlistnum", 10), 1, 256);
         return !IsExtendedCombo(node) && combo.IncreasedMaximumRows is int requested
             ? Math.Clamp(requested, configured, 256) : configured;
+    }
+
+    private static int ReadComboInteger(PangyaUiNode node, string name, int fallback)
+    {
+        string? value = node.Parameters.GetValueOrDefault(name);
+        ReadOnlySpan<char> prefix = value.AsSpan().TrimStart();
+        if (!prefix.IsEmpty && prefix[0] is '+' or '-') prefix = prefix[1..];
+        return !prefix.IsEmpty && char.IsAsciiDigit(prefix[0]) ? ReadDecimalPrefix(value) : fallback;
     }
     public static bool IsMultilineEdit(PangyaUiNode node) =>
         node.Type.Equals("EDIT", StringComparison.OrdinalIgnoreCase) &&
@@ -3959,9 +4098,24 @@ public sealed class PangyaUiRenderer
     }
 
     private Rectangle MeasureEditBounds(PangyaUiNode node, Rectangle bounds, IReadOnlySet<string> symbols,
-        PangyaUiRenderOptions options) =>
-        DrawEdit(null, node, GetEditBounds(node, bounds, symbols, options), options.EditLines?.GetValueOrDefault(node),
+        PangyaUiRenderOptions options)
+    {
+        Rectangle editBounds = GetEditBounds(node, bounds, symbols, options);
+        Rectangle? measured = DrawEdit(null, node, editBounds, options.EditLines?.GetValueOrDefault(node),
             enabled: options.DisabledNodes?.Contains(node) != true, caret: options.EditCarets?.GetValueOrDefault(node), options: options);
+        if (IsCombo(node) && node.Parameters.ContainsKey("normal"))
+        {
+            Rectangle button = GetComboButtonBounds(node, bounds, editBounds, symbols);
+            IncludeBounds(ref measured, button);
+            if (GetSelectedComboArtwork(node, button, options.Combos?.GetValueOrDefault(node), symbols) is { } artwork)
+                IncludeBounds(ref measured, Rectangle.FromLTRB(
+                    ClampCoordinate((long)MathF.Floor(artwork.Bounds.Left)),
+                    ClampCoordinate((long)MathF.Floor(artwork.Bounds.Top)),
+                    ClampCoordinate((long)MathF.Ceiling(artwork.Bounds.Right)),
+                    ClampCoordinate((long)MathF.Ceiling(artwork.Bounds.Bottom))));
+        }
+        return measured ?? Rectangle.Empty;
+    }
 
     private Rectangle DrawEdit(Graphics? graphics, PangyaUiNode node, Rectangle bounds,
         IReadOnlyList<string>? lines, bool enabled, PangyaUiEditCaret? caret, PangyaUiRenderOptions options)
@@ -4226,7 +4380,9 @@ public sealed class PangyaUiRenderer
     public int HitTestTextButtonSegment(PangyaUiNode node, Point point, PangyaUiRenderOptions options)
     {
         Rectangle bounds = GetAbsoluteBounds(node, options);
-        if (IsRuntimeHidden(node, options) || !IsRenderVisible(node, options) || point.Y < bounds.Top || (long)point.Y >= (long)bounds.Y + bounds.Height ||
+        if (IsRuntimeHidden(node, options) || !IsRenderVisible(node, options) ||
+            options.DisabledNodes?.Contains(node) == true ||
+            point.Y < bounds.Top || (long)point.Y >= (long)bounds.Y + bounds.Height ||
             GetTextButtonCaption(node, options).Length == 0)
             return -1;
         using var bitmap = new Bitmap(1, 1);
@@ -4282,24 +4438,28 @@ public sealed class PangyaUiRenderer
             if (segment.Length == 0) break;
             float segmentWidth = Measure(segment);
             bool hasSeparator = index + 1 < segments.Length && segments[index + 1].Length > 0;
-            bool hovered = ReferenceEquals(options.HoveredNode, node) && options.Pointer is Point pointer &&
+            bool hovered = options.DisabledNodes?.Contains(node) != true &&
+                ReferenceEquals(options.HoveredNode, node) && options.Pointer is Point pointer &&
+                pointer.Y >= bounds.Top && (long)pointer.Y < (long)bounds.Top + bounds.Height &&
                 pointer.X >= x && pointer.X < x + segmentWidth + separatorWidth;
             if (!draw && hovered) return index;
-            bool forced = index == 0 && options.ButtonState != PangyaUiButtonState.Normal &&
+            bool forced = index == 0 && selection?.SelectedRow is not >= 0 && options.ButtonState != PangyaUiButtonState.Normal &&
                 !ReferenceEquals(options.HoveredNode, node);
             bool selected = selection?.SelectedRow == index;
             int segmentStyle = hovered || forced || selected ? selectedStyle : style;
             var origin = new PointF(x, bounds.Y);
-            if (measureVisuals) IncludeVisuals(segment, origin, segmentWidth, segmentStyle);
+            SolidBrush fill = hovered || forced ? highlight : selected ? pulsedHighlight : normal;
+            SolidBrush edge = hovered || forced ? selectedOutline : selected ? pulsedOutline : outline;
+            if (measureVisuals && HasVisibleInk(fill, edge, segmentStyle))
+                IncludeVisuals(segment, origin, segmentWidth, segmentStyle);
             if (draw)
-                DrawStyledText(graphics, segment, hovered || forced ? highlight : selected ? pulsedHighlight : normal,
-                    hovered || forced ? selectedOutline : selected ? pulsedOutline : outline,
-                    origin, format, segmentStyle,
+                DrawStyledText(graphics, segment, fill, edge, origin, format, segmentStyle,
                     font, options.DrawCaptionText, glyphClip);
             x += segmentWidth;
             if (hasSeparator)
             {
-                if (measureVisuals) IncludeVisuals(separator, new PointF(x, bounds.Y), separatorWidth, style);
+                if (measureVisuals && HasVisibleInk(normal, outline, style))
+                    IncludeVisuals(separator, new PointF(x, bounds.Y), separatorWidth, style);
                 if (draw) DrawStyledText(graphics, separator, normal, outline, new PointF(x, bounds.Y),
                     format, style, font, options.DrawCaptionText, glyphClip);
                 x += separatorWidth;
@@ -4308,6 +4468,9 @@ public sealed class PangyaUiRenderer
         measuredBounds = Rectangle.Ceiling(new RectangleF(startX, bounds.Y, x - startX, bounds.Height));
         if (visuals is Rectangle visualBounds) measuredBounds = Rectangle.Union(measuredBounds, visualBounds);
         return -1;
+
+        static bool HasVisibleInk(SolidBrush fill, SolidBrush edge, int textStyle) =>
+            fill.Color.A > 0 || (textStyle is 2 or 4 && edge.Color.A > 0);
 
         void IncludeVisuals(string run, PointF origin, float width, int textStyle)
         {
@@ -4332,7 +4495,9 @@ public sealed class PangyaUiRenderer
     public static bool HasButtonSkin(PangyaUiNode node, PangyaUiRenderOptions options) =>
         HasButtonSkin(node) || (node.Type.Equals("BUTTON", StringComparison.OrdinalIgnoreCase) &&
             (options.ImageButtonStates?.ContainsKey(node) == true ||
-             options.WindowSizes?.ContainsKey(node) == true));
+             options.WindowSizes?.ContainsKey(node) == true ||
+             (options.ButtonOwnerDraw?.ContainsKey(node) == true &&
+              ReadDecimalPrefix(node.Parameters.GetValueOrDefault("drawstyle")) != 0)));
 
     private Rectangle GetButtonBounds(PangyaUiNode node, Rectangle bounds, IReadOnlySet<string> symbols,
         PangyaUiRenderOptions? options = null)
@@ -4340,10 +4505,31 @@ public sealed class PangyaUiRenderer
         if (options?.WindowSizes?.TryGetValue(node, out Size suppliedSize) == true)
             return new Rectangle(bounds.Location,
                 new Size(Math.Max(0, suppliedSize.Width), Math.Max(0, suppliedSize.Height)));
-        Image? image = GetReplacementButtonImage(options?.ImageButtonStates?.GetValueOrDefault(node), symbols)
-            ?? GetRuntimeButtonImage(options?.ImageButtonStates?.GetValueOrDefault(node), "normal", symbols)
-            ?? (node.Parameters.TryGetValue("normal", out string? normal) ? GetBitmap(normal, symbols) : null);
+        PangyaUiImageButtonState? state = options?.ImageButtonStates?.GetValueOrDefault(node);
+        Image? image = GetReplacementButtonImage(state, symbols);
+        if (image is null)
+        {
+            if (state?.BitmapImages?.TryGetValue("normal", out Image? supplied) == true)
+                image = supplied;
+            else
+                image = GetRuntimeButtonImage(state, "normal", symbols) ??
+                    (node.Parameters.TryGetValue("normal", out string? normal) ? GetBitmap(normal, symbols) : null);
+        }
         return image is null ? Rectangle.Empty : new Rectangle(bounds.Location, image.Size);
+    }
+
+    private Rectangle MeasureButtonBounds(PangyaUiNode node, Rectangle bounds, IReadOnlySet<string> symbols,
+        PangyaUiRenderOptions options)
+    {
+        Rectangle button = GetButtonBounds(node, bounds, symbols, options);
+        if (options.ButtonOwnerDrawBounds?.TryGetValue(node, out Rectangle artwork) != true ||
+            options.ButtonOwnerDraw?.ContainsKey(node) != true ||
+            ReadDecimalPrefix(node.Parameters.GetValueOrDefault("drawstyle")) == 0) return button;
+        artwork.Location = AddOrigins(button == Rectangle.Empty ? bounds.Location : button.Location, artwork.Location);
+        Rectangle? measured = null;
+        IncludeBounds(ref measured, button);
+        IncludeBounds(ref measured, artwork);
+        return measured ?? button;
     }
 
     public static int GetButtonPushStyle(PangyaUiNode node, PangyaUiRenderOptions? options = null)
@@ -4383,7 +4569,7 @@ public sealed class PangyaUiRenderer
             new(Enabled: options.DisabledNodes?.Contains(node) != true);
         var slots = state.Images?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
         var bitmaps = state.BitmapImages?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
-        bitmaps.Remove(mode);
+        bitmaps[mode] = image;
         slots[mode] = filename;
         states[node] = state with { Images = slots, BitmapImages = bitmaps,
             ReplacementMode = mode, ReplacementImage = filename };
@@ -4398,13 +4584,16 @@ public sealed class PangyaUiRenderer
     {
         ValidateButtonImageArguments(node, mode, options);
         updatedOptions = options;
-        if (filename is not null && GetBitmap(filename, Symbols(options)) is null) return false;
+        Image? image = filename is null ? null : GetBitmap(filename, Symbols(options));
+        if (filename is not null && image is null) return false;
         var states = options.ImageButtonStates?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
         PangyaUiImageButtonState state = states.GetValueOrDefault(node) ??
             new(Enabled: options.DisabledNodes?.Contains(node) != true);
         var slots = state.BelowImages?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
         slots[mode] = filename;
-        states[node] = state with { BelowImages = slots };
+        var bitmaps = state.BitmapImages?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
+        bitmaps["below_" + mode] = image;
+        states[node] = state with { BelowImages = slots, BitmapImages = bitmaps };
         updatedOptions = options with { ImageButtonStates = states };
         return true;
     }
@@ -4423,6 +4612,7 @@ public sealed class PangyaUiRenderer
     {
         if (state is not { ReplacementMode: "normal" or "over" or "selected" or "blink" })
             return null;
+        if (state.BitmapImages?.TryGetValue(state.ReplacementMode, out Image? bitmap) == true) return bitmap;
         Image? replacement = state.ReplacementImage is { Length: > 0 } filename
             ? GetBitmap(filename, symbols) : null;
         return replacement ?? GetRuntimeButtonImage(state, state.ReplacementMode, symbols);
@@ -4438,7 +4628,6 @@ public sealed class PangyaUiRenderer
     private void DrawButton(Graphics graphics, PangyaUiNode node, Rectangle bounds,
         PangyaUiRenderOptions options, bool rightGaugeButton = false)
     {
-        if (bounds.Width <= 0 || bounds.Height <= 0) return;
         PangyaUiImageButtonState? runtime = options.ImageButtonStates?.GetValueOrDefault(node);
         bool gaugeArrow = IsExtendedGauge(node);
         bool enabled = (runtime?.Enabled ?? options.DisabledNodes?.Contains(node) != true) &&
@@ -4446,6 +4635,11 @@ public sealed class PangyaUiRenderer
         PangyaUiButtonState state = runtime?.Status ?? options.ButtonState;
         if (!enabled && runtime?.Status is null && state == PangyaUiButtonState.Hover)
             state = PangyaUiButtonState.Normal;
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            DrawOwner();
+            return;
+        }
         int style = runtime?.Style ?? (node.Parameters.TryGetValue("style", out string? value) ? ReadDecimalPrefix(value) : 1);
         string mode = style == 2 ? state switch
         {
@@ -4502,8 +4696,12 @@ public sealed class PangyaUiRenderer
         tint = Color.FromArgb((int)(tint.A * alphaModifier), tint);
         foreach (string key in rightGaugeButton ? new[] { "r" + mode } : new[] { "below_" + mode, mode })
         {
-            if (!gaugeArrow && runtime?.BitmapImages?.TryGetValue(key, out Image? explicitBitmap) == true &&
-                explicitBitmap is null) continue;
+            if (!gaugeArrow && runtime?.BitmapImages?.TryGetValue(key, out Image? explicitBitmap) == true)
+            {
+                if (explicitBitmap is not null)
+                    DrawTintedImage(graphics, explicitBitmap, bounds, 0, explicitBitmap.Width, explicitBitmap.Height, tint);
+                continue;
+            }
             Image? image = key == runtime?.ReplacementMode ? replacement : null;
             if (!gaugeArrow && image is null && !key.StartsWith("below_", StringComparison.Ordinal))
                 image = GetRuntimeButtonImage(runtime, key, Symbols(options));
@@ -4519,10 +4717,12 @@ public sealed class PangyaUiRenderer
                 DrawTintedImage(graphics, image, bounds, 0, image.Width, image.Height, tint);
         }
 
-        if (HasButtonSkin(node, options) &&
-            ReadDecimalPrefix(node.Parameters.GetValueOrDefault("drawstyle")) != 0 &&
-            options.ButtonOwnerDraw?.GetValueOrDefault(node) is { } drawOwner)
+        DrawOwner();
+
+        void DrawOwner()
         {
+            if (!HasButtonSkin(node, options) || ReadDecimalPrefix(node.Parameters.GetValueOrDefault("drawstyle")) == 0 ||
+                options.ButtonOwnerDraw?.GetValueOrDefault(node) is not { } drawOwner) return;
             GraphicsState ownerState = graphics.Save();
             try { drawOwner(graphics, bounds, state); }
             finally { graphics.Restore(ownerState); }
@@ -4569,10 +4769,15 @@ public sealed class PangyaUiRenderer
     public static double GetButtonPushDelay(PangyaUiNode node, PangyaUiRenderOptions options) =>
         options.ImageButtonStates?.GetValueOrDefault(node)?.PushDelay ?? GetButtonPushDelay(node);
 
+    private static readonly System.Text.RegularExpressions.Regex PushDelayPrefix = new(
+        @"\A[ \t\r\n\f\v]*[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
     public static double GetButtonPushDelay(PangyaUiNode node)
     {
         if (!node.Type.Equals("BUTTON", StringComparison.OrdinalIgnoreCase)) return 0;
-        return double.TryParse(node.Parameters.GetValueOrDefault("pushdelay"), NumberStyles.Float,
+        var prefix = PushDelayPrefix.Match(node.Parameters.GetValueOrDefault("pushdelay") ?? string.Empty);
+        return double.TryParse(prefix.ValueSpan, NumberStyles.Float,
             CultureInfo.InvariantCulture, out double delay) && double.IsFinite(delay) && delay != 0
             ? delay : 1.2;
     }
@@ -4581,19 +4786,32 @@ public sealed class PangyaUiRenderer
         node.Type.Equals("VIEWER", StringComparison.OrdinalIgnoreCase);
 
     private Image? GetViewerImage(PangyaUiNode node, IReadOnlySet<string> symbols, PangyaUiRenderOptions? options = null)
+        => GetViewerImage(node, symbols, options, out _);
+
+    private Image? GetViewerImage(PangyaUiNode node, IReadOnlySet<string> symbols, PangyaUiRenderOptions? options,
+        out string resolvedFilename)
     {
         string? filename = options?.ViewerImages?.GetValueOrDefault(node);
         if (!string.IsNullOrWhiteSpace(filename) && GetBitmap(filename, symbols) is Image image)
+        {
+            resolvedFilename = filename;
             return image;
+        }
         if (node.Name == "picture" && node.Parent is { } room &&
             string.Equals(room.Name, "makeroom", StringComparison.OrdinalIgnoreCase))
         {
             string modeImage = IsMakeRoomMatch(room, options)
                 ? "picture_match.tga" : "picture_stroke.tga";
-            if (GetBitmap(modeImage, symbols) is Image picture) return picture;
+            if (GetBitmap(modeImage, symbols) is Image picture)
+            {
+                resolvedFilename = modeImage;
+                return picture;
+            }
         }
         filename = node.Parameters.GetValueOrDefault("image");
-        return string.IsNullOrWhiteSpace(filename) ? null : GetBitmap(filename, symbols);
+        Image? authored = string.IsNullOrWhiteSpace(filename) ? null : GetBitmap(filename, symbols);
+        resolvedFilename = authored is null ? string.Empty : filename!;
+        return authored;
     }
 
     public bool TrySetAreaImage(PangyaUiNode node, string? filename, PangyaUiRenderOptions options,
@@ -4668,14 +4886,7 @@ public sealed class PangyaUiRenderer
         ArgumentNullException.ThrowIfNull(options);
         if (!IsViewer(node)) throw new ArgumentException("The node must be a viewer.", nameof(node));
         updatedOptions = options;
-        string current = options.ViewerImages?.GetValueOrDefault(node) ??
-            node.Parameters.GetValueOrDefault("image") ?? string.Empty;
-        if (current.Length > 0 && GetBitmap(current, Symbols(options)) is null)
-        {
-            current = node.Parameters.GetValueOrDefault("image") ?? string.Empty;
-            if (current.Length > 0 && GetBitmap(current, Symbols(options)) is null)
-                current = string.Empty;
-        }
+        GetViewerImage(node, Symbols(options), options, out string current);
         if (string.Equals(current, filename, StringComparison.Ordinal)) return true;
         if (string.IsNullOrEmpty(filename) || GetBitmap(filename, Symbols(options)) is not Image image) return false;
         var images = options.ViewerImages?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [];
@@ -4686,7 +4897,12 @@ public sealed class PangyaUiRenderer
             ? GetViewerScrollRange(node, image, options) : 0;
         rows[node] = top;
         fractionalRows[node] = top;
-        updatedOptions = options with { ViewerImages = images, ViewerTopRows = rows, ViewerScrollRows = fractionalRows };
+        updatedOptions = options with
+        {
+            ViewerImages = images, ViewerTopRows = rows, ViewerScrollRows = fractionalRows,
+            DraggedViewerThumb = options.DraggedViewerThumb is { } drag && ReferenceEquals(drag.Node, node)
+                ? null : options.DraggedViewerThumb
+        };
         return true;
     }
 
@@ -4730,8 +4946,9 @@ public sealed class PangyaUiRenderer
             double imageAlpha = GetWindowAlphaScale(node, options, secondary: false) *
                 (options.ViewerOpacity?.GetValueOrDefault(node, byte.MaxValue) ?? byte.MaxValue) / byte.MaxValue;
             tint = Color.FromArgb((int)(tint.A * imageAlpha), tint);
-            IncludeBounds(ref measured, new Rectangle(bounds.X, bounds.Y, width, (int)MathF.Ceiling(height)));
-            if (graphics is not null && height > 0)
+            if (tint.A > 0)
+                IncludeBounds(ref measured, new Rectangle(bounds.X, bounds.Y, width, (int)MathF.Ceiling(height)));
+            if (graphics is not null && height > 0 && tint.A > 0)
             {
                 using ImageAttributes attributes = CreateTintAttributes(tint);
                 PointF[] corners = [bounds.Location, new(bounds.X + (float)width, bounds.Y),
@@ -4758,8 +4975,7 @@ public sealed class PangyaUiRenderer
                 (image?.Height ?? 0) / ViewerRowHeight, row, Symbols(options),
                 showGuide: options.ScrollbarGuides?.GetValueOrDefault(node, true) ?? true,
                 focused: ReferenceEquals(options.WheelFocusedNode ?? options.WheelFocusedViewer, node) &&
-                    IsWindowWheelEventEnabled(node, options) &&
-                    GetViewerScrollRange(node, image, options) > 0, opacity: opacity, measure: true,
+                    IsWindowWheelEventEnabled(node, options), opacity: opacity, measure: true,
                 thumbOffset: GetViewerThumbOffset(node, options)));
         return measured ?? Rectangle.Empty;
 
@@ -4776,7 +4992,8 @@ public sealed class PangyaUiRenderer
         GetViewerViewport(node, null);
 
     public Rectangle GetViewerViewport(PangyaUiNode node, PangyaUiRenderOptions? options) =>
-        IsViewer(node) && !IsRuntimeHidden(node, options) ? GetAbsoluteBounds(node, options) : Rectangle.Empty;
+        IsViewer(node) && IsRenderVisible(node, options) && !IsRuntimeHidden(node, options)
+            ? GetAbsoluteBounds(node, options) : Rectangle.Empty;
 
     public PangyaUiNode? HitTestViewerWheel(PangyaUiDocument document, PangyaUiNode? selectedForm,
         Point point, PangyaUiRenderOptions? options = null)
@@ -4805,7 +5022,8 @@ public sealed class PangyaUiRenderer
             PangyaUiNode node = initialized[index];
             if (options.Combos?.GetValueOrDefault(node) is { IsOpen: true } combo &&
                 IsWindowWheelEventEnabled(node, options) && GetComboMaximumTopRow(node, combo) > 0 &&
-                GetComboDropdownBounds(node, options).Contains(point)) return node;
+                (GetComboDropdownBounds(node, options).Contains(point) ||
+                 TryGetComboScrollbarGeometry(node, point, options, out _, out _, out _))) return node;
         }
         return selectedForm is not null && topmost?.Contains(selectedForm) != true &&
             TryResolve(Visit(selectedForm), out target) ? target : null;
@@ -4863,7 +5081,7 @@ public sealed class PangyaUiRenderer
         options.DraggedViewerThumb is { } drag && ReferenceEquals(drag.Node, node) ? drag.Offset : null;
 
     public Rectangle GetViewerScrollThumb(PangyaUiNode node, PangyaUiRenderOptions options) =>
-        EncloseScrollbarBounds(GetViewerScrollThumbGeometry(node, options));
+        EncloseBounds(GetViewerScrollThumbGeometry(node, options));
 
     public RectangleF GetViewerScrollThumbGeometry(PangyaUiNode node, PangyaUiRenderOptions options)
     {
@@ -4873,6 +5091,7 @@ public sealed class PangyaUiRenderer
             GetViewerScrollRange(node, image, options) <= 0)
             return RectangleF.Empty;
         Rectangle bounds = GetViewerViewport(node, options);
+        if (bounds.Width <= 0 || bounds.Height <= 0) return RectangleF.Empty;
         DrawScrollBarCore(null, bounds, GetViewerScrollbarCapacity(node, options),
             image.Height / ViewerRowHeight, GetViewerScrollRow(node, options),
             symbols, false, out RectangleF thumb, thumbOffset: GetViewerThumbOffset(node, options));
@@ -4899,7 +5118,7 @@ public sealed class PangyaUiRenderer
 
     private PangyaUiScrollState? RestoreViewerScroll(PangyaUiNode node, PangyaUiRenderOptions options)
     {
-        if (!IsViewer(node) || IsRuntimeHidden(node, options) ||
+        if (!IsViewer(node) || !IsRenderVisible(node, options) || IsRuntimeHidden(node, options) ||
             GetViewerImage(node, Symbols(options), options) is not Image image) return null;
         int maximum = GetViewerScrollRange(node, image, options);
         if (maximum <= 0) return null;
@@ -4938,11 +5157,19 @@ public sealed class PangyaUiRenderer
             Image? trackTop = GetBitmap("scrollbg1", symbols);
             Image? trackMiddle = GetBitmap("scrollbg2", symbols);
             Image? trackBottom = GetBitmap("scrollbg3", symbols);
-            if (trackTop is not null && trackMiddle is not null && trackBottom is not null)
-                DrawStrip(trackTop, trackMiddle, trackBottom, x, bounds.Y, trackTop.Width, bounds.Height,
-                    reservedBottomHeight: trackMiddle.Height);
+            if (trackTop is not null && trackMiddle is not null && trackBottom is not null &&
+                (graphics is not null || measure))
+            {
+                int width = trackTop.Width;
+                float middleHeight = bounds.Height - (float)trackTop.Height - trackMiddle.Height;
+                DrawFragment(trackTop, new RectangleF(x, bounds.Y, width, trackTop.Height));
+                if (middleHeight > 0)
+                    DrawFragment(trackMiddle, new RectangleF(x, bounds.Y + (float)trackTop.Height, width, middleHeight));
+                DrawFragment(trackBottom, new RectangleF(x, bounds.Y + (float)bounds.Height - trackMiddle.Height,
+                    width, trackBottom.Height));
+            }
 
-            int caps = Math.Min(bounds.Height, top.Height + bottom.Height);
+            long caps = (long)top.Height + bottom.Height;
             double exactThumbHeight = caps + (double)(bounds.Height - caps) * capacity / rows;
             thumbHeight = (float)exactThumbHeight;
             int maxRow = rows - capacity;
@@ -4950,7 +5177,7 @@ public sealed class PangyaUiRenderer
                 retainTopRow ? int.MaxValue : maxRow);
             double travel = (bounds.Height - exactThumbHeight) * row / maxRow;
             thumbY = (float)Math.Clamp(bounds.Y + Math.Truncate(travel + 0.5), int.MinValue, int.MaxValue);
-            if (thumbOffset is float offset && float.IsFinite(offset))
+            if (thumbOffset is float offset && float.IsFinite(offset) && thumbHeight <= bounds.Height)
                 thumbY = bounds.Y + Math.Clamp(offset, 0, bounds.Height - thumbHeight);
             x = ClampCoordinate((long)x + 1);
         }
@@ -4964,15 +5191,16 @@ public sealed class PangyaUiRenderer
         }
         else DrawStrip(top, middle, bottom, x, thumbY, top.Width, thumbHeight);
         thumb = new RectangleF(x, thumbY, top.Width, thumbHeight);
-        return measure ? measured ?? Rectangle.Empty : EncloseScrollbarBounds(thumb);
+        return measure ? measured ?? Rectangle.Empty : EncloseBounds(thumb);
 
         void DrawStrip(Image first, Image center, Image last, int left, float y, int width, float height,
-            int? firstCap = null, int? lastCap = null, int? reservedBottomHeight = null)
+            int? firstCap = null, int? lastCap = null)
         {
             if (graphics is null && !measure) return;
-            float firstHeight = Math.Min(firstCap ?? first.Height, height);
-            float lastHeight = Math.Min(lastCap ?? last.Height, height - firstHeight);
-            float centerHeight = Math.Max(0, height - firstHeight - (reservedBottomHeight ?? lastHeight));
+            float firstHeight = firstCap ?? first.Height;
+            float lastHeight = lastCap ?? last.Height;
+            // Keep the cap dimensions and position the bottom cap using the signed center span.
+            float centerHeight = height - firstHeight - lastHeight;
             if (firstHeight > 0) DrawFragment(first, new RectangleF(left, y, width, firstHeight));
             if (centerHeight > 0) DrawFragment(center,
                 new RectangleF(left, (float)Math.Clamp((double)y + firstHeight, int.MinValue, int.MaxValue), width, centerHeight));
@@ -4982,8 +5210,9 @@ public sealed class PangyaUiRenderer
 
         void DrawFragment(Image image, RectangleF destination)
         {
+            if (opacity == 0) return;
             if (measure)
-                IncludeBounds(ref measured, EncloseScrollbarBounds(destination));
+                IncludeBounds(ref measured, EncloseBounds(destination));
             if (graphics is null) return;
             GraphicsState state = graphics.Save();
             try
@@ -5008,7 +5237,7 @@ public sealed class PangyaUiRenderer
         }
     }
 
-    private static Rectangle EncloseScrollbarBounds(RectangleF bounds) => Rectangle.FromLTRB(
+    private static Rectangle EncloseBounds(RectangleF bounds) => Rectangle.FromLTRB(
         ClampCoordinate((long)MathF.Floor(bounds.Left)),
         ClampCoordinate((long)MathF.Floor(bounds.Top)),
         ClampCoordinate((long)MathF.Ceiling(bounds.Right)),
@@ -5074,8 +5303,7 @@ public sealed class PangyaUiRenderer
 
     public bool CanPreviewFrameBlink(PangyaUiNode node, IReadOnlySet<string> symbols)
     {
-        string resource = GetRenderResource(node, PangyaUiButtonState.Normal);
-        PangyaUiNode? frame = _resources.TryResolve(resource, node.Type, symbols);
+        PangyaUiNode? frame = ResolvePreviewReference(node, PangyaUiButtonState.Normal, symbols);
         if (frame?.IsForm == true && !frame.IsLayout)
             frame = _resources.TryResolve(frame.GetResource(PangyaUiButtonState.Normal), "FRAME", symbols);
         XmlElement? layer = frame?.Element.ChildNodes.OfType<XmlElement>()
@@ -5128,6 +5356,30 @@ public sealed class PangyaUiRenderer
                 800 * TimeSpan.TicksPerMillisecond;
         return options.ShowFrameBlink;
     }
+
+    public PangyaUiNode? ResolvePreviewReference(PangyaUiNode node, PangyaUiButtonState state,
+        IReadOnlySet<string> symbols) => _resources.TryResolve(GetRenderResource(node, state),
+            GetPreviewReferenceType(node), symbols);
+
+    public PangyaUiNode? ResolvePreviewReference(PangyaUiNode node, PangyaUiRenderOptions options)
+    {
+        IReadOnlySet<string> symbols = Symbols(options);
+        if (IsArea(node))
+        {
+            if (options.AreaBitmapImages?.GetValueOrDefault(node) is not null) return null;
+            string resource = GetRenderResource(node, options.ButtonState, options.AreaImages);
+            return _resources.TryResolve(resource,
+                options.AreaImages?.ContainsKey(node) == true ? "BITMAP" : node.Type, symbols);
+        }
+        if (!IsViewer(node)) return ResolvePreviewReference(node, options.ButtonState, symbols);
+        GetViewerImage(node, symbols, options, out string filename);
+        return _resources.TryResolve(filename.Length > 0 ? filename : node.GetResource(options.ButtonState), "BITMAP", symbols);
+    }
+
+    private static string GetPreviewReferenceType(PangyaUiNode node) =>
+        IsViewer(node) ? "BITMAP" :
+        IsContextMenu(node) || (node.IsForm && !node.IsLayout && node.Element.LocalName.Equals("element", StringComparison.OrdinalIgnoreCase))
+            ? "FRAME" : node.Type;
 
     private static string GetRenderResource(PangyaUiNode node, PangyaUiButtonState state,
         IReadOnlyDictionary<PangyaUiNode, string?>? areaImages = null)
@@ -5187,24 +5439,29 @@ public sealed class PangyaUiRenderer
         bool baseVisible = baseLayer is not null && ReadLayerValue(baseLayer, "invisible", 0) == 0;
         bool alignBaseBottom = false;
         FrameSliceGeometry? sliceGeometry = null;
+        int fallbackHeight = 0;
         Rectangle baseBounds = useAuthoredBaseLayer && baseLayer is not null
             ? GetFrameLayerBounds(bounds, baseLayer, out alignBaseBottom) : bounds;
         Rectangle baseGeometry = baseLayer is null ? Rectangle.Empty :
-            DrawFrameLayer(baseVisible ? graphics : null, baseBounds, definition, symbols, "bfrm", ref sliceGeometry,
+            DrawFrameLayer(baseVisible ? graphics : null, baseBounds, definition, symbols, "bfrm", ref sliceGeometry, out fallbackHeight,
             baseType, alignBaseBottom, showBlink: showBlink, imageOverride: baseImageOverride,
             dim: dim, opacity: opacity, slicedOnly: contextMenu);
         if (baseVisible) IncludeBounds(ref measured, baseGeometry);
         int descriptionHeight = sliceGeometry is { } initializedBase
             ? ClampCoordinate((long)initializedBase.Top + initializedBase.Center + initializedBase.Bottom)
-            : baseGeometry.Height;
+            : fallbackHeight;
+        bool useDescriptionEmoticons = frameText?.UseDescriptionEmoticons != false;
         if (graphics is null && textSource is not null && textOptions?.IncludeCaptionVisualBounds == true)
         {
             var bitmapText = textOptions.DrawCaptionText?.Target as IPangyaUiBitmapTextPasses;
-            string caption = FrameCaption();
-            PointF captionOrigin = FrameCaptionOrigin(bounds);
-            IncludeBounds(ref measured, MeasureFrameText(caption, captionOrigin, textOptions, bitmapText, style: 2));
-            IncludeBounds(ref measured, MeasureCaptionArtwork(bitmapText, caption, captionOrigin, style: 2));
-            if (!hideDescription)
+            if ((int)opacity > 0)
+            {
+                string caption = FrameCaption();
+                PointF captionOrigin = FrameCaptionOrigin(bounds);
+                IncludeBounds(ref measured, MeasureFrameText(caption, captionOrigin, textOptions, bitmapText, style: 2));
+                IncludeBounds(ref measured, MeasureCaptionArtwork(bitmapText, caption, captionOrigin, style: 2));
+            }
+            if (!hideDescription && (useDescriptionEmoticons || (int)opacity > 0))
             {
                 PointF origin = DescriptionOrigin();
                 foreach (string line in FrameDescription().Replace("\r\n", "\n").Split('\n'))
@@ -5213,7 +5470,7 @@ public sealed class PangyaUiRenderer
                     Rectangle footerBounds = bitmapText is null
                         ? MeasureFrameText(line, origin, textOptions, bitmapText: null, style: 0)
                         : MeasureCaptionLineArtwork(bitmapText, line, origin, style: 0, lineHeight,
-                            frameText?.UseDescriptionEmoticons != false ? symbols : null,
+                            useDescriptionEmoticons ? symbols : null,
                             textOptions.EmoticonAnimationTime, includeGlyphs: true);
                     IncludeBounds(ref measured, footerBounds);
                     origin.Y += lineHeight;
@@ -5225,7 +5482,6 @@ public sealed class PangyaUiRenderer
             using var format = (StringFormat)StringFormat.GenericTypographic.Clone();
             using var title = new SolidBrush(Color.FromArgb((int)opacity, Color.White));
             using var outline = new SolidBrush(Color.FromArgb((int)opacity, Color.Gray));
-            bool useDescriptionEmoticons = frameText?.UseDescriptionEmoticons != false;
             using var descriptionBrush = new SolidBrush(Color.FromArgb(useDescriptionEmoticons
                 ? byte.MaxValue : (int)opacity, 64, 64, 64));
             string caption = FrameCaption();
@@ -5247,7 +5503,7 @@ public sealed class PangyaUiRenderer
             bool visible = ReadLayerValue(layer, "invisible", 0) == 0;
             Rectangle layerBounds = GetFrameLayerBounds(bounds, layer, out bool alignBottom);
             Rectangle layerGeometry = DrawFrameLayer(visible ? graphics : null, layerBounds, definition, symbols,
-                "sfrm", ref sliceGeometry,
+                "sfrm", ref sliceGeometry, out _,
                 ReadLayerValue(layer, "type", 0), alignBottom, showBlink: showBlink,
                 imageOverride: contextMenu ? "sfrm" : null,
                 dim: dim, opacity: opacity, slicedOnly: contextMenu);
@@ -5283,22 +5539,24 @@ public sealed class PangyaUiRenderer
     }
 
     private static int ReadLayerValue(XmlElement? layer, string name, int fallback) =>
-        int.TryParse(layer?.GetAttribute(name), NumberStyles.Integer, CultureInfo.InvariantCulture,
-            out int value) ? value : fallback;
+        layer?.GetAttributeNode(name) is { } attribute ? ReadDecimalPrefix(attribute.Value) : fallback;
 
-    private Rectangle GetFormFrameBounds(PangyaUiNode form, Rectangle bounds, PangyaUiRenderOptions options)
+    private Rectangle GetFormFrameBounds(PangyaUiNode form, Rectangle bounds, PangyaUiRenderOptions options,
+        PangyaUiNode? frameInstance = null)
     {
         IReadOnlySet<string> symbols = Symbols(options);
         PangyaUiNode? frame = _resources.TryResolve(form.GetResource(options.ButtonState), "FRAME", symbols);
         return frame?.Type.Equals("FRAME", StringComparison.OrdinalIgnoreCase) == true
-            ? GetBaseFrameBounds(bounds, frame, symbols, imageOverride: null, form, options) : bounds;
+            ? GetBaseFrameBounds(bounds, frame, symbols, imageOverride: null, form, options, frameInstance) : bounds;
     }
 
     private Rectangle GetInstantiatedFormBounds(PangyaUiNode form, Rectangle bounds,
         PangyaUiRenderOptions options, HashSet<PangyaUiNode> visited, Point parentOrigin = default)
     {
-        Rectangle? result = GetFormFrameBounds(form, bounds, options);
-        if (!visited.Add(form)) return result.Value;
+        Rectangle frameBounds = GetFormFrameBounds(form, bounds, options, options.ResourceInstance?.Host);
+        if (!visited.Add(form)) return frameBounds;
+        Rectangle? result = null;
+        IncludeBounds(ref result, frameBounds);
         foreach (PangyaUiNode child in form.Children.Where(child => child.IsVisible(Symbols(options))))
         {
             Rectangle childBounds = GetReferencedBounds(child, options, visited, AddOrigins(parentOrigin, bounds.Location));
@@ -5311,13 +5569,29 @@ public sealed class PangyaUiRenderer
         return result ?? bounds;
     }
 
-    private Rectangle GetBaseFrameBounds(Rectangle bounds, PangyaUiNode definition,
-        IReadOnlySet<string> symbols, string? imageOverride, PangyaUiNode textSource, PangyaUiRenderOptions options)
+    private static Rectangle GetInstantiatedFormRectangle(PangyaUiNode host, PangyaUiNode form,
+        Rectangle bounds, PangyaUiRenderOptions options)
     {
-        return DrawFrame(null, bounds, definition, symbols, showBlink: false, baseImageOverride: imageOverride,
+        if (options.WindowSizes?.ContainsKey(host) != true)
+        {
+            if (PangyaUiDimensionHelper.ParseSize(form.Element.GetAttribute("size")) is Size authoredSize)
+                bounds.Size = new Size(Math.Max(0, authoredSize.Width), Math.Max(0, authoredSize.Height));
+            else if (form.Bounds.Size is { Width: > 0, Height: > 0 } formSize)
+                bounds.Size = formSize;
+        }
+        return bounds;
+    }
+
+    private Rectangle GetBaseFrameBounds(Rectangle bounds, PangyaUiNode definition,
+        IReadOnlySet<string> symbols, string? imageOverride, PangyaUiNode textSource, PangyaUiRenderOptions options,
+        PangyaUiNode? frameInstance = null)
+    {
+        frameInstance ??= textSource;
+        return DrawFrame(null, bounds, definition, symbols, IsFrameBlinkVisible(frameInstance, options), baseImageOverride: imageOverride,
             textSource: options.IncludeCaptionVisualBounds ? textSource : null,
-            hideDescription: IsPrivacyHidden(textSource, options),
-            textOptions: options.IncludeCaptionVisualBounds ? options : null);
+            isViewFocused: IsWindowViewFocused(frameInstance, options),
+            hideDescription: IsPrivacyHidden(frameInstance, options) || IsPrivacyHidden(textSource, options),
+            textOptions: options, frameInstance: frameInstance);
     }
 
     private static PointF FrameCaptionOrigin(Rectangle bounds) => new(bounds.X + 10f, bounds.Y + 7f);
@@ -5370,13 +5644,11 @@ public sealed class PangyaUiRenderer
     private readonly record struct FrameSliceGeometry(int Left, int Middle, int Right, int Top, int Center, int Bottom);
 
     private Rectangle DrawFrameLayer(Graphics? graphics, Rectangle bounds, PangyaUiNode definition,
-        IReadOnlySet<string> symbols, string tag, ref FrameSliceGeometry? previousGeometry,
+        IReadOnlySet<string> symbols, string tag, ref FrameSliceGeometry? previousGeometry, out int fallbackHeight,
         int type, bool alignBottom = false, bool showBlink = false,
         string? imageOverride = null, bool dim = false, double opacity = byte.MaxValue, bool slicedOnly = false)
     {
-        // Context menus have their own native DrawFrame implementation: unlike
-        // FrFrame, it has no type-3 drawing branches.
-        if (slicedOnly && type == 3) return Rectangle.Empty;
+        fallbackHeight = 0;
         Color tint = ParseColor(definition.Element.GetAttribute("color"), Color.White, implicitAlpha: false);
         tint = Color.FromArgb((int)(tint.A * opacity / byte.MaxValue), tint);
         if (dim)
@@ -5405,24 +5677,22 @@ public sealed class PangyaUiRenderer
                 StringComparison.OrdinalIgnoreCase));
         string baseName = imageOverride ?? frame?.GetAttribute("filename") ?? string.Empty;
         if (string.IsNullOrWhiteSpace(baseName)) return Rectangle.Empty;
-        if (!slicedOnly && Path.HasExtension(baseName))
-        {
-            if (slicedOnly || bounds.Width <= 0 || bounds.Height <= 0) return Rectangle.Empty;
-            Image? direct = GetBitmap(baseName, symbols);
-            if (direct is not null) DrawSlice(direct, bounds);
-            return direct is not null ? bounds : Rectangle.Empty;
-        }
-
         Image?[] slices = Enumerable.Range(0, 9)
-            .Select(index => (type == 1 && index >= 3 || type == 2 && index < 6 && (tag == "bfrm" || index is not (0 or 2)))
+            .Select(index => (tag == "bfrm" && (type == 1 && index >= 3 || type == 2 && index < 6))
                 ? null : GetBitmap(baseName + index.ToString("00", CultureInfo.InvariantCulture), symbols))
             .ToArray();
-        if (slices.Skip(type == 2 ? 6 : 0).All(image => image is null))
+        if (slices.All(image => image is null))
         {
-            if (slicedOnly || bounds.Width <= 0 || bounds.Height <= 0) return Rectangle.Empty;
+            // The preview accepts a single-image base skin, but Fresh overlays
+            // are assembled exclusively from numbered subframe bitmaps.
+            if (slicedOnly || tag != "bfrm" || bounds.Width <= 0 || bounds.Height <= 0)
+                return Rectangle.Empty;
             Image? direct = GetBitmap(baseName, symbols);
-            if (direct is not null) DrawSlice(direct, bounds);
-            return direct is not null ? bounds : Rectangle.Empty;
+            if (direct is null) return Rectangle.Empty;
+            fallbackHeight = bounds.Height;
+            if (tint.A == 0) return Rectangle.Empty;
+            DrawSlice(direct, bounds);
+            return bounds;
         }
 
         // Fresh leaves the last layer's geometry in place if slice 00 is absent.
@@ -5431,11 +5701,14 @@ public sealed class PangyaUiRenderer
             int left = firstSlice.Width;
             int right = slices[2]?.Width ?? slices[5]?.Width ?? slices[8]?.Width ?? 0;
             int top = type == 2 ? 0 : firstSlice.Height;
-            int bottom = slices[6]?.Height ?? slices[7]?.Height ?? 0;
+            int bottom = type == 1 ? 0 : slices[6]?.Height ?? slices[7]?.Height ?? 0;
             int middle = (int)Math.Max(0L, (long)bounds.Width - left - right);
-            int center = type is 1 or 2 ? 0 : (int)Math.Max(0L, (long)bounds.Height - top - bottom);
+            int center = type == 0 || (type == 3 && !slicedOnly)
+                ? (int)Math.Max(0L, (long)bounds.Height - top - bottom) : 0;
             previousGeometry = new FrameSliceGeometry(left, middle, right, top, center, bottom);
         }
+        // Context menus only draw types 0–2. Normal frames also draw type 3.
+        if (type < 0 || type > (slicedOnly ? 2 : 3)) return Rectangle.Empty;
         if (previousGeometry is not { } geometry) return Rectangle.Empty;
         int[] widths = [geometry.Left, geometry.Middle, geometry.Right];
         int[] heights = [geometry.Top, geometry.Center, geometry.Bottom];
@@ -5478,14 +5751,15 @@ public sealed class PangyaUiRenderer
         // Expanded controls are visited in the ordinary display pass. A nested
         // deferred window suppresses the same subtree during drawing and measuring.
         if (options.DeferredDisplayContainers?.Contains(node) == true ||
-            IsRuntimeHidden(node, options) || !IsRenderVisible(node, options) || !visited.Add(node))
+            IsRuntimeHidden(node, options) || !IsRenderVisible(node, options) ||
+            IsAreaEntranceFinished(node, options) || !visited.Add(node))
             return Rectangle.Empty;
         Rectangle? result = null;
         Point absoluteOrigin = AddOrigins(parentOrigin, GetWindowOffset(node, options));
         IReadOnlySet<string> symbols = Symbols(options);
         string caption = GetStaticCaption(node, options);
         string resource = GetRenderResource(node, options.ButtonState, options.AreaImages);
-        string resourceType = IsArea(node) && options.AreaImages?.ContainsKey(node) == true ? "BITMAP" : node.Type;
+        string resourceType = IsArea(node) && options.AreaImages?.ContainsKey(node) == true ? "BITMAP" : GetPreviewReferenceType(node);
         Image? areaBitmap = IsArea(node) ? options.AreaBitmapImages?.GetValueOrDefault(node) : null;
         PangyaUiNode? definition = areaBitmap is null
             ? _resources.TryResolve(resource, resourceType, symbols) : null;
@@ -5519,20 +5793,22 @@ public sealed class PangyaUiRenderer
                 caption, options, absoluteOrigin));
         else if (GetList(node, options) is { } list)
             IncludeBounds(ref result, DrawList(null, node, GetWindowBounds(node, options), list, options));
-        else if (caption.Length > 0 ||
-                 node.LayoutBase is not null)
+        else if ((caption.Length > 0 || node.LayoutBase is not null) &&
+                 definition?.Type.Equals("FRAME", StringComparison.OrdinalIgnoreCase) != true &&
+                 !(definition is { IsForm: true, IsLayout: false }))
             IncludeBounds(ref result, GetWindowBounds(node, options));
         else if (IsArea(node) && options.AreaOwnerDraw?.ContainsKey(node) == true)
         {
             Rectangle window = GetWindowBounds(node, options);
             IncludeBounds(ref result, window);
             Image? background = areaBitmap ?? (string.IsNullOrWhiteSpace(resource) ? null : _images.GetImage(resource));
-            if (background is not null)
+            if (background is not null && GetAreaTint(node, options).A > 0)
             {
                 Rectangle destination = ImageBounds(node, window, background);
                 IncludeBounds(ref result, ClipImageBounds(node, window, destination, options, absoluteOrigin));
             }
-            if (node.Parameters.GetValueOrDefault("entrance_effect") is { Length: > 0 } effect &&
+            if (!options.SkipAreaEntranceEffects &&
+                node.Parameters.GetValueOrDefault("entrance_effect") is { Length: > 0 } effect &&
                 GetBitmap(resource, symbols) is Image image)
             {
                 var (opening, duration, direction) = ReadAreaEntrance(effect);
@@ -5556,15 +5832,13 @@ public sealed class PangyaUiRenderer
         else if (IsImageGauge(node))
             IncludeBounds(ref result, RenderImageGauge(null, node, GetWindowBounds(node, options).Location, symbols, options));
         else if (HasButtonSkin(node, options))
-            IncludeBounds(ref result, GetButtonBounds(node, GetWindowBounds(node, options), symbols, options));
+            IncludeBounds(ref result, MeasureButtonBounds(node, GetWindowBounds(node, options), symbols, options));
         else if (definition?.Type.Equals("FRAME", StringComparison.OrdinalIgnoreCase) == true)
             IncludeBounds(ref result, GetBaseFrameBounds(GetWindowBounds(node, options), definition, symbols,
                 node.Parameters.GetValueOrDefault("bgimg"), node, options));
-        else if (definition?.IsForm == true && !definition.IsLayout &&
-                 definition.Bounds.Size is { Width: > 0, Height: > 0 } formSize)
+        else if (definition is { IsForm: true, IsLayout: false })
             IncludeBounds(ref result, GetInstantiatedFormBounds(definition,
-                new Rectangle(GetWindowBounds(node, options).Location,
-                    options.WindowSizes?.ContainsKey(node) == true ? GetWindowBounds(node, options).Size : formSize),
+                GetInstantiatedFormRectangle(node, definition, GetWindowBounds(node, options), options),
                 ForResourceChildren(node, options), visited, absoluteOrigin));
         else if (definition is not null && IsMacroItem(node))
         {
@@ -5588,7 +5862,7 @@ public sealed class PangyaUiRenderer
         {
             Image? image = areaBitmap ?? (string.IsNullOrWhiteSpace(resource) ? null : _images.GetImage(resource));
             if (image is not null && IsRenderVisible(node, options) &&
-                !IsTransparent(node, options.ButtonState))
+                !IsTransparent(node, options.ButtonState) && (!IsArea(node) || GetAreaTint(node, options).A > 0))
             {
                 Rectangle destination = ImageBounds(node, GetWindowBounds(node, options), image);
                 IncludeBounds(ref result,
@@ -5604,6 +5878,20 @@ public sealed class PangyaUiRenderer
             if (!IsMacroItem(node) && !childBounds.IsEmpty)
                 childBounds.Offset(GetWindowBounds(node, options).Location);
             IncludeBounds(ref result, childBounds);
+        }
+        if (IsCombo(node) && options.Combos?.GetValueOrDefault(node) is { IsOpen: true } combo)
+        {
+            Rectangle window = GetWindowBounds(node, options);
+            window.Location = AddOrigins(window.Location, absoluteOrigin);
+            Rectangle edit = GetEditBounds(node, window, symbols, options);
+            Rectangle dropdown = DrawComboList(null, node, edit,
+                ResolveReferencedComboSide(combo, edit.Y, options), symbols, options);
+            if (!dropdown.IsEmpty)
+            {
+                dropdown.X = ClampCoordinate((long)dropdown.X - absoluteOrigin.X);
+                dropdown.Y = ClampCoordinate((long)dropdown.Y - absoluteOrigin.Y);
+                IncludeBounds(ref result, dropdown);
+            }
         }
         visited.Remove(node);
         if (result is Rectangle movedBounds)
@@ -5627,6 +5915,13 @@ public sealed class PangyaUiRenderer
 
     private static bool IsArea(PangyaUiNode node) =>
         node.Type.Equals("AREA", StringComparison.OrdinalIgnoreCase);
+
+    private static Color GetAreaTint(PangyaUiNode node, PangyaUiRenderOptions options)
+    {
+        Color tint = ParseColor(node.Parameters.GetValueOrDefault("color"), Color.White, implicitAlpha: false);
+        byte opacity = options.AreaOpacity?.GetValueOrDefault(node, byte.MaxValue) ?? byte.MaxValue;
+        return Color.FromArgb((int)(tint.A * GetWindowAlphaScale(node, options) * opacity / 255), tint);
+    }
 
     private static Rectangle ImageBounds(PangyaUiNode node, Rectangle bounds, Image image)
     {
@@ -5781,7 +6076,9 @@ public sealed class PangyaUiRenderer
         if (selectedForm is null) return new Rectangle(Point.Empty, document.CanvasSize);
         Rectangle form = GetAbsoluteBounds(selectedForm, options);
         Point origin = options.AnchorCanvasToSelectedForm && !selectedForm.IsLayout ? form.Location : Point.Empty;
-        Size size = form.Size is { Width: > 0, Height: > 0 } ? form.Size : document.CanvasSize;
+        bool hasDeclaredSize = !selectedForm.IsLayout && !selectedForm.IsRefresh &&
+            PangyaUiDimensionHelper.ParseSize(selectedForm.Element.GetAttribute("size")) is not null;
+        Size size = hasDeclaredSize || form.Size is { Width: > 0, Height: > 0 } ? form.Size : document.CanvasSize;
         return new Rectangle(origin, size);
     }
 

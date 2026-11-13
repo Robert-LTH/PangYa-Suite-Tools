@@ -252,6 +252,10 @@ public sealed class ShopTests : IDisposable
         var pagedUp = renderer.PageViewerScrollbar(viewer, down: false, pagedBottom);
         Assert.Equal(2, pagedUp.ViewerTopRows![viewer]);
         Assert.False(pagedUp.ViewerFollowBottom![viewer]);
+        var hidden = dragged with { HiddenNodes = new HashSet<PangyaUiNode> { viewer } };
+        Assert.Same(hidden, renderer.PageViewerScrollbar(viewer, down: true, hidden));
+        var collapsed = dragged with { WindowSizes = new Dictionary<PangyaUiNode, Size> { [viewer] = new(0, 40) } };
+        Assert.Equal(RectangleF.Empty, renderer.GetViewerScrollThumbGeometry(viewer, collapsed));
         Assert.True(renderer.TryScrollViewerWheel(viewer, -119, scrolled, out var bottom));
         Assert.True(bottom.ViewerFollowBottom![viewer]);
         Assert.True(renderer.TryScrollViewerWheel(viewer, 1, bottom, out var released));
@@ -1486,6 +1490,8 @@ public sealed class ShopTests : IDisposable
         renderer.Render(graphics, document, form);
         Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(9, 8).ToArgb());
         Assert.Equal(Color.FromArgb(46, 49, 55).ToArgb(), bitmap.GetPixel(10, 8).ToArgb());
+        Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(17, 7).ToArgb());
+        Assert.Equal(Color.FromArgb(46, 49, 55).ToArgb(), bitmap.GetPixel(18, 7).ToArgb());
     }
 
     [Theory]
@@ -1611,7 +1617,8 @@ public sealed class ShopTests : IDisposable
     [Theory]
     [InlineData("FRAME", true)]
     [InlineData("CONTEXTMENU", false)]
-    public void UiRenderer_TypeThreeFrameLayersDrawOnlyForNormalFrames(string type, bool drawsSkin)
+    [InlineData("FRAME", false, 4)]
+    public void UiRenderer_FrameLayersUseSupportedDrawTypes(string type, bool drawsSkin, int layerType = 3)
     {
         for (int index = 0; index < 9; index++)
             SaveSolidImage(Path.Combine(_directory, $"type-three{index:00}.png"), Color.Red, 2, 2);
@@ -1619,7 +1626,7 @@ public sealed class ShopTests : IDisposable
         File.WriteAllText(path, $"""
             <resource>
               <element type="FRAME" name="skin" color="ffffffff">
-                <layer type="3"/><bfrm filename="type-three"/>
+                <layer type="{layerType}"/><bfrm filename="type-three"/>
               </element>
               <element type="FORM" name="form" size="80 60">
                 <item type="{type}" name="control" resource="skin" caption="A" rect="0 0 30 30"/>
@@ -1637,7 +1644,41 @@ public sealed class ShopTests : IDisposable
             CaptionFontHeight = 10, MeasureCaptionText = text => text.Length * 6,
             DrawCaptionText = (_, _, _, _) => { }
         });
-        Assert.Equal((drawsSkin ? Color.Red : Color.FromArgb(46, 49, 55)).ToArgb(), bitmap.GetPixel(5, 5).ToArgb());
+        Assert.Equal((drawsSkin ? Color.Red : Color.FromArgb(46, 49, 55)).ToArgb(), bitmap.GetPixel(5, 29).ToArgb());
+    }
+
+    [Fact]
+    public void UiRenderer_ContextMenuReferenceResolvesItsFrameParameterAcrossFiles()
+    {
+        string frames = Path.Combine(_directory, "menu-frames.xml");
+        string path = Path.Combine(_directory, "menu-reference.xml");
+        File.WriteAllText(frames, """
+            <resource><element type="FRAME" name="menuSkin"><layer type="0"/></element></resource>
+            """);
+        File.WriteAllText(path, """
+            <resource><element type="FORM" name="menuSkin" size="10 10"/>
+            <element type="FORM" name="form" size="80 60" resource="menuSkin">
+              <param name="over" var="missingHoverSkin"/>
+              <item type="CONTEXTMENU" name="menu" caption="Open">
+                <param name="resource" var="menuSkin"/>
+              </item>
+            </element></resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode menu = Assert.Single(document.Nodes, node => node.Name == "menu");
+        using var images = new PangyaFileImageProvider(_directory);
+        var catalog = PangyaUiResourceCatalog.Load([path, frames]);
+        var renderer = new PangyaUiRenderer(images, catalog);
+        var definition = Assert.IsType<PangyaUiNode>(renderer.ResolvePreviewReference(menu,
+            PangyaUiButtonState.Normal, new HashSet<string>()));
+        Assert.Equal("FRAME", definition.Type);
+        Assert.Equal(frames, catalog.GetSourcePath(definition));
+        PangyaUiNode form = Assert.Single(document.Roots, node => node.Name == "form");
+        Assert.Same(definition, renderer.ResolvePreviewReference(form, PangyaUiButtonState.Normal, new HashSet<string>()));
+        Assert.Same(definition, renderer.ResolvePreviewReference(form, PangyaUiButtonState.Hover, new HashSet<string>()));
+        PangyaUiDocument reopened = PangyaUiDocument.Load(frames);
+        Assert.Same(Assert.Single(reopened.Roots), catalog.FindSourceRoot(definition, reopened));
+        Assert.Null(catalog.FindSourceRoot(definition, PangyaUiDocument.Load(path)));
     }
 
     [Theory]
@@ -1669,10 +1710,39 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(Color.FromArgb(46, 49, 55).ToArgb(), bitmap.GetPixel(5, 39).ToArgb());
     }
 
+    [Fact]
+    public void UiRenderer_FrameResolvesNumberedBitmapAliasesEvenWhenPrefixContainsADot()
+    {
+        SaveSolidImage(Path.Combine(_directory, "skin.png"), Color.Blue, 2, 2);
+        SaveSolidImage(Path.Combine(_directory, "slice.png"), Color.Red, 2, 2);
+        string path = Path.Combine(_directory, "dotted-frame-prefix.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="BITMAP" name="skin.png00" filename="slice.png"/>
+              <element type="BITMAP" name="skin.png01" filename="slice.png"/>
+              <element type="BITMAP" name="skin.png02" filename="slice.png"/>
+              <element type="FRAME" name="skin" color="ffffffff">
+                <layer type="1"/><bfrm filename="skin.png"/>
+              </element>
+              <element type="FORM" name="form" resource="skin" size="30 30"/>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images, PangyaUiResourceCatalog.Load([path]));
+        using var bitmap = new Bitmap(30, 30);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        renderer.Render(graphics, document, Assert.Single(document.Nodes, node => node.IsForm));
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(15, 1).ToArgb());
+        Assert.Equal(Color.FromArgb(46, 49, 55).ToArgb(), bitmap.GetPixel(15, 15).ToArgb());
+    }
+
     [Theory]
     [InlineData("pos='5'", 6, 20)]
+    [InlineData("pos='5px'", 6, 20)]
     [InlineData("pos='-5'", 20, 6)]
     [InlineData("bottompos='5'", 20, 6)]
+    [InlineData("bottompos='5px'", 20, 6)]
     [InlineData("bottompos='-5'", 6, 20)]
     [InlineData("pos='-5' bottompos='-5'", 6, 20)]
     public void UiRenderer_FrameLayerAnchoringUsesNormalizedPositionAndMinimumSliceHeight(
@@ -1687,7 +1757,7 @@ public sealed class ShopTests : IDisposable
         File.WriteAllText(path, $"""
             <resource>
               <element type="FRAME" name="skin" color="ffffffff">
-                <layer type="0"/><layer type="0" height="2" {anchor}/>
+                <layer type="0"/><layer type="0" height="2px" {anchor}/>
                 <bfrm filename="anchor-base"/><sfrm filename="anchor-sub"/>
               </element>
               <element type="FORM" name="form" resource="skin" size="30 30"/>
@@ -1702,6 +1772,61 @@ public sealed class ShopTests : IDisposable
         renderer.Render(graphics, document, form);
         Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(15, redY).ToArgb());
         Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(15, blueY).ToArgb());
+    }
+
+    [Fact]
+    public void UiRenderer_BottomAnchoredTopOverlayUsesOnlyItsTopRowHeight()
+    {
+        for (int index = 0; index < 9; index++)
+        {
+            SaveSolidImage(Path.Combine(_directory, $"layer-base{index:00}.png"), Color.Blue, 2, 2);
+            SaveSolidImage(Path.Combine(_directory, $"layer-sub{index:00}.png"), Color.Red, 2, index >= 6 ? 8 : 3);
+        }
+        string path = Path.Combine(_directory, "top-overlay.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="FRAME" name="skin" color="ffffffff">
+                <layer type="0"/><layer type="1" bottompos="5"/>
+                <bfrm filename="layer-base"/><sfrm filename="layer-sub"/>
+              </element>
+              <element type="FORM" name="form" resource="skin" size="30 30"/>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images, PangyaUiResourceCatalog.Load([path]));
+        using var bitmap = new Bitmap(30, 30);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        renderer.Render(graphics, document, Assert.Single(document.Nodes, node => node.IsForm));
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(15, 21).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(15, 22).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(15, 24).ToArgb());
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(15, 25).ToArgb());
+    }
+
+    [Fact]
+    public void UiRenderer_UnnumberedSubframeImageDoesNotPaintAnOverlay()
+    {
+        for (int index = 0; index < 9; index++)
+            SaveSolidImage(Path.Combine(_directory, $"base-skin{index:00}.png"), Color.Blue, 2, 2);
+        SaveSolidImage(Path.Combine(_directory, "overlay.png"), Color.Red, 2, 2);
+        string path = Path.Combine(_directory, "unnumbered-overlay.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="FRAME" name="skin" color="ffffffff">
+                <layer type="0"/><layer type="0" height="12" bottompos="5"/>
+                <bfrm filename="base-skin"/><sfrm filename="overlay.png"/>
+              </element>
+              <element type="FORM" name="form" resource="skin" size="30 30"/>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images, PangyaUiResourceCatalog.Load([path]));
+        using var bitmap = new Bitmap(30, 30);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        renderer.Render(graphics, document, Assert.Single(document.Nodes, node => node.IsForm));
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(15, 18).ToArgb());
     }
 
     [Fact]
@@ -2158,6 +2283,11 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(new Rectangle(25, 15, 6, 12), renderer.GetRenderedBounds(macro, options));
         var clipped = PangyaUiRenderer.SetCaptionClippingArea(button, new Rectangle(25, 19, 6, 4), options);
         Assert.Equal(new Rectangle(25, 15, 6, 8), renderer.GetRenderedBounds(macro, clipped));
+        var transparent = options with
+        {
+            MenuStates = new Dictionary<PangyaUiNode, PangyaUiMenuState> { [button] = new() { Opacity = 0 } }
+        };
+        Assert.Equal(new Rectangle(25, 15, 6, 4), renderer.GetRenderedBounds(macro, transparent));
     }
 
     [Theory]
@@ -2199,6 +2329,10 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(5.5f, resized.ViewerScrollRows[nested]);
         PangyaUiRenderOptions ownResize = renderer.SetWindowRectangle(nested, new Rectangle(30, 0, 20, 60), resized);
         Assert.Equal(0, ownResize.ViewerScrollRows![nested]);
+        var dragging = original with { DraggedViewerThumb = (nested, 12f) };
+        var parentResized = renderer.SetWindowRectangle(form, new Rectangle(0, 0, 120, 120), dragging);
+        Assert.Equal(dragging.DraggedViewerThumb, parentResized.DraggedViewerThumb);
+        Assert.Null(renderer.SetWindowRectangle(nested, new Rectangle(30, 0, 20, 60), parentResized).DraggedViewerThumb);
         Assert.Equal(5.5f, original.ViewerScrollRows[direct]);
         Assert.Throws<ArgumentOutOfRangeException>(() => renderer.SetWindowRectangle(form, new Rectangle(0, 0, -1, 10)));
     }
@@ -2206,11 +2340,12 @@ public sealed class ShopTests : IDisposable
     [Fact]
     public void UiRenderer_ComboAutomaticOpeningSideSurvivesMovementAndRowUpdates()
     {
+        SaveSolidImage(Path.Combine(_directory, "combo-arrow.png"), Color.Lime, 8, 6);
         string path = Path.Combine(_directory, "combo-retained-side.xml");
         File.WriteAllText(path, """
             <resource><element type="FORM" name="form" size="100 100">
               <item type="COMBOBOX" name="combo" rect="5 5 45 25">
-                <param name="lineheight" var="16"/>
+                <param name="lineheight" var="16"/><param name="normal" var="combo-arrow.png"/>
               </item>
             </element></resource>
             """);
@@ -2233,7 +2368,50 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(new Rectangle(5, -29, 40, 32), renderer.GetComboDropdownBounds(node, updated));
         model.Direction = PangyaUiComboDirection.Below;
         Assert.Equal(new Rectangle(5, 27, 40, 32), renderer.GetComboDropdownBounds(node, model.ApplyTo(node, updated)));
+        PangyaUiRenderOptions resized = renderer.SetWindowRectangle(node, new Rectangle(5, 5, 65, 30),
+            model.ApplyTo(node, updated));
+        Assert.Equal(new Rectangle(5, 37, 40, 32), renderer.GetComboDropdownBounds(node, resized));
+        Assert.True(renderer.HitTestComboUnfold(node, new Point(40, 13), new HashSet<string>(), resized));
+        Assert.False(renderer.HitTestComboUnfold(node, new Point(65, 19), new HashSet<string>(), resized));
+        PangyaUiRenderOptions narrowed = renderer.SetWindowRectangle(node, new Rectangle(5, 5, 20, 10), original);
+        Assert.Equal(45, renderer.GetRenderedBounds(node, narrowed).Right);
+        Assert.True(renderer.HitTestComboUnfold(node, new Point(40, 13), new HashSet<string>(), narrowed));
         Assert.Null(original.Combos![node].AutomaticOpensAbove);
+    }
+
+    [Theory]
+    [InlineData("3px", 30, 27)]
+    [InlineData("-3px", 18, 26)]
+    public void UiRenderer_ResizedComboHighlightUsesRetainedDropdownWidth(string margin, int height, int visualTop)
+    {
+        SaveSolidImage(Path.Combine(_directory, "scroll_n_1.png"), Color.Lime, 4, 4);
+        string path = Path.Combine(_directory, "combo-hover-width.xml");
+        File.WriteAllText(path, $"""
+            <resource><element type="FORM" name="form" size="100 100">
+              <item type="COMBOBOX" name="combo" rect="5 5 45 25">
+                <param name="selectcolor" var="0xffff0000"/>
+                <param name="lineheight" var="12px"/><param name="topmargin" var="{margin}"/>
+              </item>
+            </element></resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+        PangyaUiNode combo = Assert.Single(form.Children);
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images);
+        var options = renderer.SetWindowRectangle(combo, new Rectangle(5, 5, 65, 20), new PangyaUiRenderOptions
+        {
+            Combos = new Dictionary<PangyaUiNode, PangyaUiComboPreview>
+                { [combo] = new([new("One"), new("Two")], IsOpen: true, Direction: PangyaUiComboDirection.Below, HoveredIndex: 0) },
+            DrawCaptionText = (_, _, _, _) => { }
+        });
+        using var bitmap = new Bitmap(100, 100);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        renderer.Render(graphics, document, form, options);
+        Assert.Equal(height, renderer.GetComboDropdownBounds(combo, options).Height);
+        Assert.Equal(visualTop, renderer.GetComboDropdownBounds(combo, options, includeScrollbar: true).Top);
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(40, 30).ToArgb());
+        Assert.Equal(Color.FromArgb(46, 49, 55).ToArgb(), bitmap.GetPixel(41, 30).ToArgb());
     }
 
     [Fact]
@@ -2371,6 +2549,15 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(0, renderer.HitTestTab(node, new Point(5, 5), hovered));
         renderer.Render(graphics, document, form, hovered);
         Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(5, 5).ToArgb());
+        var disabledWindow = hovered with
+        {
+            HoveredTabIndices = null, DisabledNodes = new HashSet<PangyaUiNode> { node },
+            Tabs = new Dictionary<PangyaUiNode, IReadOnlyList<PangyaUiTab>>
+                { [node] = [PangyaUiTab.FromImagePrefix("state-tab", 1, new Size(10, 10))] }
+        };
+        renderer.Render(graphics, document, form, disabledWindow);
+        Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(5, 5).ToArgb());
+        Assert.Equal(-1, renderer.HitTestTab(node, new Point(5, 5), disabledWindow));
         state.SetHoveredIndex(null);
         renderer.Render(graphics, document, form, state.ApplyTo(node, original));
         Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(5, 5).ToArgb());
@@ -2417,6 +2604,7 @@ public sealed class ShopTests : IDisposable
         state.ButtonDown(0);
         Assert.Equal(0, state.SelectedIndex);
         Assert.False(state.ButtonUp(1));
+        Assert.Equal(0, state.HoveredIndex);
         Assert.Equal(0, state.SelectedIndex);
     }
 
@@ -2441,6 +2629,13 @@ public sealed class ShopTests : IDisposable
         Assert.Empty(cleared.Tabs![node]);
         Assert.Equal(Size.Empty, cleared.WindowSizes![node]);
         Assert.Equal(2, cleared.TabSeparatorWidths![node]);
+        state.AddTab(PangyaUiTab.FromImagePrefix("first", 7, new Size(10, 5)));
+        state.AddTab(PangyaUiTab.FromImagePrefix("second", 8, new Size(10, 5)));
+        state.SetSeparatorWidth(1.5f);
+        Assert.Equal(new Size(22, 5), state.Size);
+        Assert.Equal(1.5f, state.ApplyTo(node).TabSeparatorWidths![node]);
+        state.AddTab(PangyaUiTab.FromImagePrefix("third", 9, new Size(10, 5)));
+        Assert.Equal(new Size(34, 5), state.Size);
     }
 
     [Fact]
@@ -2846,6 +3041,10 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(0, renderer.HitTestTextButtonSegment(button, new Point(48, 5), repeated));
         Assert.Equal(-1, renderer.HitTestTextButtonSegment(button, new Point(47, 5), repeated));
         Assert.Equal("X", renderer.GetTextButtonTextUnderCursor(button, new Point(48, 5), repeated));
+        Assert.Equal(-1, renderer.HitTestTextButtonSegment(button, new Point(48, 5), repeated with
+        {
+            DisabledNodes = new HashSet<PangyaUiNode> { button }
+        }));
         Assert.Null(renderer.GetTextButtonTextUnderCursor(button, new Point(47, 5), repeated));
 
         var fractional = original with { MeasureCaptionText = text => text == "Y" ? 5.5f : 6.25f };
@@ -2939,7 +3138,11 @@ public sealed class ShopTests : IDisposable
         Assert.Contains(draws, draw => draw.Text == "Two" && draw.Color.ToArgb() == Color.Red.ToArgb());
         Assert.DoesNotContain(draws, draw => draw.Text == "Ignored");
         Assert.Single(draws, draw => draw.Text == "|");
+        Assert.Contains(draws, draw => draw.Text == "|" && draw.Color.ToArgb() == Color.White.ToArgb());
         Assert.Equal(38, renderer.GetRenderedBounds(button, options).Right);
+        draws.Clear();
+        renderer.Render(graphics, document, form, options with { Pointer = new Point(40, 15) });
+        Assert.Contains(draws, draw => draw.Text == "Two" && draw.Color.ToArgb() == Color.White.ToArgb());
     }
 
     [Fact]
@@ -3100,6 +3303,93 @@ public sealed class ShopTests : IDisposable
         using Graphics graphics = Graphics.FromImage(bitmap);
         renderer.Render(graphics, document, form, options);
         Assert.Equal((recursive ? Color.FromArgb(46, 49, 55) : Color.Red).ToArgb(), bitmap.GetPixel(1, 1).ToArgb());
+    }
+
+    [Theory]
+    [InlineData("", 5, 6, 26, 17)]
+    [InlineData("size='0 0'", 27, 20, 4, 3)]
+    [InlineData("size='12 13' rect='0 0 50 50'", 5, 6, 26, 17)]
+    public void UiRenderer_ReferencedFormFitsAbsolutelyClippedChildren(
+        string size, int x, int y, int width, int height)
+    {
+        SaveSolidImage(Path.Combine(_directory, "nested-clip.png"), Color.Lime, 8, 6);
+        string path = Path.Combine(_directory, "referenced-form-clip.xml");
+        File.WriteAllText(path, $"""
+            <resource>
+              <element type="FORM" name="panel" {size}>
+                <item type="AREA" name="image" pos="20 12">
+                  <param name="bgimg" var="nested-clip.png"/><param name="enable_clip" var="1"/>
+                  <param name="clip_area" var="27 20 31 23"/>
+                </item>
+              </element>
+              <element type="FORM" name="host" size="80 40">
+                <item type="FORM" name="instance" resource="panel" rect="5 6 15 16"/>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        if (size.Contains("rect=", StringComparison.Ordinal))
+        {
+            PangyaUiNode panel = Assert.Single(document.Roots, node => node.Name == "panel");
+            Assert.Equal(new Size(12, 13), PangyaUiRenderer.GetPreviewCanvasBounds(document, panel, new()).Size);
+        }
+        PangyaUiNode host = Assert.Single(document.Nodes, node => node.Name == "host");
+        PangyaUiNode instance = Assert.Single(host.Children);
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images, PangyaUiResourceCatalog.LoadEntry(path));
+        Assert.Equal(new Rectangle(x, y, width, height), renderer.GetRenderedBounds(instance));
+        using var bitmap = new Bitmap(80, 40);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        renderer.Render(graphics, document, host);
+        Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(28, 21).ToArgb());
+        Assert.Equal(Color.FromArgb(46, 49, 55).ToArgb(), bitmap.GetPixel(26, 21).ToArgb());
+        if (size.Contains("rect=", StringComparison.Ordinal))
+        {
+            PangyaUiNode panel = Assert.Single(document.Roots, node => node.Name == "panel");
+            panel.SetBounds(new Rectangle(1, 2, 17, 19));
+            Assert.Equal(new Rectangle(1, 2, 17, 19), panel.Bounds);
+            Assert.Equal("17 19", panel.Element.GetAttribute("size"));
+        }
+    }
+
+    [Fact]
+    public void UiRenderer_ReferencedFrameBoundsUseTheInstanceAlpha()
+    {
+        for (int index = 0; index < 3; index++)
+            SaveSolidImage(Path.Combine(_directory, $"wideframe{index:00}.png"), Color.Red, 15, 2);
+        string path = Path.Combine(_directory, "frame-instance-fit.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="FRAME" name="skin" color="ffffffff"><layer type="1"/><bfrm filename="wideframe"/></element>
+              <element type="FORM" name="panel" resource="skin" size="20 20"/>
+              <element type="FORM" name="host" size="80 40"><item type="FORM" name="instance" resource="panel" pos="5 6" caption="Host caption"/></element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode instance = Assert.Single(document.Nodes, node => node.Name == "instance");
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images, PangyaUiResourceCatalog.LoadEntry(path));
+        Assert.Equal(new Rectangle(5, 6, 30, 20), renderer.GetRenderedBounds(instance));
+        var transparent = new PangyaUiRenderOptions
+        {
+            FormFrameAlpha = new Dictionary<PangyaUiNode, float> { [instance] = 0 }
+        };
+        Assert.Equal(new Rectangle(5, 6, 20, 20), renderer.GetRenderedBounds(instance, transparent));
+        var captions = transparent with
+        {
+            IncludeCaptionVisualBounds = true,
+            CaptionFontHeight = 12,
+            MeasureCaptionText = _ => 50,
+            FrameText = new Dictionary<PangyaUiNode, PangyaUiFrameText>
+                { [instance] = new(Caption: "Title", Description: "Footer", UseDescriptionEmoticons: false) }
+        };
+        Assert.Equal(new Rectangle(5, 6, 20, 20), renderer.GetRenderedBounds(instance, captions));
+        captions = captions with
+        {
+            FrameText = new Dictionary<PangyaUiNode, PangyaUiFrameText>
+                { [instance] = captions.FrameText![instance] with { UseDescriptionEmoticons = true } }
+        };
+        Assert.Equal(65, renderer.GetRenderedBounds(instance, captions).Right);
     }
 
     [Theory]
@@ -3408,6 +3698,22 @@ public sealed class ShopTests : IDisposable
         renderer.Render(graphics, document, form, options);
         Assert.Equal(expectedColor, bitmap.GetPixel(6, 6).ToArgb());
         Assert.Equal(Color.Red.ToArgb(), normal.GetPixel(0, 0).ToArgb());
+
+        var emptyNormal = options with
+        {
+            WindowSizes = null,
+            ImageButtonStates = new Dictionary<PangyaUiNode, PangyaUiImageButtonState>
+            {
+                [button] = options.ImageButtonStates![button] with
+                {
+                    BitmapImages = new Dictionary<string, Image?> { ["normal"] = null, ["selected"] = selected }
+                }
+            }
+        };
+        Assert.Equal(Rectangle.Empty, renderer.GetRenderedBounds(button, emptyNormal));
+        Assert.Null(renderer.HitTest(document, form, new Point(6, 6), emptyNormal));
+        renderer.Render(graphics, document, form, emptyNormal);
+        Assert.Equal(Color.FromArgb(46, 49, 55).ToArgb(), bitmap.GetPixel(6, 6).ToArgb());
     }
 
     [Fact]
@@ -3483,6 +3789,32 @@ public sealed class ShopTests : IDisposable
     }
 
     [Fact]
+    public void UiRenderer_TabFitIncludesCenteredCaptionOverflow()
+    {
+        string path = Path.Combine(_directory, "tab-caption-fit.xml");
+        File.WriteAllText(path, """
+            <resource><element type="FORM" name="form" size="100 100">
+              <item type="TABBUTTON" name="tabs" pos="2 3"/>
+            </element></resource>
+            """);
+        PangyaUiNode tabs = Assert.Single(PangyaUiDocument.Load(path).Nodes, node => node.Name == "tabs");
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images);
+        var options = new PangyaUiRenderOptions
+        {
+            Tabs = new Dictionary<PangyaUiNode, IReadOnlyList<PangyaUiTab>>
+                { [tabs] = [new("", Size: new Size(10, 8)) { Caption = "Wide" }] },
+            TooltipFontHeight = 11, MeasureTooltipText = _ => 30,
+            DrawTooltipText = (_, _, _, _) => { }, IncludeCaptionVisualBounds = true
+        };
+        Assert.Equal(new Rectangle(-8, 3, 30, 16), renderer.GetRenderedBounds(tabs, options));
+        Assert.Equal(new Rectangle(2, 3, 10, 8), renderer.GetRenderedBounds(tabs, options with
+        {
+            TabOpacity = new Dictionary<PangyaUiNode, byte> { [tabs] = 0 }
+        }));
+    }
+
+    [Fact]
     public void UiRenderer_TabOwnerDrawUsesAccumulatedWidthAndFirstTabHeight()
     {
         string path = Path.Combine(_directory, "tab-owner-size.xml");
@@ -3509,6 +3841,16 @@ public sealed class ShopTests : IDisposable
         using Graphics graphics = Graphics.FromImage(bitmap);
         renderer.Render(graphics, document, form, options);
         Assert.Equal(new Rectangle(2, 3, 33, 8), Assert.Single(bars));
+        bars.Clear();
+        var positions = new List<Rectangle>();
+        renderer.Render(graphics, document, form, options with
+        {
+            Tabs = new Dictionary<PangyaUiNode, IReadOnlyList<PangyaUiTab>>
+                { [tabs] = [new("", Size: new Size(10, 0)), new("", Size: new Size(20, 16))] },
+            OnTabRendered = (_, _, bounds) => positions.Add(bounds)
+        });
+        Assert.Equal(new Rectangle(2, 3, 33, 0), Assert.Single(bars));
+        Assert.Equal(new Rectangle(15, 3, 20, 16), positions[1]);
         bars.Clear();
         renderer.Render(graphics, document, form, options with
             { Tabs = new Dictionary<PangyaUiNode, IReadOnlyList<PangyaUiTab>> { [tabs] = Array.Empty<PangyaUiTab>() } });
@@ -3553,17 +3895,43 @@ public sealed class ShopTests : IDisposable
         Assert.All(visible, value => Assert.True(value));
     }
 
+    [Theory]
+    [InlineData("COMBOBOX", 50)]
+    [InlineData("COMBOCTLEX", 51)]
+    public void UiRenderer_ComboDropdownFitIncludesTextBeyondRow(string type, int expectedRight)
+    {
+        SaveSolidImage(Path.Combine(_directory, "combo-skin.png"), Color.Lime, 20, 10);
+        string path = Path.Combine(_directory, "combo-text-overflow.xml");
+        File.WriteAllText(path, $"""
+            <resource><element type="FORM" name="form" size="40 100">
+              <item type="{type}" name="combo" rect="0 0 20 10">
+                <param name="normal" var="combo-skin.png"/>
+              </item>
+            </element></resource>
+            """);
+        PangyaUiNode combo = Assert.Single(PangyaUiDocument.Load(path).Nodes, node => node.Name == "combo");
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images);
+        var options = new PangyaUiRenderOptions
+        {
+            IncludeCaptionVisualBounds = true, CaptionFontHeight = 12, MeasureCaptionText = _ => 50,
+            Combos = new Dictionary<PangyaUiNode, PangyaUiComboPreview> { [combo] = new([new("Wide")], IsOpen: true) }
+        };
+        Assert.Equal(20, renderer.GetComboDropdownBounds(combo, options).Right);
+        Assert.Equal(expectedRight, renderer.GetComboDropdownBounds(combo, options, includeScrollbar: true).Right);
+    }
+
     [Fact]
     public void UiRenderer_ImageComboDrawsCompactTextureRowsAndRetainsFoldedImageAfterClear()
     {
         SaveSolidImage(Path.Combine(_directory, "skin.png"), Color.Lime, 20, 10);
-        SaveSolidImage(Path.Combine(_directory, "icon.png"), Color.Red, 4, 4);
+        SaveSolidImage(Path.Combine(_directory, "icon.png"), Color.Red, 4, 9);
         string path = Path.Combine(_directory, "combo-texture-render.xml");
         File.WriteAllText(path, """
             <resource><element type="FORM" name="form" size="40 120">
               <item type="COMBOCTLEX" name="combo" rect="0 0 20 10">
                 <param name="normal" var="skin.png"/><param name="liststyle" var="1"/>
-                <param name="leftmargin" var="4"/>
+                <param name="leftmargin" var="20"/>
               </item>
             </element></resource>
             """);
@@ -3581,12 +3949,14 @@ public sealed class ShopTests : IDisposable
         using var bitmap = new Bitmap(40, 120);
         using Graphics graphics = Graphics.FromImage(bitmap);
         renderer.Render(graphics, document, form, options);
-        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(3, 13).ToArgb());
+        Assert.Equal(22, renderer.GetComboDropdownBounds(combo, options, includeScrollbar: true).Right);
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(21, 13).ToArgb());
         Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(3, 23).ToArgb());
         options = renderer.SelectComboImage(combo, 0, options);
         options = PangyaUiRenderer.ClearComboImageList(combo, options);
+        Assert.Equal(11, renderer.GetRenderedBounds(combo, options).Bottom);
         renderer.Render(graphics, document, form, options);
-        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(3, 3).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(21, 3).ToArgb());
         Assert.Equal(Color.FromArgb(46, 49, 55).ToArgb(), bitmap.GetPixel(3, 13).ToArgb());
     }
 
@@ -3734,13 +4104,16 @@ public sealed class ShopTests : IDisposable
         Assert.True(renderer.TrySetButtonImage(button, "main.png", "over", original, out var main));
         Assert.Equal(new Size(14, 9), main.WindowSizes![button]);
         Assert.Equal("main.png", main.ImageButtonStates![button].Images!["over"]);
+        Assert.Equal(new Size(14, 9), main.ImageButtonStates[button].BitmapImages!["over"]!.Size);
         Assert.Equal(new Size(40, 40), original.WindowSizes[button]);
         Assert.False(renderer.TrySetButtonImage(button, "missing.png", "normal", main, out var failed));
         Assert.Same(main, failed);
         Assert.True(renderer.TrySetButtonBelowImage(button, "below.png", "normal", main, out var below));
         Assert.Equal(new Size(14, 9), below.WindowSizes![button]);
+        Assert.Equal(new Size(30, 20), below.ImageButtonStates![button].BitmapImages!["below_normal"]!.Size);
         Assert.True(renderer.TrySetButtonBelowImage(button, null, "normal", below, out var cleared));
         Assert.Null(cleared.ImageButtonStates![button].BelowImages!["normal"]);
+        Assert.Null(cleared.ImageButtonStates[button].BitmapImages!["below_normal"]);
         Assert.False(renderer.TrySetButtonImage(button, null, "normal", cleared, out var nullMain));
         Assert.Same(cleared, nullMain);
     }
@@ -3823,6 +4196,10 @@ public sealed class ShopTests : IDisposable
         renderer.Render(graphics, document, form, options);
         Assert.Equal(11, drawn.Count);
         Assert.All(drawn.Take(8), run => Assert.Equal(("X", Color.FromArgb(80, 255, 0, 0)), run));
+        Assert.Equal(new[] { ("X", 80), ("|", 40), ("Y", 40) },
+            drawn.Skip(8).Select(run => (run.Text, (int)run.Color.A)));
+        drawn.Clear();
+        renderer.Render(graphics, document, form, options with { ButtonState = PangyaUiButtonState.Selected });
         Assert.Equal(new[] { ("X", 80), ("|", 40), ("Y", 40) },
             drawn.Skip(8).Select(run => (run.Text, (int)run.Color.A)));
     }
@@ -4147,6 +4524,11 @@ public sealed class ShopTests : IDisposable
         Assert.Equal("replacement.png", failed.ViewerImages![viewer]);
         Assert.True(renderer.TryOpenViewer(viewer, "replacement.png", opened, out var unchanged));
         Assert.Same(opened, unchanged);
+        var dragging = original with { DraggedViewerThumb = (viewer, 12f) };
+        Assert.True(renderer.TryOpenViewer(viewer, "replacement.png", dragging, out var replacedDuringDrag));
+        Assert.Null(replacedDuringDrag.DraggedViewerThumb);
+        Assert.False(renderer.TryOpenViewer(viewer, "missing.png", dragging, out var failedDuringDrag));
+        Assert.Equal(dragging.DraggedViewerThumb, failedDuringDrag.DraggedViewerThumb);
 
         var resizedBeforeOpen = renderer.SetWindowRectangle(viewer, new Rectangle(5, 6, 30, 40), original);
         Assert.Equal(new Rectangle(5, 6, 30, 40), renderer.GetViewerViewport(viewer, resizedBeforeOpen));
@@ -4156,6 +4538,42 @@ public sealed class ShopTests : IDisposable
         var resizedAfterOpen = renderer.SetWindowRectangle(viewer, new Rectangle(5, 6, 30, 40), openedAfterResize);
         Assert.Equal(2, PangyaUiRenderer.GetViewerScrollbarCapacity(viewer, resizedAfterOpen));
         Assert.Equal(2, renderer.GetViewerMaximumTopRow(viewer, options: resizedAfterOpen));
+    }
+
+    [Fact]
+    public void UiRenderer_ReopeningResolvedRoomViewerImagePreservesScroll()
+    {
+        SaveSolidImage(Path.Combine(_directory, "picture_stroke.png"), Color.Lime, 20, 100);
+        string path = Path.Combine(_directory, "room-viewer-open.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="BITMAP" name="picture_stroke.tga" filename="picture_stroke.png"/>
+              <element type="FORM" name="makeroom" size="80 60">
+                <item type="VIEWER" name="picture" rect="0 0 20 40"><param name="use_wheel" var="true"/></item>
+                <item type="VIEWER" name="authored" rect="20 0 40 40"><param name="image" var="picture_stroke.tga"/></item>
+                <item type="AREA" name="area" rect="40 0 60 40"/>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode viewer = Assert.Single(document.Nodes, node => node.Name == "picture");
+        PangyaUiNode authored = Assert.Single(document.Nodes, node => node.Name == "authored");
+        PangyaUiNode area = Assert.Single(document.Nodes, node => node.Name == "area");
+        using var images = new PangyaFileImageProvider(_directory);
+        var catalog = PangyaUiResourceCatalog.LoadEntry(path);
+        var renderer = new PangyaUiRenderer(images, catalog);
+        PangyaUiNode reference = Assert.IsType<PangyaUiNode>(renderer.ResolvePreviewReference(authored,
+            PangyaUiButtonState.Normal, new HashSet<string>()));
+        Assert.Equal("BITMAP", reference.Type);
+        Assert.Equal(path, catalog.GetSourcePath(reference));
+        var options = new PangyaUiRenderOptions { ViewerScrollRows = new Dictionary<PangyaUiNode, float> { [viewer] = 1.5f } };
+        Assert.Same(reference, renderer.ResolvePreviewReference(viewer, options));
+        Assert.Same(reference, renderer.ResolvePreviewReference(area, options with
+        {
+            AreaImages = new Dictionary<PangyaUiNode, string?> { [area] = "picture_stroke.tga" }
+        }));
+        Assert.True(renderer.TryOpenViewer(viewer, "picture_stroke.tga", options, out var reopened));
+        Assert.Same(options, reopened);
     }
 
     [Fact]
@@ -4381,6 +4799,7 @@ public sealed class ShopTests : IDisposable
         PangyaUiNode menu = Assert.Single(PangyaUiDocument.Load(path).Nodes, node => node.Name == "menu");
         using var images = new PangyaFileImageProvider(_directory);
         var renderer = new PangyaUiRenderer(images);
+        const string replacement = "A replacement label longer than 31 bytes";
         var options = new PangyaUiRenderOptions
         {
             CaptionFontHeight = 10,
@@ -4390,9 +4809,9 @@ public sealed class ShopTests : IDisposable
                 [menu] = new()
                 {
                     DisabledTexts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                        { renamed ? "Renamed" : "Same" },
+                        { renamed ? replacement : "Same" },
                     TextReplacements = renamed
-                        ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["Same"] = "Renamed" }
+                        ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["Same"] = replacement }
                         : null
                 }
             }
@@ -4400,6 +4819,28 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(-1, renderer.HitTestMenuRow(menu, new Point(10, 15), options));
         Assert.Equal(-1, renderer.HitTestMenuRow(menu, new Point(10, 32), options));
         Assert.Equal(2, renderer.HitTestMenuRow(menu, new Point(10, 49), options));
+
+        var beforeRename = options with { MenuStates = null };
+        var disabled = PangyaUiRenderer.DisableContextMenuItems(menu, "Same", beforeRename);
+        var renamedAfterDisable = disabled with
+        {
+            MenuStates = new Dictionary<PangyaUiNode, PangyaUiMenuState>
+            {
+                [menu] = disabled.MenuStates![menu] with
+                {
+                    TextReplacements = new Dictionary<string, string> { ["Same"] = replacement }
+                }
+            }
+        };
+        Assert.Equal(-1, renderer.HitTestMenuRow(menu, new Point(10, 15), renamedAfterDisable));
+        Assert.Equal(-1, renderer.HitTestMenuRow(menu, new Point(10, 32), renamedAfterDisable));
+        Assert.Equal(2, renderer.HitTestMenuRow(menu, new Point(10, 49), renamedAfterDisable));
+
+        var first = PangyaUiRenderer.ReplaceContextMenuItems(menu, "Same", replacement, disabled);
+        var second = PangyaUiRenderer.ReplaceContextMenuItems(menu, replacement, "Final", first);
+        Assert.Equal(new[] { "Final", "Final", "same" }, second.ContextMenuItemTexts![menu].Values);
+        Assert.Equal(renderer.GetRenderedBounds(menu, disabled), renderer.GetRenderedBounds(menu, second));
+        Assert.Equal(-1, renderer.HitTestMenuRow(menu, new Point(10, 32), second));
     }
 
     [Fact]
@@ -4531,6 +4972,27 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(Enumerable.Range(0, 4), drawn);
         Assert.Equal(3, resizeRenderer.HitTestListItem(list, new Point(65, 5), resized));
         Assert.Equal(-1, resizeRenderer.HitTestListItem(list, new Point(85, 5), resized));
+    }
+
+    [Fact]
+    public void UiRenderer_ViewerViewportRespectsPreviewVisibilityOverrides()
+    {
+        string path = Path.Combine(_directory, "hidden-viewer.xml");
+        File.WriteAllText(path, """
+            <resource><element type="FORM" name="form" size="80 60">
+              <item type="VIEWER" name="viewer" rect="5 6 35 46"><param name="visible" var="0"/></item>
+            </element></resource>
+            """);
+        PangyaUiNode viewer = Assert.Single(PangyaUiDocument.Load(path).Nodes, node => node.Name == "viewer");
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images);
+        Assert.Equal(Rectangle.Empty, renderer.GetViewerViewport(viewer));
+        var shown = new PangyaUiRenderOptions { VisibleNodes = new HashSet<PangyaUiNode> { viewer } };
+        Assert.Equal(new Rectangle(5, 6, 30, 40), renderer.GetViewerViewport(viewer, shown));
+        Assert.Equal(Rectangle.Empty, renderer.GetViewerViewport(viewer, shown with
+        {
+            HiddenNodes = new HashSet<PangyaUiNode> { viewer }
+        }));
     }
 
     [Fact]
@@ -4681,6 +5143,7 @@ public sealed class ShopTests : IDisposable
     [InlineData("MACROITEM")]
     [InlineData("FRAME")]
     [InlineData("CONTEXTMENU")]
+    [InlineData("FORM")]
     public async Task UiDocument_DefinitionResourceEditUpdatesDeclaredResourceAndPersists(string type)
     {
         string path = Path.Combine(_directory, "macro-edit.xml");
@@ -4695,6 +5158,7 @@ public sealed class ShopTests : IDisposable
         PangyaUiDocument document = PangyaUiDocument.Load(path);
         PangyaUiNode instance = Assert.Single(document.Nodes, node => node.Name == "instance");
 
+        Assert.Equal(type == "FORM" ? "original" : "previous", instance.GetResource(PangyaUiButtonState.Normal));
         instance.SetResource(" replacement ");
         Assert.Equal("replacement", instance.GetResource(PangyaUiButtonState.Normal));
         Assert.Equal("unrelated", instance.Parameters["normal"]);
@@ -4705,6 +5169,7 @@ public sealed class ShopTests : IDisposable
         foreach (PangyaUiButtonState state in Enum.GetValues<PangyaUiButtonState>())
             Assert.Equal("replacement", saved.GetResource(state));
         Assert.Equal("unrelated", saved.Parameters["normal"]);
+        if (type == "FORM") Assert.Equal("replacement", saved.Element.GetAttribute("resource"));
     }
 
     [Theory]
@@ -4886,18 +5351,20 @@ public sealed class ShopTests : IDisposable
             using var canvas = new PangyaUiCanvas(assets) { HighlightSelection = false };
             canvas.LoadDocument(document);
             canvas.SelectedForm = form;
+            int geometryChanges = 0;
+            canvas.PreviewGeometryChanged += (_, _) => geometryChanges++;
             using var bitmap = new Bitmap(canvas.Width, canvas.Height);
             canvas.DrawToBitmap(bitmap, canvas.ClientRectangle);
             int padding = PangyaUiCanvas.FormPadding;
             var click = new MouseEventArgs(MouseButtons.Left, 1, padding + 100, padding + 8, 0);
             Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(click.X, click.Y).ToArgb());
             canvas.CanvasMouseDown(canvas, click);
-            typeof(Control).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(canvas, [click]);
-            canvas.DrawToBitmap(bitmap, canvas.ClientRectangle);
-            Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(click.X, click.Y).ToArgb());
-
             tabs.SetBounds(new Rectangle(15, 16, 150, 20));
             canvas.UpdateCanvasSize();
+            canvas.DrawToBitmap(bitmap, canvas.ClientRectangle);
+            var release = new MouseEventArgs(MouseButtons.Left, 1, click.X + 10, click.Y + 10, 0);
+            typeof(Control).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(canvas, [release]);
+            Assert.Equal(1, geometryChanges);
             canvas.DrawToBitmap(bitmap, canvas.ClientRectangle);
             Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(click.X + 10, click.Y + 10).ToArgb());
             Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(padding + 20, padding + 18).ToArgb());
@@ -4956,9 +5423,51 @@ public sealed class ShopTests : IDisposable
     }
 
     [Fact]
+    public void UiCanvas_TabReleaseStaysWithCapturedReferencedInstance()
+    {
+        SaveSolidImage(Path.Combine(_directory, "select_button_n.png"), Color.Blue, 12, 12);
+        SaveSolidImage(Path.Combine(_directory, "select_button_d.png"), Color.Lime, 12, 12);
+        string path = Path.Combine(_directory, "overlapping-tabs.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="FORM" name="makeroom" size="160 25">
+                <item type="TABBUTTON" name="gametype"/>
+              </element>
+              <element type="FORM" name="main" size="180 90">
+                <item type="FORM" name="first" resource="makeroom" pos="5 5"/>
+                <item type="FORM" name="second" resource="makeroom" pos="5 50"/>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode form = Assert.Single(document.Nodes, node => node.Name == "main");
+        PangyaUiNode second = Assert.Single(form.Children, node => node.Name == "second");
+        using var assets = new PangyaFileImageProvider(_directory);
+        RunSta(() =>
+        {
+            using var canvas = new PangyaUiCanvas(assets, PangyaUiResourceCatalog.Load([path]));
+            canvas.LoadDocument(document);
+            canvas.SelectedForm = form;
+            using var bitmap = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(bitmap, canvas.ClientRectangle);
+            int padding = PangyaUiCanvas.FormPadding;
+            var click = new MouseEventArgs(MouseButtons.Left, 1, padding + 100, padding + 7, 0);
+            canvas.CanvasMouseDown(canvas, click);
+            second.SetBounds(new Rectangle(5, 5, 160, 25));
+            canvas.DrawToBitmap(bitmap, canvas.ClientRectangle);
+            typeof(Control).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(canvas, [click]);
+            second.SetBounds(new Rectangle(5, 50, 160, 25));
+            canvas.DrawToBitmap(bitmap, canvas.ClientRectangle);
+            Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(click.X, click.Y).ToArgb());
+            Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(click.X, click.Y + 45).ToArgb());
+        });
+    }
+
+    [Fact]
     public void UiRenderer_RuntimeTabSeparatorWidthKeepsPixelsAndHitRegionsAligned()
     {
         SaveSolidImage(Path.Combine(_directory, "tab.png"), Color.Red, 4, 3);
+        SaveSolidImage(Path.Combine(_directory, "hover.png"), Color.Lime, 4, 7);
         SaveSolidImage(Path.Combine(_directory, "separator.png"), Color.Blue, 3, 3);
         string path = Path.Combine(_directory, "tab-spacing.xml");
         File.WriteAllText(path, """
@@ -4977,7 +5486,7 @@ public sealed class ShopTests : IDisposable
         {
             Tabs = new Dictionary<PangyaUiNode, IReadOnlyList<PangyaUiTab>>
             {
-                [tabs] = new[] { new PangyaUiTab("tab.png"), new("tab.png", Size: new Size(4, 7)), new("tab.png") }
+                [tabs] = new[] { new PangyaUiTab("tab.png"), new("tab.png", Hover: "hover.png", Size: new Size(4, 7)), new("tab.png") }
             },
             TabSeparatorWidths = new Dictionary<PangyaUiNode, float> { [tabs] = 1.5f }
         };
@@ -4994,6 +5503,21 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(2, renderer.HitTestTab(tabs, new Point(16, 7), options));
         Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(12, 11).ToArgb());
         Assert.Equal(-1, renderer.HitTestTab(tabs, new Point(12, 11), options));
+        var hovered = options with { HoveredNode = tabs, Pointer = new Point(12, 11) };
+        renderer.Render(graphics, document, form, hovered);
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(12, 11).ToArgb());
+        renderer.Render(graphics, document, form, hovered with { Pointer = new Point(12, 7) });
+        Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(12, 11).ToArgb());
+        var hiddenSeparator = options with
+        {
+            Tabs = new Dictionary<PangyaUiNode, IReadOnlyList<PangyaUiTab>>
+            {
+                [tabs] = [new("tab.png", Size: new Size(4, 1)), new("tab.png", Size: new Size(4, 1))]
+            },
+            TabOpacity = new Dictionary<PangyaUiNode, byte> { [tabs] = 0 }
+        };
+        Assert.Equal(new Rectangle(5, 6, 10, 1), renderer.GetRenderedBounds(tabs, hiddenSeparator));
+        Assert.Equal(new Rectangle(5, 6, 10, 3), renderer.GetRenderedBounds(tabs, hiddenSeparator with { TabOpacity = null }));
     }
 
     [Theory]
@@ -5083,6 +5607,12 @@ public sealed class ShopTests : IDisposable
 
         Assert.Equal(showGuide, bitmap.GetPixel(44, 6).ToArgb() == Color.Red.ToArgb());
         Assert.Equal(showGuide, bitmap.GetPixel(44, 43).ToArgb() == Color.Red.ToArgb());
+        if (type == "VIEWER" && showGuide)
+        {
+            renderer.Render(graphics, document, form, options with { WheelFocusedNode = control });
+            Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(44, 6).ToArgb());
+            Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(44, 43).ToArgb());
+        }
     }
 
     [Theory]
@@ -5164,6 +5694,61 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(6, 6).ToArgb());
         Assert.Equal((contraction ? Color.Yellow : Color.Blue).ToArgb(),
             bitmap.GetPixel(expansionX, 10).ToArgb());
+    }
+
+    [Fact]
+    public void UiRenderer_ButtonWithoutSkinStillInvokesOwnerDrawAtItsOrigin()
+    {
+        string path = Path.Combine(_directory, "button-owner-only.xml");
+        File.WriteAllText(path, """
+            <resource><element type="FORM" name="form" size="30 30">
+              <item type="BUTTON" name="button" pos="7 8"><param name="drawstyle" var="1"/></item>
+            </element></resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+        PangyaUiNode button = Assert.Single(form.Children);
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images);
+        using var bitmap = new Bitmap(30, 30);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        var calls = new List<Rectangle>();
+        var options = new PangyaUiRenderOptions
+        {
+            ButtonOwnerDrawBounds = new Dictionary<PangyaUiNode, Rectangle> { [button] = new(0, 0, 2, 2) },
+            ButtonOwnerDraw = new Dictionary<PangyaUiNode, Action<Graphics, Rectangle, PangyaUiButtonState>>
+            {
+                [button] = (target, bounds, _) =>
+                {
+                    calls.Add(bounds);
+                    target.FillRectangle(Brushes.Lime, bounds.X, bounds.Y, 2, 2);
+                }
+            }
+        };
+        Assert.Equal(new Rectangle(7, 8, 2, 2), renderer.GetRenderedBounds(button, options));
+        Assert.Null(renderer.HitTest(document, form, new Point(7, 8), options));
+        Assert.Empty(calls);
+        renderer.Render(graphics, document, form, options);
+        Assert.Equal(new Rectangle(7, 8, 0, 0), Assert.Single(calls));
+        Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(7, 8).ToArgb());
+    }
+
+    [Theory]
+    [InlineData(" +.25 seconds", 0.25)]
+    [InlineData("5e-1 seconds", 0.5)]
+    [InlineData("2e+ trailing", 2)]
+    [InlineData("0 seconds", 1.2)]
+    [InlineData("invalid", 1.2)]
+    public void UiRenderer_ButtonPushDelayUsesDecimalPrefix(string setting, double expected)
+    {
+        string path = Path.Combine(_directory, "button-push-delay.xml");
+        File.WriteAllText(path, $"""
+            <resource><element type="FORM" size="30 30">
+              <item type="BUTTON" name="button"><param name="pushdelay" var="{setting}"/></item>
+            </element></resource>
+            """);
+        PangyaUiNode button = Assert.Single(PangyaUiDocument.Load(path).Nodes, node => node.Name == "button");
+        Assert.Equal(expected, PangyaUiRenderer.GetButtonPushDelay(button));
     }
 
     [Theory]
@@ -5400,6 +5985,8 @@ public sealed class ShopTests : IDisposable
         using Graphics graphics = Graphics.FromImage(bitmap);
         renderer.Render(graphics, document, form, options);
         Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(3, 9).ToArgb());
+        Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(4, 11).ToArgb());
+        Assert.Equal(Color.FromArgb(46, 49, 55).ToArgb(), bitmap.GetPixel(5, 11).ToArgb());
 
         var renamed = options with
         {
@@ -5411,6 +5998,29 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(new Rectangle(3, 5, 132, 37), renderer.GetRenderedBounds(menu, renamed));
         Assert.Equal(0, renderer.HitTestMenuRow(menu, new Point(40, 20), renamed));
         Assert.Equal(-1, renderer.HitTestMenuRow(menu, new Point(100, 20), renamed));
+    }
+
+    [Fact]
+    public void UiRenderer_ContextMenuStopsAtNativeStringTerminator()
+    {
+        string path = Path.Combine(_directory, "menu-terminator.xml");
+        File.WriteAllText(path, """
+            <resource><element type="FORM" name="form" size="100 100">
+              <item type="CONTEXTMENU" name="menu" caption="Original"/>
+            </element></resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode menu = Assert.Single(document.Nodes, node => node.Name == "menu");
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images);
+        var options = new PangyaUiRenderOptions
+        {
+            CaptionFontHeight = 12, MeasureCaptionText = text => text.Length * 5,
+            ContextMenuCaptions = new Dictionary<PangyaUiNode, string> { [menu] = "Open\0ignored|Extra" }
+        };
+        Assert.Equal(new Rectangle(0, 0, 56, 37), renderer.GetRenderedBounds(menu, options));
+        Assert.Equal(0, renderer.HitTestMenuRow(menu, new Point(10, 15), options));
+        Assert.Equal(-1, renderer.HitTestMenuRow(menu, new Point(10, 34), options));
     }
 
     [Fact]
@@ -5643,6 +6253,27 @@ public sealed class ShopTests : IDisposable
         Assert.NotEqual(Color.Lime.ToArgb(), bitmap.GetPixel(8, 10).ToArgb());
         Assert.Same(area, renderer.HitTest(document, form, new Point(21, 16), options));
         Assert.Null(renderer.HitTest(document, form, new Point(8, 10), options));
+    }
+
+    [Theory]
+    [InlineData("ffffffff", 44)]
+    [InlineData("00ffffff", 32)]
+    public void UiRenderer_StandaloneFallbackFrameFitsOnlyVisibleArtwork(string color, int expectedHeight)
+    {
+        SaveSolidImage(Path.Combine(_directory, "standalone-fallback.png"), Color.Lime, 2, 2);
+        string path = Path.Combine(_directory, "standalone-fallback.xml");
+        File.WriteAllText(path, $"""
+            <resource><element type="FRAME" name="skin" color="{color}">
+              <layer type="0" height="12" pos="32"/>
+              <bfrm filename="standalone-fallback.png"/>
+            </element></resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode frame = Assert.Single(document.Nodes, node => node.Type == "FRAME");
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images, PangyaUiResourceCatalog.Load([path]));
+        Assert.Equal(new Rectangle(0, 0, 32, expectedHeight),
+            renderer.GetStandaloneFramePreviewBounds(new Size(32, 32), new PangyaUiRenderOptions(SelectedNode: frame)));
     }
 
     [Fact]
@@ -6076,6 +6707,9 @@ public sealed class ShopTests : IDisposable
         Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(24, 21).ToArgb());
         var clipped = PangyaUiRenderer.EnableAreaClipping(area, true, options);
         Assert.Equal(callbackBounds, renderer.GetRenderedBounds(area, clipped));
+        var transparent = options with { AreaOpacity = new Dictionary<PangyaUiNode, byte> { [area] = 0 } };
+        Assert.Equal(callbackBounds, renderer.GetRenderedBounds(area, transparent));
+        Assert.Equal(Rectangle.Empty, renderer.GetRenderedBounds(area, transparent with { AreaOwnerDraw = null }));
     }
 
     [Fact]
@@ -6098,7 +6732,7 @@ public sealed class ShopTests : IDisposable
         var drawn = new List<string>();
         var options = new PangyaUiRenderOptions
         {
-            TextButtonCaptions = new Dictionary<PangyaUiNode, string> { [button] = "AA|B" },
+            TextButtonCaptions = new Dictionary<PangyaUiNode, string> { [button] = "AA|B\0ignored|extra" },
             MeasureCaptionText = text => text.Length * 6,
             DrawCaptionText = (_, text, _, _) => drawn.Add(text)
         };
@@ -6112,6 +6746,9 @@ public sealed class ShopTests : IDisposable
         using Graphics graphics = Graphics.FromImage(bitmap);
         renderer.Render(graphics, document, form, options);
         Assert.Equal(new[] { "AA", "|", "B" }, drawn.Distinct().ToArray());
+        var updated = PangyaUiRenderer.SetTextButtonCaption(button, "AA|B\0ignored|extra", options);
+        Assert.Equal("AA|B", updated.TextButtonCaptions![button]);
+        Assert.Equal(new Rectangle(5, 6, 24, 12), renderer.GetRenderedBounds(button, updated));
 
         options = options with
         {
@@ -6760,6 +7397,16 @@ public sealed class ShopTests : IDisposable
         });
     }
 
+    [Theory]
+    [InlineData(1000, 620, 620)]
+    [InlineData(1000, 900, 680)]
+    [InlineData(500, 900, 250)]
+    public void UiEditor_PropertiesPaneUsesContentWidthWhileReservingPreviewSpace(
+        int workspaceWidth, int contentWidth, int expectedWidth)
+    {
+        Assert.Equal(expectedWidth, FrmPangyaUiEditor.GetPropertiesPaneWidth(workspaceWidth, contentWidth));
+    }
+
     [Fact]
     public void UiEditor_FitsLargeDialogAndShowsSelectedXmlAttributes()
     {
@@ -6863,7 +7510,7 @@ public sealed class ShopTests : IDisposable
         string path = Path.Combine(_directory, "preview-visibility.xml");
         File.WriteAllText(path, """
             <resource><element type="FORM" name="dialog" size="40 40">
-              <item type="AREA" name="image" rect="5 5 17 17">
+              <item type="AREA" name="image" rect="85 5 97 17">
                 <param name="visible" var="0"/>
                 <param name="bgimg" var="preview-visible.png"/>
               </item>
@@ -6877,6 +7524,8 @@ public sealed class ShopTests : IDisposable
             using var canvas = new PangyaUiCanvas(assets);
             canvas.LoadDocument(document);
             canvas.SelectedForm = Assert.Single(document.Nodes, node => node.IsForm);
+            canvas.ViewportSize = new Size(80, 80);
+            canvas.PreviewGeometryChanged += (_, _) => canvas.Zoom = canvas.GetDialogFitZoom();
             using var panel = new PangyaUiPropertyPanel(assets, canvas.IsElementShownInPreview);
             panel.PreviewVisibilityChanged += (_, _) => canvas.SetElementPreviewVisibility(image, panel.ShowInPreview);
             panel.SelectedNode = image;
@@ -6884,10 +7533,12 @@ public sealed class ShopTests : IDisposable
             Assert.False(checkbox.Checked);
             Assert.Equal(Rectangle.Empty, canvas.GetRenderedBounds(image));
             checkbox.Checked = true;
-            Assert.Equal(new Rectangle(5, 5, 12, 12), canvas.GetRenderedBounds(image));
+            Assert.Equal(new Rectangle(85, 5, 12, 12), canvas.GetRenderedBounds(image));
+            Assert.True(canvas.Zoom < 1f);
             Assert.Equal("0", image.Parameters["visible"]);
             checkbox.Checked = false;
             Assert.Equal(Rectangle.Empty, canvas.GetRenderedBounds(image));
+            Assert.Equal(1f, canvas.Zoom);
         });
     }
 
@@ -7104,10 +7755,120 @@ public sealed class ShopTests : IDisposable
         Rectangle list = renderer.GetComboDropdownBounds(combo, options);
         Rectangle visual = renderer.GetComboDropdownBounds(combo, options, includeScrollbar: true);
         Assert.Equal(list.Right + 3, visual.Right);
+        var transparent = options with { ScrollbarAlpha = new Dictionary<PangyaUiNode, float> { [combo] = 0 } };
+        Assert.Equal(list, renderer.GetComboDropdownBounds(combo, transparent, includeScrollbar: true));
+        Assert.True(renderer.TryGetComboScrollbarGeometry(combo, new Point(list.Right + 1, list.Top), transparent,
+            out _, out _, out _));
+        Assert.True(renderer.TryGetComboScrollbarGeometry(combo, new Point(list.Right + 1, list.Top), options,
+            out _, out _, out Rectangle track));
+        Assert.Equal(list.Right + 1, track.Left);
+        Assert.Equal(0, renderer.HitTestComboRow(combo, new Point(list.Right - 1, list.Top), options));
+        Assert.Same(combo, renderer.HitTestWheelTarget(document, form, new Point(track.Left, track.Top), options));
+        Assert.Null(renderer.HitTestWheelTarget(document, form, new Point(track.Right, track.Top), options));
         using var bitmap = new Bitmap(80, 80);
         using Graphics graphics = Graphics.FromImage(bitmap);
         renderer.Render(graphics, document, form, options);
         Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(list.Right + 1, list.Top).ToArgb());
+        SaveSolidImage(Path.Combine(_directory, "scrollbg1.png"), Color.Red, 2, 4);
+        SaveSolidImage(Path.Combine(_directory, "scrollbg2.png"), Color.Red, 2, 40);
+        SaveSolidImage(Path.Combine(_directory, "scrollbg3.png"), Color.Red, 2, 3);
+        using var withTrackAssets = new PangyaFileImageProvider(_directory);
+        var withTrack = new PangyaUiRenderer(withTrackAssets);
+        Assert.Equal(list.Bottom - 40,
+            withTrack.GetComboDropdownBounds(combo, options, includeScrollbar: true).Top);
+
+        var tallCaps = Path.Combine(_directory, "tall-caps");
+        Directory.CreateDirectory(tallCaps);
+        for (int index = 1; index <= 3; index++)
+            SaveSolidImage(Path.Combine(tallCaps, $"scroll_n_{index}.png"), Color.Lime, 2, 24);
+        using var tallCapAssets = new PangyaFileImageProvider(tallCaps);
+        var tallCapRenderer = new PangyaUiRenderer(tallCapAssets);
+        Assert.True(tallCapRenderer.TryGetComboScrollbarGeometry(combo,
+            new Point(list.Right + 1, list.Top), options, out _, out RectangleF tallThumb, out _));
+        Assert.Equal(40f, tallThumb.Height);
+        Assert.Equal(list.Top + 40, tallCapRenderer.GetComboDropdownBounds(combo, options, includeScrollbar: true).Bottom);
+    }
+
+    [Fact]
+    public void UiRenderer_ReferencedMacroBoundsIncludeOpenComboDropdown()
+    {
+        string path = Path.Combine(_directory, "referenced-combo.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="MACROITEM" name="controls">
+                <item type="COMBOBOX" name="combo" rect="5 10 45 24"/>
+              </element>
+              <element type="FORM" name="dialog" size="60 40">
+                <item type="MACROITEM" name="instance" resource="controls"/>
+              </element>
+            </resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode instance = Assert.Single(document.Nodes, node => node.Name == "instance");
+        var catalog = PangyaUiResourceCatalog.LoadEntry(path);
+        PangyaUiNode macro = Assert.IsType<PangyaUiNode>(catalog.TryResolve("controls", "MACROITEM", new HashSet<string>()));
+        PangyaUiNode combo = Assert.Single(macro.Children);
+        using var assets = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(assets, catalog);
+        var preview = new PangyaUiComboPreview([new("One"), new("Two")], IsOpen: true,
+            Direction: PangyaUiComboDirection.Below);
+        var options = new PangyaUiRenderOptions
+        {
+            Combos = new Dictionary<PangyaUiNode, PangyaUiComboPreview> { [combo] = preview }
+        };
+        Rectangle dropdown = renderer.GetComboDropdownBounds(combo, options, includeScrollbar: true);
+        Assert.False(dropdown.IsEmpty);
+        Assert.Equal(dropdown.Bottom, renderer.GetRenderedBounds(instance, options).Bottom);
+        var moved = options with
+        {
+            ComboViewportHeight = 100,
+            WindowOffsets = new Dictionary<PangyaUiNode, Point> { [instance] = new(0, 50) },
+            Combos = new Dictionary<PangyaUiNode, PangyaUiComboPreview>
+                { [combo] = preview with { Direction = PangyaUiComboDirection.Auto } }
+        };
+        Assert.Equal(26, renderer.GetRenderedBounds(instance, moved).Top);
+    }
+
+    [Fact]
+    public void UiEditor_ClickingImageComboRowReplacesPreviouslySelectedArtwork()
+    {
+        SaveSolidImage(Path.Combine(_directory, "combo.png"), Color.Lime, 20, 10);
+        SaveSolidImage(Path.Combine(_directory, "first.png"), Color.Red, 4, 4);
+        SaveSolidImage(Path.Combine(_directory, "second.png"), Color.Blue, 4, 90);
+        string path = Path.Combine(_directory, "combo-click.xml");
+        File.WriteAllText(path, """
+            <resource><element type="FORM" name="form" size="50 80">
+              <item type="COMBOCTLEX" name="combo" rect="0 0 20 10">
+                <param name="normal" var="combo.png"/><param name="liststyle" var="1"/>
+                <param name="leftmargin" var="4"/>
+              </item>
+            </element></resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode form = Assert.Single(document.Nodes, node => node.IsForm);
+        PangyaUiNode combo = Assert.Single(form.Children);
+        using var assets = new PangyaFileImageProvider(_directory);
+        RunSta(() =>
+        {
+            using var canvas = new PangyaUiCanvas(assets);
+            canvas.LoadDocument(document);
+            canvas.SelectedForm = form;
+            canvas.SetComboPreview(combo, new([new("One", "first.png"), new("Two", "second.png")], IsOpen: true)
+            {
+                ImageSelection = new("first.png", 0)
+            });
+            int padding = PangyaUiCanvas.FormPadding;
+            canvas.CanvasMouseDown(canvas, new MouseEventArgs(MouseButtons.Left, 1, padding + 4, padding + 23, 0));
+            using var bitmap = new Bitmap(canvas.Width, canvas.Height);
+            canvas.DrawToBitmap(bitmap, canvas.ClientRectangle);
+            Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(padding + 3, padding + 3).ToArgb());
+            int geometryChanges = 0;
+            canvas.PreviewGeometryChanged += (_, _) => geometryChanges++;
+            var closed = new PangyaUiComboPreview([], IsOpen: false) { ImageSelection = new("first.png", 0) };
+            canvas.SetComboPreview(combo, closed);
+            canvas.SetComboPreview(combo, closed);
+            Assert.Equal(1, geometryChanges);
+        });
     }
 
     [Fact]
@@ -7143,6 +7904,29 @@ public sealed class ShopTests : IDisposable
     }
 
     [Fact]
+    public void UiEditor_FitsVisibleArtworkOfAZeroSizeForm()
+    {
+        SaveSolidImage(Path.Combine(_directory, "zero-size.png"), Color.Lime, 20, 12);
+        string path = Path.Combine(_directory, "zero-size.xml");
+        File.WriteAllText(path, """
+            <resource><element type="FORM" name="form" size="0 0">
+              <item type="AREA" name="image" pos="100 80"><param name="bgimg" var="zero-size.png"/></item>
+            </element></resource>
+            """);
+        PangyaUiDocument document = PangyaUiDocument.Load(path);
+        PangyaUiNode form = Assert.Single(document.Roots);
+        using var assets = new PangyaFileImageProvider(_directory);
+        RunSta(() =>
+        {
+            using var canvas = new PangyaUiCanvas(assets);
+            canvas.LoadDocument(document);
+            canvas.SelectedForm = form;
+            canvas.ViewportSize = new Size(70, 60);
+            Assert.Equal(1f, canvas.GetDialogFitZoom());
+        });
+    }
+
+    [Fact]
     public void UiEditor_FitsFrameLargerThanDeclaredDialog()
     {
         for (int index = 0; index < 9; index++)
@@ -7171,13 +7955,15 @@ public sealed class ShopTests : IDisposable
         });
     }
 
-    [Fact]
-    public void UiEditor_FitsIntrinsicImageOverflowAndKeepsItsLogicalOrigin()
+    [Theory]
+    [InlineData("FORM")]
+    [InlineData("LAYOUT")]
+    public void UiEditor_FitsIntrinsicImageOverflowAndKeepsItsLogicalOrigin(string type)
     {
         SaveSolidImage(Path.Combine(_directory, "overflow.png"), Color.Lime, 100, 20);
         string path = Path.Combine(_directory, "fit-overflow.xml");
-        File.WriteAllText(path, """
-            <resource><element type="FORM" name="dialog" size="40 40">
+        File.WriteAllText(path, $"""
+            <resource><element type="{type}" name="dialog" size="40 40">
               <item type="AREA" name="image" pos="-30 35">
                 <param name="bgimg" var="overflow.png"/>
               </item>
@@ -7199,6 +7985,41 @@ public sealed class ShopTests : IDisposable
             Assert.InRange(canvas.Zoom, 0.75f, 0.77f);
             Assert.Equal(canvas.ViewportSize, canvas.Size);
         });
+    }
+
+    [Fact]
+    public void UiRenderer_StaticMacroFitOmitsAreaEntranceTravel()
+    {
+        SaveSolidImage(Path.Combine(_directory, "macro-entrance.png"), Color.Lime, 20, 4);
+        string path = Path.Combine(_directory, "macro-entrance.xml");
+        File.WriteAllText(path, """
+            <resource>
+              <element type="MACROITEM" name="content">
+                <item type="AREA" name="area" rect="30 10 50 14">
+                  <param name="bgimg" var="macro-entrance.png"/>
+                  <param name="entrance_effect" var="from:right openingtime:1 duration:10"/>
+                </item>
+              </element>
+              <element type="FORM" name="dialog" size="40 40">
+                <item type="MACROITEM" name="instance" resource="content"/>
+              </element>
+            </resource>
+            """);
+        var catalog = PangyaUiResourceCatalog.LoadEntry(path);
+        PangyaUiNode definition = Assert.IsType<PangyaUiNode>(catalog.TryResolve("content", "MACROITEM", new HashSet<string>()));
+        PangyaUiNode instance = Assert.Single(PangyaUiDocument.Load(path).Nodes, node => node.Name == "instance");
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new PangyaUiRenderer(images, catalog);
+        var options = new PangyaUiRenderOptions
+        {
+            SkipAreaEntranceEffects = true,
+            AreaOwnerDraw = new Dictionary<PangyaUiNode, Action<Graphics, Rectangle>>
+                { [Assert.Single(definition.Children)] = (_, _) => { } }
+        };
+        Assert.Equal(new Rectangle(30, 10, 20, 4), renderer.GetRenderedBounds(instance, options));
+        var elapsed = options with { LayoutAnimationTime = TimeSpan.FromSeconds(12) };
+        Assert.Equal(new Rectangle(30, 10, 20, 4), renderer.GetRenderedBounds(instance, elapsed));
+        Assert.Equal(Rectangle.Empty, renderer.GetRenderedBounds(instance, elapsed with { SkipAreaEntranceEffects = false }));
     }
 
     [Fact]
@@ -7380,6 +8201,10 @@ public sealed class ShopTests : IDisposable
             HiddenViewerScrollbars = new HashSet<PangyaUiNode> { viewer }
         };
         Assert.Equal(new Rectangle(5, 5, 20, 35), renderer.GetRenderedBounds(viewer, fractional));
+        Assert.Equal(Rectangle.Empty, renderer.GetRenderedBounds(viewer, fractional with
+        {
+            ViewerOpacity = new Dictionary<PangyaUiNode, byte> { [viewer] = 0 }
+        }));
 
         var ownerBounds = new List<Rectangle>();
         var ownerDraw = new PangyaUiRenderOptions
@@ -7956,6 +8781,72 @@ public sealed class ShopTests : IDisposable
         ShopLayoutElement element = Assert.Single(layout.Elements);
         Assert.Equal("inline_macro_button", element.Name);
         Assert.Equal(new Rectangle(10, 20, 20, 25), element.Bounds);
+    }
+
+    [Fact]
+    public void Japan983ShopTabs_RenderSelectedBranchAndFilterByTypeId()
+    {
+        using var images = new PangyaFileImageProvider(_directory);
+        var renderer = new ShopRenderer(images);
+        var layout = new ShopLayout(new Size(800, 600),
+        [
+            new ShopLayoutElement("TABBUTTON", "tab_main", new Rectangle(393, 82, 330, 33),
+                new Dictionary<string, string>()),
+            new ShopLayoutElement("TABBUTTON", "tab_sub", new Rectangle(397, 117, 299, 26),
+                new Dictionary<string, string>()),
+        ]);
+        const int itemsTab = 2;
+        const int ballTab = 1;
+        var state = new ShopRenderState(itemsTab, 5, false, "aztec", null, new ShopSession())
+        {
+            MainTabs = Japan983ShopTabs.Main,
+            SubTabs = Japan983ShopTabs.Sub[itemsTab],
+            SubTabIndex = ballTab,
+            TabFilter = item => Japan983ShopTabs.Matches(item, itemsTab, ballTab),
+        };
+        ShopCatalogItem ball = new("Unexpected table name", 5u << 26, "Aztec ball", "", 0, 0, 0, false, "");
+        ShopCatalogItem otherBall = new("Ball", (5u << 26) | 1, "Other ball", "", 0, 0, 0, false, "");
+        ShopCatalogItem card = new("Card", 31u << 26, "Aztec card", "", 0, 0, 0, false, "");
+        using var bitmap = new Bitmap(800, 600);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        ShopRenderResult result = renderer.Render(graphics, layout, [ball, otherBall, card], state,
+            new ShopRenderText("No items", "{0} {1} {2}", "{0} {1}", "{0}", "Edit"));
+
+        Assert.Equal(new[] { "stab_1_n", "stab_7_n", "stab_2_n", "stab_3_n", "stab_4_n", "stab_5_n", "stab_6_n" },
+            state.MainTabs.Select(tab => tab.Normal));
+        Assert.Equal(new[] { "stext_7_n", "stext_8_n", "stext_9_n", "stext_10_n", "stext_28_n" },
+            state.SubTabs.Select(tab => tab.Normal));
+        Assert.Equal(7, result.VisibleTabs.Count(tab => tab.IsMain));
+        Assert.Equal(new Rectangle(446, 117, 49, 26), result.VisibleTabs.Single(tab => !tab.IsMain && tab.Index == ballTab).Bounds);
+        Assert.Same(ball, Assert.Single(result.VisibleItems).Item);
+        Assert.Equal(0, result.Page);
+    }
+
+    [Theory]
+    [InlineData(3u, false)]
+    [InlineData(4u, true)]
+    public void Japan983ShopTabs_ClubSetTabOnlyIncludesClubSets(uint group, bool expected)
+    {
+        ShopCatalogItem item = new("Equipment", group << 26, "Equipment", "", 0, 0, 0, false, "");
+        Assert.Equal(expected, Japan983ShopTabs.Matches(item, 2, 0));
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, 2)]
+    [InlineData(4, 3)]
+    [InlineData(2, 4)]
+    [InlineData(7, 5)]
+    public void Japan983ShopTabs_ClothingUsesIffPartCategory(byte category, int subTab)
+    {
+        ShopCatalogItem part = new("Part", 2u << 26, "Part", "", 0, 0, 0, false, "")
+        {
+            PartCategory = category,
+        };
+        Assert.True(Japan983ShopTabs.Matches(part, 1, 0));
+        Assert.True(Japan983ShopTabs.Matches(part, 1, subTab));
+        Assert.False(Japan983ShopTabs.Matches(part, 1, subTab == 1 ? 2 : 1));
     }
 
     [Fact]

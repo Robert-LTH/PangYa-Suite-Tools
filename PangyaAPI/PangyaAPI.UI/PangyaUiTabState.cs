@@ -12,18 +12,25 @@ public enum PangyaUiTabActivation
 public sealed class PangyaUiTabState
 {
     private readonly List<PangyaUiTab> _tabs = [];
+    private double _layoutWidth;
     public int? SelectedIndex { get; private set; }
     public int? HoveredIndex { get; private set; }
     public int? PressedIndex { get; private set; }
     public PangyaUiTabActivation Activation { get; set; }
-    public int SeparatorWidth { get; }
+    public float SeparatorWidth { get; private set; }
     public Size Size { get; private set; }
     public IReadOnlyList<PangyaUiTab> Tabs => _tabs.ToArray();
 
     public PangyaUiTabState(int separatorWidth = 0)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(separatorWidth);
-        SeparatorWidth = separatorWidth;
+        SetSeparatorWidth(separatorWidth);
+    }
+
+    public void SetSeparatorWidth(float width)
+    {
+        if (!float.IsFinite(width) || width < 0 || (double)width > int.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(width));
+        SeparatorWidth = width;
     }
 
     public void AddTab(PangyaUiTab tab, Size? normalImageSize = null)
@@ -32,16 +39,19 @@ public sealed class PangyaUiTabState
         Size size = tab.Size ?? normalImageSize ??
             throw new ArgumentException("Supply the normal image size when the tab has no explicit size.", nameof(normalImageSize));
         if (size.Width < 0 || size.Height < 0) throw new ArgumentOutOfRangeException(nameof(tab));
-        int width = checked(Size.Width + size.Width + (_tabs.Count > 0 ? SeparatorWidth : 0));
+        double layoutWidth = _layoutWidth + size.Width + (_tabs.Count > 0 ? SeparatorWidth : 0);
+        int width = checked((int)Math.Floor(layoutWidth + 0.5));
         _tabs.Add(tab with { Identifier = tab.Identifier ?? (uint)_tabs.Count,
             Size = size, LayoutWidth = size.Width, State = PangyaUiButtonState.Normal });
         Size = new Size(width, _tabs.Count == 1 ? size.Height : Size.Height);
+        _layoutWidth = layoutWidth;
     }
 
     public void Clear()
     {
         _tabs.Clear();
         Size = Size.Empty;
+        _layoutWidth = 0;
         SelectedIndex = HoveredIndex = PressedIndex = null;
     }
 
@@ -77,8 +87,8 @@ public sealed class PangyaUiTabState
 
     public bool ButtonUp(int? index)
     {
-        SetHoveredIndex(index);
         if (Activation != PangyaUiTabActivation.ButtonUp) return false;
+        SetHoveredIndex(index);
         bool activated = index == PressedIndex;
         if (activated) SelectedIndex = index;
         PressedIndex = null;
